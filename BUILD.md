@@ -25,7 +25,7 @@ git submodule status
 ```
 或直接
 ```bash
-git clonet https://github.com/chat-client/aicool
+git clone https://github.com/chat-client/aicool
 cd aicool
 git submodule update --init --recursive
 ```
