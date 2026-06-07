@@ -30,6 +30,13 @@ static std::string g_recycle_db_file;
 static bool g_recycle_db_ready = false;
 static unsigned long g_recycle_seq = 0;
 
+static std::string recycle_db_file_for_upload_dir(const std::string& upload_dir)
+{
+	acl::string path;
+	path.format("%s/.recycle_bin.db", upload_dir.c_str());
+	return std::string(path.c_str());
+}
+
 static const char* g_recycle_table_create_sql =
 	"CREATE TABLE IF NOT EXISTS recycle_bin ("
 	"id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -112,7 +119,9 @@ static bool ensure_recycle_db_for_request(const std::string& upload_dir,
 	std::string& err)
 {
 	err.clear();
-	if (!g_recycle_db_ready || g_recycle_db_file.empty()) {
+	acl::string expected_db_file;
+	expected_db_file.format("%s/.recycle_bin.db", upload_dir.c_str());
+	if (!g_recycle_db_ready || g_recycle_db_file != expected_db_file.c_str()) {
 		if (!init_recycle_bin_db(upload_dir, err)) {
 			return false;
 		}
@@ -199,7 +208,7 @@ static bool insert_recycle_record(const std::string& upload_dir,
 	const std::string original_name = base_name_from_relative_path(original_path);
 
 	std::lock_guard<std::mutex> guard(g_recycle_mutex);
-	acl::db_sqlite db(g_recycle_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(recycle_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!db.open()) {
 		err = db.get_error();
 		return false;
@@ -229,7 +238,7 @@ static bool load_recycle_records_map(const std::string& upload_dir,
 	}
 
 	std::lock_guard<std::mutex> guard(g_recycle_mutex);
-	acl::db_sqlite db(g_recycle_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(recycle_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!db.open()) {
 		err = db.get_error();
 		return false;
@@ -277,7 +286,7 @@ static bool get_recycle_record(const std::string& upload_dir,
 
 	const std::string recycle_name = base_name_from_relative_path(recycle_rel);
 	std::lock_guard<std::mutex> guard(g_recycle_mutex);
-	acl::db_sqlite db(g_recycle_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(recycle_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!db.open()) {
 		err = db.get_error();
 		return false;
@@ -345,7 +354,7 @@ static bool delete_recycle_record(const std::string& upload_dir,
 
 	const std::string recycle_name = base_name_from_relative_path(recycle_rel);
 	std::lock_guard<std::mutex> guard(g_recycle_mutex);
-	acl::db_sqlite db(g_recycle_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(recycle_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!db.open()) {
 		err = db.get_error();
 		return false;

@@ -32,6 +32,7 @@ protected:
 private:
 	std::string upload_dir_;
 
+	bool userUploadDir(request_t& req, response_t& res, std::string& dir);
 	bool routeStaticPage(request_t& req, response_t& res);
 	bool routeAuthStatus(request_t& req, response_t& res);
 	bool routeAuthRegister(request_t& req, response_t& res);

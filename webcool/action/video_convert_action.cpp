@@ -26,6 +26,7 @@ namespace action {
 
 struct transcode_task_t {
 	std::string id;
+	std::string scope;
 	std::string file_name;
 	std::string output_name;
 	std::string secondary_output_name;
@@ -45,6 +46,7 @@ struct transcode_task_t {
 
 struct transcode_task_snapshot_t {
 	std::string id;
+	std::string scope;
 	std::string file_name;
 	std::string output_name;
 	std::string secondary_output_name;
@@ -638,6 +640,12 @@ static bool is_task_cancel_requested(const std::shared_ptr<transcode_task_t>& ta
 	return task->cancel_requested;
 }
 
+static std::string scoped_task_key(const std::string& scope,
+	const std::string& file_name)
+{
+	return scope + "\n" + file_name;
+}
+
 static void finish_task(const std::shared_ptr<transcode_task_t>& task,
 	bool success, const char* msg, const char* err, long long size)
 {
@@ -650,7 +658,7 @@ static void finish_task(const std::shared_ptr<transcode_task_t>& task,
 	task->message = msg ? msg : "";
 	task->error = err ? err : "";
 	std::map<std::string, std::string>::iterator it =
-		g_running_task_by_file.find(task->file_name);
+		g_running_task_by_file.find(scoped_task_key(task->scope, task->file_name));
 	if (it != g_running_task_by_file.end() && it->second == task->id) {
 		g_running_task_by_file.erase(it);
 	}
@@ -1197,7 +1205,7 @@ static void run_transcode_task(const std::shared_ptr<transcode_task_t>& task,
 		output_file, secondary_output_file, strategy);
 }
 
-static bool snapshot_task_by_id(const char* task_id,
+static bool snapshot_task_by_id(const char* task_id, const std::string& scope,
 	transcode_task_snapshot_t& snapshot)
 {
 	if (task_id == NULL || *task_id == '\0') {
@@ -1209,7 +1217,11 @@ static bool snapshot_task_by_id(const char* task_id,
 	if (it == g_transcode_tasks.end() || !it->second) {
 		return false;
 	}
+	if (it->second->scope != scope) {
+		return false;
+	}
 	snapshot.id = it->second->id;
+	snapshot.scope = it->second->scope;
 	snapshot.file_name = it->second->file_name;
 	snapshot.output_name = it->second->output_name;
 	snapshot.secondary_output_name = it->second->secondary_output_name;
@@ -1225,17 +1237,19 @@ static bool snapshot_task_by_id(const char* task_id,
 	return true;
 }
 
-static void snapshot_running_tasks(std::vector<transcode_task_snapshot_t>& out) {
+static void snapshot_running_tasks(const std::string& scope,
+	std::vector<transcode_task_snapshot_t>& out) {
 	out.clear();
 	std::lock_guard<std::mutex> guard(g_transcode_mutex);
 	for (std::map<std::string, std::shared_ptr<transcode_task_t> >::iterator it =
 		g_transcode_tasks.begin(); it != g_transcode_tasks.end(); ++it)
 	{
-		if (!it->second || it->second->done) {
+		if (!it->second || it->second->done || it->second->scope != scope) {
 			continue;
 		}
 		transcode_task_snapshot_t snapshot;
 		snapshot.id = it->second->id;
+		snapshot.scope = it->second->scope;
 		snapshot.file_name = it->second->file_name;
 		snapshot.output_name = it->second->output_name;
 		snapshot.secondary_output_name = it->second->secondary_output_name;
@@ -1252,7 +1266,7 @@ static void snapshot_running_tasks(std::vector<transcode_task_snapshot_t>& out) 
 	}
 }
 
-static bool request_cancel_task(const char* task_id,
+static bool request_cancel_task(const char* task_id, const std::string& scope,
 	transcode_task_snapshot_t& snapshot, bool& signal_sent)
 {
 	signal_sent = false;
@@ -1268,10 +1282,14 @@ static bool request_cancel_task(const char* task_id,
 		if (it == g_transcode_tasks.end() || !it->second) {
 			return false;
 		}
+		if (it->second->scope != scope) {
+			return false;
+		}
 		it->second->cancel_requested = true;
 		it->second->message = "取消中";
 		pid = it->second->process_pid;
 		snapshot.id = it->second->id;
+		snapshot.scope = it->second->scope;
 		snapshot.file_name = it->second->file_name;
 		snapshot.output_name = it->second->output_name;
 		snapshot.secondary_output_name = it->second->secondary_output_name;
@@ -1675,9 +1693,10 @@ bool VideoConvertAction::run(request_t& req, response_t& res,
 	}
 
 	{
+		const std::string task_key = scoped_task_key(upload_dir, file_path);
 		std::lock_guard<std::mutex> guard(g_transcode_mutex);
 		std::map<std::string, std::string>::iterator it =
-			g_running_task_by_file.find(file_path);
+			g_running_task_by_file.find(task_key);
 		if (it != g_running_task_by_file.end()) {
 			std::map<std::string, std::shared_ptr<transcode_task_t> >::iterator task_it =
 				g_transcode_tasks.find(it->second);
@@ -1736,6 +1755,7 @@ bool VideoConvertAction::run(request_t& req, response_t& res,
 
 	std::shared_ptr<transcode_task_t> task(new transcode_task_t);
 	task->id = make_task_id();
+	task->scope = upload_dir;
 	task->file_name = file_path;
 	task->output_name = output_name;
 	task->secondary_output_name = secondary_output_name;
@@ -1744,7 +1764,7 @@ bool VideoConvertAction::run(request_t& req, response_t& res,
 	{
 		std::lock_guard<std::mutex> guard(g_transcode_mutex);
 		g_transcode_tasks[task->id] = task;
-		g_running_task_by_file[task->file_name] = task->id;
+		g_running_task_by_file[scoped_task_key(task->scope, task->file_name)] = task->id;
 	}
 
 	const std::string input_path(in_path);
@@ -1837,9 +1857,10 @@ bool LocalDiskVideoConvertAction::run(request_t& req, response_t& res,
 
 	const std::string task_key = std::string("local:") + local_path;
 	{
+		const std::string scoped_key = scoped_task_key(upload_dir, task_key);
 		std::lock_guard<std::mutex> guard(g_transcode_mutex);
 		std::map<std::string, std::string>::iterator it =
-			g_running_task_by_file.find(task_key);
+			g_running_task_by_file.find(scoped_key);
 		if (it != g_running_task_by_file.end()) {
 			std::map<std::string, std::shared_ptr<transcode_task_t> >::iterator task_it =
 				g_transcode_tasks.find(it->second);
@@ -1867,6 +1888,7 @@ bool LocalDiskVideoConvertAction::run(request_t& req, response_t& res,
 
 	std::shared_ptr<transcode_task_t> task(new transcode_task_t);
 	task->id = make_task_id();
+	task->scope = upload_dir;
 	task->file_name = task_key;
 	task->output_name = output_path;
 	task->message = "等待后台转码";
@@ -1875,7 +1897,7 @@ bool LocalDiskVideoConvertAction::run(request_t& req, response_t& res,
 	{
 		std::lock_guard<std::mutex> guard(g_transcode_mutex);
 		g_transcode_tasks[task->id] = task;
-		g_running_task_by_file[task->file_name] = task->id;
+		g_running_task_by_file[scoped_task_key(task->scope, task->file_name)] = task->id;
 	}
 
 	transcode_strategy_t strategy;
@@ -1974,6 +1996,7 @@ bool LocalDiskVideoStreamAction::run(request_t& req, response_t& res,
 	if (task_id_param != NULL && *task_id_param != '\0') {
 		task.reset(new transcode_task_t);
 		task->id = task_id_param;
+		task->scope = upload_dir;
 		task->file_name = std::string("local-stream:") + local_path;
 		task->output_name = output_path;
 		task->message = "边转边看准备中";
@@ -2131,11 +2154,11 @@ bool LocalDiskVideoStreamStateAction::run(request_t& req, response_t& res,
 }
 
 bool VideoConvertProgressAction::run(request_t& req, response_t& res,
-	const std::string&)
+	const std::string& upload_dir)
 {
 	const char* task_id = req.getParameter("task_id");
 	transcode_task_snapshot_t snapshot;
-	if (!snapshot_task_by_id(task_id, snapshot)) {
+	if (!snapshot_task_by_id(task_id, upload_dir, snapshot)) {
 		json_error(res, 404, "transcode task not found", req.isKeepAlive());
 		return true;
 	}
@@ -2165,10 +2188,10 @@ bool VideoConvertProgressAction::run(request_t& req, response_t& res,
 }
 
 bool VideoConvertTasksAction::run(request_t& req, response_t& res,
-	const std::string&)
+	const std::string& upload_dir)
 {
 	std::vector<transcode_task_snapshot_t> tasks;
-	snapshot_running_tasks(tasks);
+	snapshot_running_tasks(upload_dir, tasks);
 
 	acl::json json;
 	acl::json_node& root = json.create_node();
@@ -2194,12 +2217,12 @@ bool VideoConvertTasksAction::run(request_t& req, response_t& res,
 }
 
 bool VideoConvertCancelAction::run(request_t& req, response_t& res,
-	const std::string&)
+	const std::string& upload_dir)
 {
 	const char* task_id = req.getParameter("task_id");
 	transcode_task_snapshot_t snapshot;
 	bool signal_sent = false;
-	if (!request_cancel_task(task_id, snapshot, signal_sent)) {
+	if (!request_cancel_task(task_id, upload_dir, snapshot, signal_sent)) {
 		json_error(res, 404, "transcode task not found", req.isKeepAlive());
 		return true;
 	}

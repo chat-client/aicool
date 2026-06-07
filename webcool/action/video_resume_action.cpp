@@ -28,6 +28,13 @@ static const char* g_video_resume_create_table_sql =
 	")";
 static const char* g_local_resume_prefix = "local:";
 
+static std::string resume_db_file_for_upload_dir(const std::string& upload_dir)
+{
+	acl::string path;
+	path.format("%s/.video_resume.db", upload_dir.c_str());
+	return std::string(path.c_str());
+}
+
 static bool is_absolute_local_resume_path(const char* path)
 {
 	if (path == NULL || *path == '\0') {
@@ -128,7 +135,9 @@ static bool ensure_video_resume_db_for_request(const std::string& upload_dir,
 {
 	err.clear();
 
-	if (!g_resume_db_ready || g_resume_db_file.empty()) {
+	acl::string expected_db_file;
+	expected_db_file.format("%s/.video_resume.db", upload_dir.c_str());
+	if (!g_resume_db_ready || g_resume_db_file != expected_db_file.c_str()) {
 		if (!init_video_resume_db(upload_dir, err)) {
 			return false;
 		}
@@ -185,7 +194,7 @@ bool video_resume_rename_file(const std::string& upload_dir,
 	}
 
 	std::lock_guard<std::mutex> guard(g_resume_mutex);
-	acl::db_sqlite db(g_resume_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(resume_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!db.open()) {
 		err = db.get_error();
 		return false;
@@ -225,7 +234,7 @@ bool video_resume_rename_folder_prefix(const std::string& upload_dir,
 	}
 
 	std::lock_guard<std::mutex> guard(g_resume_mutex);
-	acl::db_sqlite db(g_resume_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(resume_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!db.open()) {
 		err = db.get_error();
 		return false;
@@ -290,7 +299,7 @@ bool VideoResumeGetAction::run(request_t& req, response_t& res,
 			return true;
 		}
 
-		acl::db_sqlite db(g_resume_db_file.c_str(), "utf-8");
+		acl::db_sqlite db(resume_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 		if (!db.open()) {
 			json_error(res, 500, db.get_error(), req.isKeepAlive());
 			return true;
@@ -368,7 +377,7 @@ bool VideoResumeSetAction::run(request_t& req, response_t& res,
 			return true;
 		}
 
-		acl::db_sqlite db(g_resume_db_file.c_str(), "utf-8");
+		acl::db_sqlite db(resume_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 		if (!db.open()) {
 			json_error(res, 500, db.get_error(), req.isKeepAlive());
 			return true;

@@ -23,6 +23,11 @@ void runtime_upload_dir_set(const std::string& upload_dir);
 bool auth_system_initialized(const std::string& upload_dir);
 bool auth_request_allowed(request_t& req, const std::string& upload_dir,
 	std::string& username, bool& admin);
+bool auth_current_user(request_t& req, const std::string& upload_dir,
+	std::string& username, bool& admin);
+bool authenticated_user_upload_dir(request_t& req,
+	const std::string& upload_dir, std::string& user_upload_dir,
+	std::string& err);
 bool auth_send_required(request_t& req, response_t& res);
 bool recycle_bin_insert_record(const std::string& upload_dir,
 	const std::string& recycle_rel, const std::string& original_path,

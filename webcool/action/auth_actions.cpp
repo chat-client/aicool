@@ -424,6 +424,34 @@ bool auth_request_allowed(request_t& req, const std::string& upload_dir,
 	return current_user(req, upload_dir, username, admin);
 }
 
+bool auth_current_user(request_t& req, const std::string& upload_dir,
+	std::string& username, bool& admin)
+{
+	return current_user(req, upload_dir, username, admin);
+}
+
+bool authenticated_user_upload_dir(request_t& req,
+	const std::string& upload_dir, std::string& user_upload_dir,
+	std::string& err)
+{
+	std::string username;
+	bool admin = false;
+	err.clear();
+	user_upload_dir.clear();
+	if (!auth_request_allowed(req, upload_dir, username, admin)) {
+		err = "authentication required";
+		return false;
+	}
+	user_upload_dir = join_upload_path(upload_dir,
+		std::string(".webcool_users/") + username);
+	if (!make_dir_recursive(user_upload_dir.c_str())) {
+		err = "cannot create user upload directory";
+		user_upload_dir.clear();
+		return false;
+	}
+	return true;
+}
+
 bool auth_send_required(request_t& req, response_t& res)
 {
 	acl::json json;

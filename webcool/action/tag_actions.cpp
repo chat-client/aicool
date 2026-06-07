@@ -99,13 +99,11 @@ static std::string tag_lock_key(const std::string& tag_id)
 	return std::string(g_tag_lock_prefix) + tag_id;
 }
 
-static std::string tag_lock_upload_dir()
+static std::string tag_db_file_for_upload_dir(const std::string& upload_dir)
 {
-	std::string::size_type pos = g_tag_db_file.rfind('/');
-	if (pos == std::string::npos) {
-		return ".";
-	}
-	return g_tag_db_file.substr(0, pos);
+	acl::string path;
+	path.format("%s/.tag_catalog.db", upload_dir.c_str());
+	return std::string(path.c_str());
 }
 
 static bool normalize_existing_local_file_path(const char* input,
@@ -441,7 +439,9 @@ static bool ensure_tag_db_for_request(const std::string& upload_dir,
 	std::string& err)
 {
 	err.clear();
-	if (!g_tag_db_ready || g_tag_db_file.empty()) {
+	acl::string expected_db_file;
+	expected_db_file.format("%s/.tag_catalog.db", upload_dir.c_str());
+	if (!g_tag_db_ready || g_tag_db_file != expected_db_file.c_str()) {
 		if (!init_tag_db(upload_dir, err)) {
 			return false;
 		}
@@ -457,7 +457,7 @@ static bool ensure_tag_db_for_request(const std::string& upload_dir,
 		return false;
 	}
 
-	acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!open_tag_db_locked(db, err)) {
 		g_tag_db_ready = false;
 		return false;
@@ -594,7 +594,8 @@ static bool file_exists_in_upload_dir(const std::string& upload_dir,
 	return upload_regular_file_exists(upload_dir, normalized);
 }
 
-static void append_tag_json(acl::json& json, acl::json_node& arr,
+static void append_tag_json(const std::string& upload_dir,
+	acl::json& json, acl::json_node& arr,
 	const TagRow& row,
 	const std::map<std::string, std::vector<std::string> >& children_by_parent,
 	const std::map<std::string, TagRow>& rows_by_id)
@@ -604,7 +605,7 @@ static void append_tag_json(acl::json& json, acl::json_node& arr,
 	item.add_text("name", row.name.c_str());
 	bool locked = false;
 	std::string lock_err;
-	if (file_lock_path_has_lock(tag_lock_upload_dir(), tag_lock_key(row.id), locked, lock_err))
+	if (file_lock_path_has_lock(upload_dir, tag_lock_key(row.id), locked, lock_err))
 	{
 		item.add_bool("locked", locked);
 	}
@@ -625,7 +626,8 @@ static void append_tag_json(acl::json& json, acl::json_node& arr,
 		if (rit == rows_by_id.end()) {
 			continue;
 		}
-		append_tag_json(json, children, rit->second, children_by_parent, rows_by_id);
+		append_tag_json(upload_dir, json, children, rit->second,
+			children_by_parent, rows_by_id);
 	}
 }
 
@@ -764,7 +766,7 @@ bool tag_unbind_file(const std::string& upload_dir,
 	}
 
 	std::lock_guard<std::mutex> guard(g_tag_mutex);
-	acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!open_tag_db_locked(db, err)) {
 		return false;
 	}
@@ -792,7 +794,7 @@ bool tag_rename_file(const std::string& upload_dir,
 	}
 
 	std::lock_guard<std::mutex> guard(g_tag_mutex);
-	acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!open_tag_db_locked(db, err)) {
 		return false;
 	}
@@ -822,7 +824,7 @@ bool tag_rename_folder_prefix(const std::string& upload_dir,
 	}
 
 	std::lock_guard<std::mutex> guard(g_tag_mutex);
-	acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!db.open()) {
 		err = db.get_error();
 		return false;
@@ -855,7 +857,7 @@ bool TagListAction::run(request_t& req, response_t& res,
 	}
 
 	std::lock_guard<std::mutex> guard(g_tag_mutex);
-	acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!open_tag_db_locked(db, db_err)) {
 		json_error(res, 500, db_err.c_str(), req.isKeepAlive());
 		return true;
@@ -932,7 +934,8 @@ bool TagListAction::run(request_t& req, response_t& res,
 		if (it == rows_by_id.end()) {
 			continue;
 		}
-		append_tag_json(json, arr, it->second, children_by_parent, rows_by_id);
+			append_tag_json(upload_dir, json, arr, it->second,
+				children_by_parent, rows_by_id);
 	}
 	root.add_number("count", (long long) rows_by_id.size());
 	return sendJson(res, 200, root, req.isKeepAlive());
@@ -962,7 +965,7 @@ bool TagCreateAction::run(request_t& req, response_t& res,
 	std::string new_id;
 	{
 		std::lock_guard<std::mutex> guard(g_tag_mutex);
-		acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+		acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 		if (!open_tag_db_locked(db, db_err)) {
 			json_error(res, 500, db_err.c_str(), req.isKeepAlive());
 			return true;
@@ -1046,7 +1049,7 @@ bool TagRenameAction::run(request_t& req, response_t& res,
 	TagRow row;
 	{
 		std::lock_guard<std::mutex> guard(g_tag_mutex);
-		acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+		acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 		if (!open_tag_db_locked(db, db_err)) {
 			json_error(res, 500, db_err.c_str(), req.isKeepAlive());
 			return true;
@@ -1112,7 +1115,7 @@ bool TagDeleteAction::run(request_t& req, response_t& res,
 	std::vector<std::string> ids;
 	{
 		std::lock_guard<std::mutex> guard(g_tag_mutex);
-		acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+		acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 		if (!open_tag_db_locked(db, db_err)) {
 			json_error(res, 500, db_err.c_str(), req.isKeepAlive());
 			return true;
@@ -1207,7 +1210,7 @@ bool TagBindAction::run(request_t& req, response_t& res,
 
 	{
 		std::lock_guard<std::mutex> guard(g_tag_mutex);
-		acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+		acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 		if (!open_tag_db_locked(db, db_err)) {
 			json_error(res, 500, db_err.c_str(), req.isKeepAlive());
 			return true;
@@ -1313,7 +1316,7 @@ bool TagUnbindAction::run(request_t& req, response_t& res,
 
 	{
 		std::lock_guard<std::mutex> guard(g_tag_mutex);
-		acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+		acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 		if (!open_tag_db_locked(db, db_err)) {
 			json_error(res, 500, db_err.c_str(), req.isKeepAlive());
 			return true;
@@ -1353,7 +1356,7 @@ static bool fetch_tag_for_lock_request(const std::string& upload_dir,
 		return false;
 	}
 	std::lock_guard<std::mutex> guard(g_tag_mutex);
-	acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+	acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!open_tag_db_locked(db, err)) {
 		json_error(res, 500, err.c_str(), req.isKeepAlive());
 		return false;
@@ -1464,7 +1467,7 @@ bool TagFilesAction::run(request_t& req, response_t& res,
 	std::string tag_name;
 	{
 		std::lock_guard<std::mutex> guard(g_tag_mutex);
-		acl::db_sqlite db(g_tag_db_file.c_str(), "utf-8");
+		acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 		if (!open_tag_db_locked(db, db_err)) {
 			json_error(res, 500, db_err.c_str(), req.isKeepAlive());
 			return true;
