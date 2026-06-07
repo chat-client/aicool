@@ -23,6 +23,16 @@ static bool is_admin_route(const char* path)
 	return path != NULL && strncmp(path, "/api/v1/admin/", 14) == 0;
 }
 
+static bool request_bool_param(request_t& req, const char* name)
+{
+	const char* value = req.getParameter(name);
+	return value != NULL && (
+		strcmp(value, "1") == 0
+		|| strcasecmp(value, "true") == 0
+		|| strcasecmp(value, "yes") == 0
+		|| strcasecmp(value, "on") == 0);
+}
+
 } // namespace
 
 // ────────────────────────────────────────────────────────────────
@@ -266,6 +276,9 @@ bool http_servlet::routeDownload(request_t& req, response_t& res) {
 }
 
 bool http_servlet::routeImageSave(request_t& req, response_t& res) {
+	if (request_bool_param(req, "local")) {
+		return action::ImageSaveAction::run(req, res, action::runtime_upload_dir_get());
+	}
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::ImageSaveAction::run(req, res, dir);
 }
@@ -418,16 +431,25 @@ bool http_servlet::routeFolderLockVerify(request_t& req, response_t& res) {
 }
 
 bool http_servlet::routeFileLock(request_t& req, response_t& res) {
+	if (request_bool_param(req, "local")) {
+		return action::FileLockAction::run(req, res, action::runtime_upload_dir_get());
+	}
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::FileLockAction::run(req, res, dir);
 }
 
 bool http_servlet::routeFileUnlock(request_t& req, response_t& res) {
+	if (request_bool_param(req, "local")) {
+		return action::FileUnlockAction::run(req, res, action::runtime_upload_dir_get());
+	}
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::FileUnlockAction::run(req, res, dir);
 }
 
 bool http_servlet::routeFileLockVerify(request_t& req, response_t& res) {
+	if (request_bool_param(req, "local")) {
+		return action::FileLockVerifyAction::run(req, res, action::runtime_upload_dir_get());
+	}
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::FileLockVerifyAction::run(req, res, dir);
 }
