@@ -673,7 +673,7 @@ function appendFilePassword(url, path, local) {
         }
         if (authCurrentUser) {
           authCurrentUser.textContent = authState.username
-            ? (authState.username + (authState.admin ? ' · 管理员' : ''))
+            ? (authState.username + (authState.admin ? ' · ' + t('管理员') : ''))
             : '';
         }
         const adminMenuBtn = document.querySelector('.menu-btn[data-panel="panel-admin"]');

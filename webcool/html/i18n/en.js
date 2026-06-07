@@ -24,6 +24,7 @@
     '认证失败': 'Authentication failed',
     '认证状态检查失败': 'Authentication status check failed',
     '创建管理员': 'Create Administrator',
+    '管理员': 'Administrator',
     '用户名': 'Username',
     '密码': 'Password',
     '用户管理': 'User Management',
@@ -637,27 +638,33 @@
     return type === 'button' || type === 'submit' || type === 'reset';
   }
 
+  function setAttrIfChanged(el, name, value) {
+    if (el.getAttribute(name) !== value) {
+      el.setAttribute(name, value);
+    }
+  }
+
   function translateAttributes(el) {
     if (!el || !el.getAttribute) return;
     if (el.hasAttribute('data-i18n-title')) {
-      el.setAttribute('title', translateText(el.getAttribute('data-i18n-title') || ''));
+      setAttrIfChanged(el, 'title', translateText(el.getAttribute('data-i18n-title') || ''));
     }
     if (el.hasAttribute('data-i18n-aria-label')) {
-      el.setAttribute('aria-label', translateText(el.getAttribute('data-i18n-aria-label') || ''));
+      setAttrIfChanged(el, 'aria-label', translateText(el.getAttribute('data-i18n-aria-label') || ''));
     }
     if (el.hasAttribute('data-i18n-placeholder')) {
-      el.setAttribute('placeholder', translateText(el.getAttribute('data-i18n-placeholder') || ''));
+      setAttrIfChanged(el, 'placeholder', translateText(el.getAttribute('data-i18n-placeholder') || ''));
     }
     ['title', 'aria-label', 'alt', 'placeholder'].forEach(function (name) {
       if (!el.hasAttribute(name)) return;
       var value = el.getAttribute(name);
       var next = translateText(value);
-      if (next !== value) el.setAttribute(name, next);
+      if (next !== value) setAttrIfChanged(el, name, next);
     });
     if (shouldTranslateValue(el) && el.hasAttribute('value')) {
       var value = el.getAttribute('value');
       var next = translateText(value);
-      if (next !== value) el.setAttribute('value', next);
+      if (next !== value) setAttrIfChanged(el, 'value', next);
     }
   }
 
@@ -671,7 +678,10 @@
     if (node.nodeType !== 1) return;
     if (/^(SCRIPT|STYLE|TEXTAREA)$/i.test(node.tagName)) return;
     if (node.hasAttribute && node.hasAttribute('data-i18n')) {
-      node.textContent = translateText(node.getAttribute('data-i18n') || '');
+      var translated = translateText(node.getAttribute('data-i18n') || '');
+      if (node.textContent !== translated) {
+        node.textContent = translated;
+      }
       translateAttributes(node);
       return;
     }

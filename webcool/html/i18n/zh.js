@@ -13,6 +13,7 @@
     '认证失败': '认证失败',
     '认证状态检查失败': '认证状态检查失败',
     '创建管理员': '创建管理员',
+    '管理员': '管理员',
     '用户名': '用户名',
     '密码': '密码',
     '用户管理': '用户管理',
@@ -45,26 +46,38 @@
     '修改密码失败：': '修改密码失败：'
   };
 
+  function setAttrIfChanged(node, name, value) {
+    if (node.getAttribute(name) !== value) {
+      node.setAttribute(name, value);
+    }
+  }
+
   function applyTranslations(root) {
     root = root || document;
+    if (root && root.nodeType === 9) {
+      root = root.body || root.documentElement;
+    }
     var nodes = root.querySelectorAll('[data-i18n]');
     Array.prototype.forEach.call(nodes, function (node) {
-      node.textContent = textMap[node.getAttribute('data-i18n')] || node.getAttribute('data-i18n') || '';
+      var text = textMap[node.getAttribute('data-i18n')] || node.getAttribute('data-i18n') || '';
+      if (node.textContent !== text) {
+        node.textContent = text;
+      }
     });
     var placeholders = root.querySelectorAll('[data-i18n-placeholder]');
     Array.prototype.forEach.call(placeholders, function (node) {
       var key = node.getAttribute('data-i18n-placeholder') || '';
-      node.setAttribute('placeholder', textMap[key] || key);
+      setAttrIfChanged(node, 'placeholder', textMap[key] || key);
     });
     var titles = root.querySelectorAll('[data-i18n-title]');
     Array.prototype.forEach.call(titles, function (node) {
       var key = node.getAttribute('data-i18n-title') || '';
-      node.setAttribute('title', textMap[key] || key);
+      setAttrIfChanged(node, 'title', textMap[key] || key);
     });
     var aria = root.querySelectorAll('[data-i18n-aria-label]');
     Array.prototype.forEach.call(aria, function (node) {
       var key = node.getAttribute('data-i18n-aria-label') || '';
-      node.setAttribute('aria-label', textMap[key] || key);
+      setAttrIfChanged(node, 'aria-label', textMap[key] || key);
     });
   }
 

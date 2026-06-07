@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>文件管理控制台</title>
-  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260607-8">
+  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260607-10">
   <script>
     (function () {
       var lang = 'zh';
@@ -11,7 +11,7 @@
         lang = localStorage.getItem('webcool:language:v1') === 'en' ? 'en' : 'zh';
       } catch (_) {}
       document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
-      document.write('<script src="/webcool/html/i18n/' + lang + '.js"><\/script>');
+      document.write('<script src="/webcool/html/i18n/' + lang + '.js?v=auth-20260607-10"><\/script>');
     })();
   </script>
 </head>
@@ -482,6 +482,6 @@
     </div>
   </div>
 
-  <script src="/webcool/html/main.js?v=auth-20260607-8"></script>
+  <script src="/webcool/html/main.js?v=auth-20260607-10"></script>
 </body>
 </html>
