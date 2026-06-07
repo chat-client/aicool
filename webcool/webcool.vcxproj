@@ -718,6 +718,7 @@
   <ItemGroup>
     <ClCompile Include="action\action_util.cpp" />
     <ClCompile Include="action\admin_actions.cpp" />
+    <ClCompile Include="action\auth_actions.cpp" />
     <ClCompile Include="action\file_actions.cpp" />
     <ClCompile Include="action\file_lock_actions.cpp" />
     <ClCompile Include="action\folder_actions.cpp" />

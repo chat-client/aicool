@@ -20,6 +20,10 @@ std::string runtime_ffmpeg_path_get();
 void runtime_upload_dir_init(const std::string& upload_dir);
 std::string runtime_upload_dir_get();
 void runtime_upload_dir_set(const std::string& upload_dir);
+bool auth_system_initialized(const std::string& upload_dir);
+bool auth_request_allowed(request_t& req, const std::string& upload_dir,
+	std::string& username, bool& admin);
+bool auth_send_required(request_t& req, response_t& res);
 bool recycle_bin_insert_record(const std::string& upload_dir,
 	const std::string& recycle_rel, const std::string& original_path,
 	std::string& err);
@@ -117,6 +121,41 @@ public:
 class AdminStorageMigrateCleanupAction {
 public:
 	static bool run(request_t& req, response_t& res);
+};
+
+class AuthStatusAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
+class AuthRegisterAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
+class AuthLoginAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
+class AuthLogoutAction {
+public:
+	static bool run(request_t& req, response_t& res);
+};
+
+class AuthUsersAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
+class AuthUserCreateAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
 };
 
 class FilesAction {

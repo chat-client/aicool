@@ -86,6 +86,12 @@ function selectRenameInputText(input) {
         localDiskVideoStream: '/api/v1/local-disk/video/stream',
         localDiskVideoStreamState: '/api/v1/local-disk/video/stream-state',
         reloadTpl: '/api/v1/admin/template/reload',
+        authStatus: '/api/v1/auth/status',
+        authRegister: '/api/v1/auth/register',
+        authLogin: '/api/v1/auth/login',
+        authLogout: '/api/v1/auth/logout',
+        authUsers: '/api/v1/auth/users',
+        authUserCreate: '/api/v1/auth/users/create',
         adminStorage: '/api/v1/admin/storage',
         adminStorageMigrate: '/api/v1/admin/storage/migrate',
         adminStorageMigrateProgress: '/api/v1/admin/storage/migrate/progress',
@@ -107,11 +113,45 @@ function selectRenameInputText(input) {
 
       var adminStorageTab = document.getElementById('admin-storage-tab');
 
+      var adminUsersTab = document.getElementById('admin-users-tab');
+
       var adminLanguageTab = document.getElementById('admin-language-tab');
 
       var adminStorageView = document.getElementById('admin-storage-view');
 
+      var adminUsersView = document.getElementById('admin-users-view');
+
       var adminLanguageView = document.getElementById('admin-language-view');
+
+      var adminUserCreateForm = document.getElementById('admin-user-create-form');
+
+      var adminNewUsername = document.getElementById('admin-new-username');
+
+      var adminNewPassword = document.getElementById('admin-new-password');
+
+      var adminUsersList = document.getElementById('admin-users-list');
+
+      var authGate = document.getElementById('auth-gate');
+
+      var authForm = document.getElementById('auth-form');
+
+      var authTitle = document.getElementById('auth-title');
+
+      var authDesc = document.getElementById('auth-desc');
+
+      var authUsername = document.getElementById('auth-username');
+
+      var authPassword = document.getElementById('auth-password');
+
+      var authError = document.getElementById('auth-error');
+
+      var authSubmitBtn = document.getElementById('auth-submit-btn');
+
+      var authUserChip = document.getElementById('auth-user-chip');
+
+      var authCurrentUser = document.getElementById('auth-current-user');
+
+      var authLogoutBtn = document.getElementById('auth-logout-btn');
 
       var adminLanguageSelect = document.getElementById('admin-language-select');
 
@@ -370,6 +410,14 @@ function selectRenameInputText(input) {
       var UI_LANG = (document.documentElement.getAttribute('lang') || 'zh-CN').toLowerCase().indexOf('en') === 0
         ? 'en'
         : 'zh';
+
+      var authState = {
+        initialized: false,
+        authenticated: false,
+        username: '',
+        admin: false,
+        token: ''
+      };
 
       var TAG_MAX_LEVEL = 3;
 

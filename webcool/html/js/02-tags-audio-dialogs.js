@@ -967,19 +967,28 @@ function getLocalDirPassword(path) {
 
       function activateAdminView(name) {
         const isLanguage = name === 'language';
+        const isUsers = name === 'users';
         if (adminStorageTab) {
-          adminStorageTab.classList.toggle('active', !isLanguage);
+          adminStorageTab.classList.toggle('active', !isLanguage && !isUsers);
+        }
+        if (adminUsersTab) {
+          adminUsersTab.classList.toggle('active', isUsers);
         }
         if (adminLanguageTab) {
           adminLanguageTab.classList.toggle('active', isLanguage);
         }
         if (adminStorageView) {
-          adminStorageView.hidden = isLanguage;
+          adminStorageView.hidden = isLanguage || isUsers;
+        }
+        if (adminUsersView) {
+          adminUsersView.hidden = !isUsers;
         }
         if (adminLanguageView) {
           adminLanguageView.hidden = !isLanguage;
         }
-        if (!isLanguage) {
+        if (isUsers) {
+          loadAdminUsers();
+        } else if (!isLanguage) {
           loadAdminStoragePath();
         }
       }

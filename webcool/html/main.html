@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>文件管理控制台</title>
-  <link rel="stylesheet" href="/webcool/html/main.css">
+  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260607-5">
   <script>
     (function () {
       var lang = 'zh';
@@ -23,6 +23,10 @@
         <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle-btn" aria-label="收起左侧栏" title="收起左侧栏">◀</button>
       </div>
       <p class="brand-sub">左帧用于功能切换，右帧展示对应内容与操作结果。</p>
+      <div id="auth-user-chip" class="auth-user-chip" hidden>
+        <span id="auth-current-user"></span>
+        <button id="auth-logout-btn" type="button" title="退出登录" aria-label="退出登录">退出</button>
+      </div>
       <nav class="menu" aria-label="功能菜单">
         <button type="button" class="menu-btn" data-panel="panel-upload">上传文件</button>
         <button type="button" class="menu-btn active" data-panel="panel-files">虚拟磁盘</button>
@@ -259,6 +263,7 @@
         <div class="admin-shell">
           <aside class="admin-command-bar" aria-label="系统设置功能命令">
             <button id="admin-storage-tab" class="admin-command-btn active" type="button">存储路径</button>
+            <button id="admin-users-tab" class="admin-command-btn" type="button">用户管理</button>
             <button id="admin-language-tab" class="admin-command-btn" type="button">语言设置</button>
             <button id="reload-template-btn" class="admin-command-btn" type="button">刷新模板缓存</button>
           </aside>
@@ -287,6 +292,16 @@
                 </div>
               </div>
             </section>
+            <section id="admin-users-view" class="admin-view" hidden>
+              <h2>用户管理</h2>
+              <p class="admin-view-desc">添加普通用户，供其他用户使用文件管理器。</p>
+              <form id="admin-user-create-form" class="admin-user-create-form">
+                <input id="admin-new-username" class="admin-storage-input" type="text" placeholder="用户名" autocomplete="off" maxlength="40">
+                <input id="admin-new-password" class="admin-storage-input" type="password" placeholder="密码" autocomplete="new-password" maxlength="128">
+                <button id="admin-user-create-btn" class="admin-storage-choose-btn" type="submit">添加用户</button>
+              </form>
+              <div id="admin-users-list" class="admin-users-list"></div>
+            </section>
             <section id="admin-language-view" class="admin-view" hidden>
               <h2>语言设置</h2>
               <p class="admin-view-desc">设置界面显示语言，保存后会切换到对应语言版本。</p>
@@ -305,6 +320,21 @@
       <div id="status" class="status"></div>
     </section>
   </main>
+
+  <div id="auth-gate" class="auth-gate" hidden>
+    <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <h1 id="auth-title">登录</h1>
+      <p id="auth-desc">请输入用户名和密码。</p>
+      <form id="auth-form" class="auth-form">
+        <label for="auth-username">用户名</label>
+        <input id="auth-username" type="text" autocomplete="username" maxlength="40">
+        <label for="auth-password">密码</label>
+        <input id="auth-password" type="password" autocomplete="current-password" maxlength="128">
+        <p id="auth-error" class="auth-error" hidden></p>
+        <button id="auth-submit-btn" type="submit">登录</button>
+      </form>
+    </div>
+  </div>
 
   <div id="preview-layer" class="preview-layer"></div>
   <div id="tag-dialog" class="tag-dialog" hidden>
@@ -430,6 +460,6 @@
     </div>
   </div>
 
-  <script src="/webcool/html/main.js"></script>
+  <script src="/webcool/html/main.js?v=auth-20260607-5"></script>
 </body>
 </html>

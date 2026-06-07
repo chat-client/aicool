@@ -33,6 +33,12 @@ private:
 	std::string upload_dir_;
 
 	bool routeStaticPage(request_t& req, response_t& res);
+	bool routeAuthStatus(request_t& req, response_t& res);
+	bool routeAuthRegister(request_t& req, response_t& res);
+	bool routeAuthLogin(request_t& req, response_t& res);
+	bool routeAuthLogout(request_t& req, response_t& res);
+	bool routeAuthUsers(request_t& req, response_t& res);
+	bool routeAuthUserCreate(request_t& req, response_t& res);
 	bool routeTemplateReload(request_t& req, response_t& res);
 	bool routeAdminStorageInfo(request_t& req, response_t& res);
 	bool routeAdminStorageMigrate(request_t& req, response_t& res);

@@ -437,6 +437,12 @@
         });
       }
 
+      if (adminUsersTab) {
+        adminUsersTab.addEventListener('click', function () {
+          activateAdminView('users');
+        });
+      }
+
       if (adminLanguageTab) {
         adminLanguageTab.addEventListener('click', function () {
           activateAdminView('language');
@@ -449,6 +455,29 @@
 
       if (adminLanguageApplyBtn) {
         adminLanguageApplyBtn.addEventListener('click', applyLanguageSetting);
+      }
+
+      if (authForm) {
+        authForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          submitAuthForm();
+        });
+      }
+
+      if (authLogoutBtn) {
+        authLogoutBtn.addEventListener('click', async function () {
+          try {
+            await fetchJson(api.authLogout, { method: 'POST' });
+          } catch (_) {}
+          requireLoginAgain();
+        });
+      }
+
+      if (adminUserCreateForm) {
+        adminUserCreateForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          createNormalUser();
+        });
       }
 
       if (adminStorageBrowseBtn) {
@@ -2012,3 +2041,22 @@
       });
 
       activatePanel('panel-files');
+      refreshAuthStatus()
+        .then(function () {
+          if (!authState.authenticated) {
+            if (authUsername) {
+              authUsername.focus();
+            }
+            return null;
+          }
+          return loadFiles().then(function () {
+            if (authState.admin) {
+              return loadAdminUsers();
+            }
+            return null;
+          });
+        })
+        .catch(function (err) {
+          setAuthError(err.message || t('认证状态检查失败'));
+          requireLoginAgain();
+        });

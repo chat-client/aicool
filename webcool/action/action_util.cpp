@@ -824,6 +824,9 @@ bool is_recycle_file_path(const std::string& relative_path) {
 bool sendData(response_t& res, const acl::string& data,
 	  const acl::string& type, bool keep_alive) {
 	res.setContentType(type);
+	res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+	res.setHeader("Pragma", "no-cache");
+	res.setHeader("Expires", "0");
 	res.setKeepAlive(keep_alive);
 	res.setContentLength(data.size());
 	return res.write(data) && res.write(NULL, 0);

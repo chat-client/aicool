@@ -257,7 +257,14 @@ function folderNameFromPath(path) {
               mediaVideo.load();
               const saveStreamState = function () {
                 const absoluteMs = Math.max(0, Math.round(savedStreamOffsetMs + ((Number(mediaVideo.currentTime) || 0) * 1000)));
-                fetch(stateUrl + '&position_ms=' + encodeURIComponent(String(absoluteMs)), { method: 'POST' }).catch(function () {});
+                const stateHeaders = authState.token
+                  ? { Authorization: 'Bearer ' + authState.token }
+                  : undefined;
+                fetch(stateUrl + '&position_ms=' + encodeURIComponent(String(absoluteMs)), {
+                  method: 'POST',
+                  credentials: 'same-origin',
+                  headers: stateHeaders
+                }).catch(function () {});
               };
               win.__saveStreamState = saveStreamState;
               win.__streamStateTimer = setInterval(saveStreamState, 5000);
@@ -348,7 +355,10 @@ function folderNameFromPath(path) {
           if (lang) {
             mediaText.classList.add('code');
           }
-          fetch(url)
+          const textHeaders = authState.token
+            ? { Authorization: 'Bearer ' + authState.token }
+            : undefined;
+          fetch(url, { credentials: 'same-origin', headers: textHeaders })
             .then(function (res) {
               if (!res.ok) {
                 throw new Error('http ' + res.status);
@@ -1339,6 +1349,10 @@ function loadUnlockedFolderPasswords() {
         return new Promise(function (resolve, reject) {
           const xhr = new XMLHttpRequest();
           xhr.open('POST', api.upload, true);
+          xhr.withCredentials = true;
+          if (authState.token) {
+            xhr.setRequestHeader('Authorization', 'Bearer ' + authState.token);
+          }
           xhr.responseType = 'json';
 
           xhr.upload.onprogress = function (e) {

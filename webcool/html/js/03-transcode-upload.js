@@ -95,7 +95,13 @@ function appendFilePassword(url, path, local) {
 
       async function checkVideoAudio(videoFileName) {
         try {
-          const response = await fetch(api.probeVideo + '?file=' + encodeURIComponent(videoFileName || ''));
+          const headers = authState.token
+            ? { Authorization: 'Bearer ' + authState.token }
+            : undefined;
+          const response = await fetch(api.probeVideo + '?file=' + encodeURIComponent(videoFileName || ''), {
+            credentials: 'same-origin',
+            headers: headers
+          });
           if (!response.ok) {
             return { ok: false };
           }
@@ -635,8 +641,186 @@ function appendFilePassword(url, path, local) {
         updateLocalDiskBulkRemoveButton();
       }
 
+      function setAuthError(message) {
+        if (!authError) {
+          return;
+        }
+        authError.textContent = String(message || '');
+        authError.hidden = !message;
+      }
+
+      function applyAuthUi() {
+        const isSetup = !authState.initialized;
+        if (authTitle) {
+          authTitle.textContent = isSetup ? t('注册管理员') : t('登录');
+        }
+        if (authDesc) {
+          authDesc.textContent = isSetup
+            ? t('首次使用，请创建管理员用户名和密码。')
+            : t('请输入用户名和密码。');
+        }
+        if (authSubmitBtn) {
+          authSubmitBtn.textContent = isSetup ? t('创建管理员') : t('登录');
+        }
+        if (authPassword) {
+          authPassword.setAttribute('autocomplete', isSetup ? 'new-password' : 'current-password');
+        }
+        if (authGate) {
+          authGate.hidden = !!authState.authenticated;
+        }
+        if (authUserChip) {
+          authUserChip.hidden = !authState.authenticated;
+        }
+        if (authCurrentUser) {
+          authCurrentUser.textContent = authState.username
+            ? (authState.username + (authState.admin ? ' · 管理员' : ''))
+            : '';
+        }
+        const adminMenuBtn = document.querySelector('.menu-btn[data-panel="panel-admin"]');
+        if (adminMenuBtn) {
+          adminMenuBtn.hidden = !authState.admin;
+        }
+        const adminPanel = document.getElementById('panel-admin');
+        if (!authState.admin && adminPanel && adminPanel.classList.contains('active')) {
+          activatePanel('panel-files');
+        }
+      }
+
+      function requireLoginAgain() {
+        authState.authenticated = false;
+        authState.username = '';
+        authState.admin = false;
+        authState.token = '';
+        applyAuthUi();
+        if (authUsername) {
+          window.setTimeout(function () { authUsername.focus(); }, 30);
+        }
+      }
+
+      async function refreshAuthStatus() {
+        const data = await fetchJson(api.authStatus);
+        authState.initialized = !!data.initialized;
+        authState.authenticated = !!data.authenticated;
+        authState.username = data.username || '';
+        authState.admin = !!data.admin;
+        if (!authState.authenticated) {
+          authState.token = '';
+        }
+        applyAuthUi();
+        return data;
+      }
+
+      function buildAuthUrl(base) {
+        const username = authUsername ? String(authUsername.value || '').trim() : '';
+        const password = authPassword ? String(authPassword.value || '') : '';
+        return base + '?username=' + encodeURIComponent(username)
+          + '&password=' + encodeURIComponent(password);
+      }
+
+      async function submitAuthForm() {
+        setAuthError('');
+        if (!authUsername || !authPassword) {
+          return;
+        }
+        const username = String(authUsername.value || '').trim();
+        const password = String(authPassword.value || '');
+        if (!username || !password) {
+          setAuthError(t('请输入用户名和密码。'));
+          return;
+        }
+        if (authSubmitBtn) {
+          authSubmitBtn.disabled = true;
+        }
+        try {
+          const url = buildAuthUrl(authState.initialized ? api.authLogin : api.authRegister);
+          const data = await fetchJson(url, { method: 'POST' });
+          authState.initialized = true;
+          authState.authenticated = true;
+          authState.username = data.username || username;
+          authState.admin = !!data.admin;
+          authState.token = data.auth_token || '';
+          if (authPassword) {
+            authPassword.value = '';
+          }
+          applyAuthUi();
+          resetStatus();
+          window.setTimeout(function () {
+            window.location.reload();
+          }, 30);
+        } catch (err) {
+          setAuthError(err.message || t('认证失败'));
+        } finally {
+          if (authSubmitBtn) {
+            authSubmitBtn.disabled = false;
+          }
+        }
+      }
+
+      function renderAdminUsers(users) {
+        if (!adminUsersList) {
+          return;
+        }
+        const list = Array.isArray(users) ? users : [];
+        if (!list.length) {
+          adminUsersList.innerHTML = '<p class="empty">' + escapeHtml(t('暂无用户')) + '</p>';
+          return;
+        }
+        adminUsersList.innerHTML = list.map(function (user) {
+          return '<div class="admin-user-row">' +
+            '<strong>' + escapeHtml(user.username || '') + '</strong>' +
+            '<span class="admin-user-role">' + escapeHtml(user.admin ? t('管理员') : t('普通用户')) + '</span>' +
+          '</div>';
+        }).join('');
+      }
+
+      async function loadAdminUsers() {
+        if (!authState.admin || !adminUsersList) {
+          return;
+        }
+        try {
+          const data = await fetchJson(api.authUsers);
+          renderAdminUsers(data.users);
+        } catch (err) {
+          adminUsersList.innerHTML = '<p class="empty">' + escapeHtml(err.message || t('加载失败')) + '</p>';
+        }
+      }
+
+      async function createNormalUser() {
+        const username = adminNewUsername ? String(adminNewUsername.value || '').trim() : '';
+        const password = adminNewPassword ? String(adminNewPassword.value || '') : '';
+        if (!username || !password) {
+          showStatus(t('请输入用户名和密码。'), 'err');
+          return;
+        }
+        try {
+          await fetchJson(api.authUserCreate + '?username=' + encodeURIComponent(username)
+            + '&password=' + encodeURIComponent(password), { method: 'POST' });
+          if (adminNewUsername) {
+            adminNewUsername.value = '';
+          }
+          if (adminNewPassword) {
+            adminNewPassword.value = '';
+          }
+          showStatus(t('用户已添加：') + username, 'ok');
+          await loadAdminUsers();
+        } catch (err) {
+          showStatus(t('添加用户失败：') + err.message, 'err');
+        }
+      }
+
       async function fetchJson(url, options) {
-        const res = await fetch(url, options || {});
+        const requestOptions = options ? Object.assign({}, options) : {};
+        if (!requestOptions.credentials) {
+          requestOptions.credentials = 'same-origin';
+        }
+        if (authState.token) {
+          const headers = new Headers(requestOptions.headers || {});
+          if (!headers.has('Authorization')) {
+            headers.set('Authorization', 'Bearer ' + authState.token);
+          }
+          requestOptions.headers = headers;
+        }
+        const res = await fetch(url, requestOptions);
         let data = null;
         try {
           data = await res.json();
@@ -647,6 +831,9 @@ function appendFilePassword(url, path, local) {
           const err = new Error(data.error || ('http ' + res.status));
           err.status = res.status;
           err.data = data;
+          if (res.status === 401 && url !== api.authStatus) {
+            requireLoginAgain();
+          }
           throw err;
         }
         return data;

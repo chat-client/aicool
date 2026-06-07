@@ -30,6 +30,9 @@
     <ClCompile Include="action\admin_actions.cpp">
       <Filter>源文件\action</Filter>
     </ClCompile>
+    <ClCompile Include="action\auth_actions.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
     <ClCompile Include="action\file_actions.cpp">
       <Filter>源文件\action</Filter>
     </ClCompile>

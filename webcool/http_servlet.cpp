@@ -13,6 +13,16 @@ namespace {
 
 typedef bool (http_servlet::*route_handler)(request_t& req, response_t& res);
 
+static bool is_auth_route(const char* path)
+{
+	return path != NULL && strncmp(path, "/api/v1/auth/", 13) == 0;
+}
+
+static bool is_admin_route(const char* path)
+{
+	return path != NULL && strncmp(path, "/api/v1/admin/", 14) == 0;
+}
+
 } // namespace
 
 // ────────────────────────────────────────────────────────────────
@@ -42,6 +52,8 @@ bool http_servlet::doGet(request_t& req, response_t& res) {
 	}
 
 	static const std::map<std::string, route_handler> routes = {
+		{ "/api/v1/auth/status", &http_servlet::routeAuthStatus },
+		{ "/api/v1/auth/users", &http_servlet::routeAuthUsers },
 		{ "/api/v1/admin/template/reload", &http_servlet::routeTemplateReload },
 		{ "/api/v1/admin/storage", &http_servlet::routeAdminStorageInfo },
 		{ "/api/v1/admin/storage/migrate", &http_servlet::routeAdminStorageMigrate },
@@ -103,9 +115,49 @@ bool http_servlet::doGet(request_t& req, response_t& res) {
 	};
 	std::map<std::string, route_handler>::const_iterator it = routes.find(path);
 	if (it != routes.end()) {
+		if (!is_auth_route(path)) {
+			std::string username;
+			bool admin = false;
+			if (!action::auth_request_allowed(req, action::runtime_upload_dir_get(),
+				username, admin))
+			{
+				return action::auth_send_required(req, res);
+			}
+			if (is_admin_route(path) && !admin) {
+				acl::json json;
+				acl::json_node& root = json.create_node();
+				root.add_bool("ok", false);
+				root.add_text("error", "admin permission required");
+				return action::sendJson(res, 403, root, req.isKeepAlive());
+			}
+		}
 		return (this->*(it->second))(req, res);
 	}
 	return action::IndexAction::run(req, res);
+}
+
+bool http_servlet::routeAuthStatus(request_t& req, response_t& res) {
+	return action::AuthStatusAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_servlet::routeAuthRegister(request_t& req, response_t& res) {
+	return action::AuthRegisterAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_servlet::routeAuthLogin(request_t& req, response_t& res) {
+	return action::AuthLoginAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_servlet::routeAuthLogout(request_t& req, response_t& res) {
+	return action::AuthLogoutAction::run(req, res);
+}
+
+bool http_servlet::routeAuthUsers(request_t& req, response_t& res) {
+	return action::AuthUsersAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_servlet::routeAuthUserCreate(request_t& req, response_t& res) {
+	return action::AuthUserCreateAction::run(req, res, action::runtime_upload_dir_get());
 }
 
 bool http_servlet::routeTemplateReload(request_t& req, response_t& res) {
@@ -362,6 +414,10 @@ bool http_servlet::routeTagFiles(request_t& req, response_t& res) {
 bool http_servlet::doPost(request_t& req, response_t& res) {
 	const char* path = req.getPathInfo();
 	static const std::map<std::string, route_handler> routes = {
+		{ "/api/v1/auth/register", &http_servlet::routeAuthRegister },
+		{ "/api/v1/auth/login", &http_servlet::routeAuthLogin },
+		{ "/api/v1/auth/logout", &http_servlet::routeAuthLogout },
+		{ "/api/v1/auth/users/create", &http_servlet::routeAuthUserCreate },
 		{ "/api/v1/upload", &http_servlet::routeUpload },
 		{ "/api/v1/admin/storage/migrate", &http_servlet::routeAdminStorageMigrate },
 		{ "/api/v1/admin/storage/migrate/resolve", &http_servlet::routeAdminStorageMigrateResolve },
@@ -415,6 +471,22 @@ bool http_servlet::doPost(request_t& req, response_t& res) {
 	if (path != NULL) {
 		std::map<std::string, route_handler>::const_iterator it = routes.find(path);
 		if (it != routes.end()) {
+			if (!is_auth_route(path)) {
+				std::string username;
+				bool admin = false;
+				if (!action::auth_request_allowed(req, action::runtime_upload_dir_get(),
+					username, admin))
+				{
+					return action::auth_send_required(req, res);
+				}
+				if (is_admin_route(path) && !admin) {
+					acl::json json;
+					acl::json_node& root = json.create_node();
+					root.add_bool("ok", false);
+					root.add_text("error", "admin permission required");
+					return action::sendJson(res, 403, root, req.isKeepAlive());
+				}
+			}
 			return (this->*(it->second))(req, res);
 		}
 	}

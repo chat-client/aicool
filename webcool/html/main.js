@@ -56,6 +56,7 @@
   window.addEventListener('resize', scheduleAdaptiveUiScale);
   window.addEventListener('orientationchange', scheduleAdaptiveUiScale);
 
+  const assetVersion = 'auth-20260607-5';
   const modules = [
     '/webcool/html/js/00-core-state.js',
     '/webcool/html/js/01-locks-context.js',
@@ -80,7 +81,7 @@
   function loadModuleScript(url) {
     return new Promise(function (resolve, reject) {
       const script = document.createElement('script');
-      script.src = url;
+      script.src = url + '?v=' + encodeURIComponent(assetVersion);
       script.async = false;
       script.onload = resolve;
       script.onerror = function () {
