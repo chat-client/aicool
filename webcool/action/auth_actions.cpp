@@ -449,6 +449,14 @@ bool authenticated_user_upload_dir(request_t& req,
 		user_upload_dir.clear();
 		return false;
 	}
+	if (!init_category_folder_db(user_upload_dir, err)) {
+		user_upload_dir.clear();
+		return false;
+	}
+	if (!init_recycle_bin_db(user_upload_dir, err)) {
+		user_upload_dir.clear();
+		return false;
+	}
 	return true;
 }
 
