@@ -133,22 +133,28 @@ function localDirLockIconHtml(path, locked) {
         }
       }
 
-      function applyLanguageSetting() {
-        if (!adminLanguageSelect) {
+      function applyLanguageSelection(select, showSavedStatus) {
+        if (!select) {
           return;
         }
-        const nextLang = adminLanguageSelect.value === 'en' ? 'en' : 'zh';
+        const nextLang = select.value === 'en' ? 'en' : 'zh';
         try {
           localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLang);
         } catch (_) {}
         if (nextLang === UI_LANG) {
-          showStatus(t('语言设置已保存'), 'ok');
+          if (showSavedStatus) {
+            showStatus(t('语言设置已保存'), 'ok');
+          }
           if (window.WebCoolI18n && typeof window.WebCoolI18n.apply === 'function') {
             window.WebCoolI18n.apply(document);
           }
           return;
         }
         window.location.href = localizedPageUrl(nextLang);
+      }
+
+      function applyLanguageSetting() {
+        applyLanguageSelection(adminLanguageSelect, true);
       }
 
       function fileLockKey(path, local) {

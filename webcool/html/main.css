@@ -182,6 +182,33 @@
       line-height: 1.5;
     }
 
+    .auth-language-row {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 14px;
+      color: #344963;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .auth-language-select {
+      width: 100%;
+      box-sizing: border-box;
+      height: 42px;
+      border: 1px solid #c7d8e8;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #243f5c;
+      font: inherit;
+      outline: none;
+      background: #fff;
+    }
+
+    .auth-language-select:focus {
+      border-color: #76addd;
+      box-shadow: 0 0 0 3px rgba(118, 173, 221, 0.18);
+    }
+
     .auth-form {
       display: grid;
       gap: 10px;
@@ -195,6 +222,8 @@
 
     .auth-form input {
       width: 100%;
+      box-sizing: border-box;
+      height: 42px;
       border: 1px solid #c7d8e8;
       border-radius: 8px;
       padding: 10px 12px;

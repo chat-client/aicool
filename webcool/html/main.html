@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>文件管理控制台</title>
-  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260607-12">
+  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260607-14">
   <script>
     (function () {
       var lang = 'zh';
@@ -11,7 +11,7 @@
         lang = localStorage.getItem('webcool:language:v1') === 'en' ? 'en' : 'zh';
       } catch (_) {}
       document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
-      document.write('<script src="/webcool/html/i18n/' + lang + '.js?v=auth-20260607-12"><\/script>');
+      document.write('<script src="/webcool/html/i18n/' + lang + '.js?v=auth-20260607-14"><\/script>');
     })();
   </script>
 </head>
@@ -358,6 +358,13 @@
     <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <h1 id="auth-title" data-i18n="登录">登录</h1>
       <p id="auth-desc" data-i18n="请输入用户名和密码。">请输入用户名和密码。</p>
+      <label class="auth-language-row" for="auth-language-select">
+        <span data-i18n="界面语言">界面语言</span>
+        <select id="auth-language-select" class="auth-language-select">
+          <option value="zh">简体中文</option>
+          <option value="en">English</option>
+        </select>
+      </label>
       <form id="auth-form" class="auth-form">
         <label for="auth-username" data-i18n="用户名">用户名</label>
         <input id="auth-username" type="text" autocomplete="username" maxlength="40">
@@ -493,6 +500,6 @@
     </div>
   </div>
 
-  <script src="/webcool/html/main.js?v=auth-20260607-12"></script>
+  <script src="/webcool/html/main.js?v=auth-20260607-14"></script>
 </body>
 </html>

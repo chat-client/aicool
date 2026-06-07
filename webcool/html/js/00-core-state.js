@@ -146,6 +146,8 @@ function selectRenameInputText(input) {
 
       var authSubmitBtn = document.getElementById('auth-submit-btn');
 
+      var authLanguageSelect = document.getElementById('auth-language-select');
+
       var authUserChip = document.getElementById('auth-user-chip');
 
       var authCurrentUser = document.getElementById('auth-current-user');

@@ -445,6 +445,13 @@
         adminLanguageSelect.value = UI_LANG;
       }
 
+      if (authLanguageSelect) {
+        authLanguageSelect.value = UI_LANG;
+        authLanguageSelect.addEventListener('change', function () {
+          applyLanguageSelection(authLanguageSelect, false);
+        });
+      }
+
       if (adminLanguageApplyBtn) {
         adminLanguageApplyBtn.addEventListener('click', applyLanguageSetting);
       }
