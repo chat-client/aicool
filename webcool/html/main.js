@@ -56,7 +56,7 @@
   window.addEventListener('resize', scheduleAdaptiveUiScale);
   window.addEventListener('orientationchange', scheduleAdaptiveUiScale);
 
-  const assetVersion = 'auth-20260607-14';
+  const assetVersion = 'auth-20260607-17';
   const modules = [
     '/webcool/html/js/00-core-state.js',
     '/webcool/html/js/01-locks-context.js',

@@ -860,6 +860,15 @@ function localDirLockIconHtml(path, locked) {
           clearLocalDiskSelection();
           renderLocalDiskItems(Array.isArray(data.items) ? data.items : []);
         } catch (err) {
+          const message = String((err && err.message) || err || '');
+          const lockedPath = String((err && err.data && err.data.path) || target || '');
+          if (opts.fallbackToParentOnLocked !== false && lockedPath && /directory is locked/i.test(message)) {
+            const parent = localDiskParentPath(lockedPath);
+            if (parent && parent !== lockedPath) {
+              await loadLocalDisk(parent, { resetTreeRoot: true });
+              return;
+            }
+          }
           if (localDiskList) {
             localDiskList.innerHTML = '';
           }
@@ -867,10 +876,10 @@ function localDirLockIconHtml(path, locked) {
             localDiskTable.style.display = 'none';
           }
           if (localDiskEmpty) {
-            localDiskEmpty.textContent = '加载本地磁盘失败：' + err.message;
+            localDiskEmpty.textContent = '加载本地磁盘失败：' + message;
             localDiskEmpty.style.display = 'block';
           }
-          showStatus('加载本地磁盘失败：' + err.message, 'err');
+          showStatus('加载本地磁盘失败：' + message, 'err');
         }
       }
 

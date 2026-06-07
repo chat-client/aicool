@@ -146,6 +146,8 @@ static std::mutex g_local_import_mutex;
 static std::map<std::string, local_import_task_t> g_local_import_tasks;
 static unsigned long long g_local_import_seq = 0;
 
+static std::string parent_path(const std::string& path);
+
 static void json_error(response_t& res, int status, const char* msg,
 	bool keep_alive)
 {
@@ -154,6 +156,19 @@ static void json_error(response_t& res, int status, const char* msg,
 	root.add_bool("ok", false);
 	root.add_text("error", msg ? msg : "unknown error");
 	sendJson(res, status, root, keep_alive);
+}
+
+static void json_locked_dir_error(response_t& res, const char* msg,
+	const std::string& path, const std::string& locked_path, bool keep_alive)
+{
+	const std::string display_path = locked_path.empty() ? path : locked_path;
+	acl::json json;
+	acl::json_node& root = json.create_node();
+	root.add_bool("ok", false);
+	root.add_text("error", msg ? msg : "directory is locked");
+	root.add_text("path", display_path.c_str());
+	root.add_text("parent_path", parent_path(display_path).c_str());
+	sendJson(res, 403, root, keep_alive);
 }
 
 static bool normalize_local_path(const char* input, std::string& out,
@@ -1632,9 +1647,19 @@ bool LocalDiskListAction::run(request_t& req, response_t& res,
 			json_error(res, 404, "directory not found", req.isKeepAlive());
 			return true;
 		}
-		if (!ensure_local_dir_unlocked_for_request(upload_dir, req, res, path,
-			"directory is locked"))
+		bool allowed = false;
+		std::string locked_path;
+		const char* password = req.getParameter("local_dir_password");
+		if (!local_dir_lock_path_allows(upload_dir, path,
+			password ? password : "", allowed, locked_path, err))
 		{
+			json_error(res, 500, err.c_str(), req.isKeepAlive());
+			return true;
+		}
+		if (!allowed)
+		{
+			json_locked_dir_error(res, "directory is locked", path, locked_path,
+				req.isKeepAlive());
 			return true;
 		}
 
