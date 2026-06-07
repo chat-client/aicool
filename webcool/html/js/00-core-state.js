@@ -118,13 +118,9 @@ function selectRenameInputText(input) {
 
       var adminUsersTab = document.getElementById('admin-users-tab');
 
-      var adminLanguageTab = document.getElementById('admin-language-tab');
-
       var adminStorageView = document.getElementById('admin-storage-view');
 
       var adminUsersView = document.getElementById('admin-users-view');
-
-      var adminLanguageView = document.getElementById('admin-language-view');
 
       var adminUserCreateForm = document.getElementById('admin-user-create-form');
 
@@ -157,6 +153,14 @@ function selectRenameInputText(input) {
       var authLogoutBtn = document.getElementById('auth-logout-btn');
 
       var accountPasswordForm = document.getElementById('account-password-form');
+
+      var accountPasswordTab = document.getElementById('account-password-tab');
+
+      var accountLanguageTab = document.getElementById('account-language-tab');
+
+      var accountPasswordView = document.getElementById('account-password-view');
+
+      var accountLanguageView = document.getElementById('account-language-view');
 
       var accountOldPassword = document.getElementById('account-old-password');
 

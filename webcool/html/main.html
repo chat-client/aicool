@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>文件管理控制台</title>
-  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260607-10">
+  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260607-12">
   <script>
     (function () {
       var lang = 'zh';
@@ -11,7 +11,7 @@
         lang = localStorage.getItem('webcool:language:v1') === 'en' ? 'en' : 'zh';
       } catch (_) {}
       document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
-      document.write('<script src="/webcool/html/i18n/' + lang + '.js?v=auth-20260607-10"><\/script>');
+      document.write('<script src="/webcool/html/i18n/' + lang + '.js?v=auth-20260607-12"><\/script>');
     })();
   </script>
 </head>
@@ -265,7 +265,6 @@
         <div class="admin-shell">
           <aside class="admin-command-bar" aria-label="系统设置功能命令">
             <button id="admin-storage-tab" class="admin-command-btn active" type="button">存储路径</button>
-            <button id="admin-language-tab" class="admin-command-btn" type="button">语言设置</button>
             <button id="reload-template-btn" class="admin-command-btn" type="button">刷新模板缓存</button>
           </aside>
           <div class="admin-display">
@@ -293,17 +292,6 @@
                 </div>
               </div>
             </section>
-            <section id="admin-language-view" class="admin-view" hidden>
-              <h2>语言设置</h2>
-              <p class="admin-view-desc">设置界面显示语言，保存后会切换到对应语言版本。</p>
-              <div class="admin-language-row">
-                <select id="admin-language-select" class="admin-language-select">
-                  <option value="zh">简体中文</option>
-                  <option value="en">English</option>
-                </select>
-                <button id="admin-language-apply-btn" class="admin-storage-choose-btn" type="button">应用</button>
-              </div>
-            </section>
           </div>
         </div>
       </section>
@@ -325,18 +313,41 @@
 
       <section class="panel section" id="panel-account">
         <h1 data-i18n="账号设置">账号设置</h1>
-        <p class="sub" data-i18n="修改当前登录用户的密码。">修改当前登录用户的密码。</p>
-        <form id="account-password-form" class="account-password-form">
-          <label class="account-password-label" for="account-old-password" data-i18n="当前密码">当前密码</label>
-          <input id="account-old-password" class="admin-storage-input" type="password" autocomplete="current-password" maxlength="128">
-          <label class="account-password-label" for="account-new-password" data-i18n="新密码">新密码</label>
-          <input id="account-new-password" class="admin-storage-input" type="password" autocomplete="new-password" maxlength="128">
-          <label class="account-password-label" for="account-confirm-password" data-i18n="确认新密码">确认新密码</label>
-          <input id="account-confirm-password" class="admin-storage-input" type="password" autocomplete="new-password" maxlength="128">
-          <div class="account-password-actions">
-            <button id="account-password-submit" class="admin-storage-choose-btn" type="submit" data-i18n="修改密码">修改密码</button>
+        <p class="sub" data-i18n="修改当前登录用户的密码和界面语言。">修改当前登录用户的密码和界面语言。</p>
+        <div class="admin-shell">
+          <aside class="admin-command-bar" aria-label="账号设置功能命令" data-i18n-aria-label="账号设置功能命令">
+            <button id="account-password-tab" class="admin-command-btn active" type="button" data-i18n="修改密码">修改密码</button>
+            <button id="account-language-tab" class="admin-command-btn" type="button" data-i18n="语言设置">语言设置</button>
+          </aside>
+          <div class="admin-display">
+            <section id="account-password-view" class="admin-view">
+              <h2 data-i18n="修改密码">修改密码</h2>
+              <p class="admin-view-desc" data-i18n="修改当前登录用户的密码。">修改当前登录用户的密码。</p>
+              <form id="account-password-form" class="account-password-form">
+                <label class="account-password-label" for="account-old-password" data-i18n="当前密码">当前密码</label>
+                <input id="account-old-password" class="admin-storage-input" type="password" autocomplete="current-password" maxlength="128">
+                <label class="account-password-label" for="account-new-password" data-i18n="新密码">新密码</label>
+                <input id="account-new-password" class="admin-storage-input" type="password" autocomplete="new-password" maxlength="128">
+                <label class="account-password-label" for="account-confirm-password" data-i18n="确认新密码">确认新密码</label>
+                <input id="account-confirm-password" class="admin-storage-input" type="password" autocomplete="new-password" maxlength="128">
+                <div class="account-password-actions">
+                  <button id="account-password-submit" class="admin-storage-choose-btn" type="submit" data-i18n="修改密码">修改密码</button>
+                </div>
+              </form>
+            </section>
+            <section id="account-language-view" class="admin-view" hidden>
+              <h2 data-i18n="语言设置">语言设置</h2>
+              <p class="admin-view-desc" data-i18n="设置界面显示语言，保存后会切换到对应语言版本。">设置界面显示语言，保存后会切换到对应语言版本。</p>
+              <div class="admin-language-row">
+                <select id="admin-language-select" class="admin-language-select">
+                  <option value="zh">简体中文</option>
+                  <option value="en">English</option>
+                </select>
+                <button id="admin-language-apply-btn" class="admin-storage-choose-btn" type="button" data-i18n="应用">应用</button>
+              </div>
+            </section>
           </div>
-        </form>
+        </div>
       </section>
 
       <div id="status" class="status"></div>
@@ -482,6 +493,6 @@
     </div>
   </div>
 
-  <script src="/webcool/html/main.js?v=auth-20260607-10"></script>
+  <script src="/webcool/html/main.js?v=auth-20260607-12"></script>
 </body>
 </html>

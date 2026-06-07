@@ -441,18 +441,24 @@
         });
       }
 
-      if (adminLanguageTab) {
-        adminLanguageTab.addEventListener('click', function () {
-          activateAdminView('language');
-        });
-      }
-
       if (adminLanguageSelect) {
         adminLanguageSelect.value = UI_LANG;
       }
 
       if (adminLanguageApplyBtn) {
         adminLanguageApplyBtn.addEventListener('click', applyLanguageSetting);
+      }
+
+      if (accountPasswordTab) {
+        accountPasswordTab.addEventListener('click', function () {
+          activateAccountView('password');
+        });
+      }
+
+      if (accountLanguageTab) {
+        accountLanguageTab.addEventListener('click', function () {
+          activateAccountView('language');
+        });
       }
 
       if (authForm) {
@@ -2057,6 +2063,7 @@
             loadAdminUsers();
           } else if (panelId === 'panel-account') {
             activeFilterTagId = '';
+            activateAccountView('password');
             if (accountOldPassword) {
               accountOldPassword.value = '';
             }

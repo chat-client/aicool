@@ -33,6 +33,8 @@
     '管理员账号不会在此处修改或删除。': 'Administrator accounts cannot be modified or deleted here.',
     '添加用户': 'Add User',
     '账号设置': 'Account Settings',
+    '账号设置功能命令': 'Account settings commands',
+    '修改当前登录用户的密码和界面语言。': 'Change the password and interface language for the current signed-in user.',
     '修改当前登录用户的密码。': 'Change the password for the current signed-in user.',
     '当前密码': 'Current Password',
     '新密码': 'New Password',

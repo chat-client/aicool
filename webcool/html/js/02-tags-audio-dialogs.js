@@ -966,21 +966,28 @@ function getLocalDirPassword(path) {
       }
 
       function activateAdminView(name) {
-        const isLanguage = name === 'language';
         if (adminStorageTab) {
-          adminStorageTab.classList.toggle('active', !isLanguage);
-        }
-        if (adminLanguageTab) {
-          adminLanguageTab.classList.toggle('active', isLanguage);
+          adminStorageTab.classList.toggle('active', name === 'storage');
         }
         if (adminStorageView) {
-          adminStorageView.hidden = isLanguage;
+          adminStorageView.hidden = name !== 'storage';
         }
-        if (adminLanguageView) {
-          adminLanguageView.hidden = !isLanguage;
+        loadAdminStoragePath();
+      }
+
+      function activateAccountView(name) {
+        const isLanguage = name === 'language';
+        if (accountPasswordTab) {
+          accountPasswordTab.classList.toggle('active', !isLanguage);
         }
-        if (!isLanguage) {
-          loadAdminStoragePath();
+        if (accountLanguageTab) {
+          accountLanguageTab.classList.toggle('active', isLanguage);
+        }
+        if (accountPasswordView) {
+          accountPasswordView.hidden = isLanguage;
+        }
+        if (accountLanguageView) {
+          accountLanguageView.hidden = !isLanguage;
         }
       }
 
