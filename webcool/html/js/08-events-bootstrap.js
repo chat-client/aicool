@@ -6,6 +6,10 @@
 
       redirectToSavedLanguageIfNeeded();
 
+      if (window.WebCoolI18n && typeof window.WebCoolI18n.apply === 'function') {
+        window.WebCoolI18n.apply(document);
+      }
+
       uploadForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         resetStatus();
@@ -437,12 +441,6 @@
         });
       }
 
-      if (adminUsersTab) {
-        adminUsersTab.addEventListener('click', function () {
-          activateAdminView('users');
-        });
-      }
-
       if (adminLanguageTab) {
         adminLanguageTab.addEventListener('click', function () {
           activateAdminView('language');
@@ -477,6 +475,27 @@
         adminUserCreateForm.addEventListener('submit', function (e) {
           e.preventDefault();
           createNormalUser();
+        });
+      }
+
+      if (accountPasswordForm) {
+        accountPasswordForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          changeOwnPassword();
+        });
+      }
+
+      if (adminUsersList) {
+        adminUsersList.addEventListener('click', function (e) {
+          const editBtn = e.target.closest('[data-user-edit]');
+          if (editBtn) {
+            updateNormalUser(editBtn.getAttribute('data-user-edit') || '');
+            return;
+          }
+          const deleteBtn = e.target.closest('[data-user-delete]');
+          if (deleteBtn) {
+            deleteNormalUser(deleteBtn.getAttribute('data-user-delete') || '');
+          }
         });
       }
 
@@ -2033,6 +2052,20 @@
             activeFilterTagId = '';
           } else if (panelId === 'panel-local-disk') {
             activeFilterTagId = '';
+          } else if (panelId === 'panel-users') {
+            activeFilterTagId = '';
+            loadAdminUsers();
+          } else if (panelId === 'panel-account') {
+            activeFilterTagId = '';
+            if (accountOldPassword) {
+              accountOldPassword.value = '';
+            }
+            if (accountNewPassword) {
+              accountNewPassword.value = '';
+            }
+            if (accountConfirmPassword) {
+              accountConfirmPassword.value = '';
+            }
           }
           if (panelId) {
             activatePanel(panelId);

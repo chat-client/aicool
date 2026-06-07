@@ -152,12 +152,24 @@ bool http_servlet::routeAuthLogout(request_t& req, response_t& res) {
 	return action::AuthLogoutAction::run(req, res);
 }
 
+bool http_servlet::routeAuthPassword(request_t& req, response_t& res) {
+	return action::AuthPasswordAction::run(req, res, action::runtime_upload_dir_get());
+}
+
 bool http_servlet::routeAuthUsers(request_t& req, response_t& res) {
 	return action::AuthUsersAction::run(req, res, action::runtime_upload_dir_get());
 }
 
 bool http_servlet::routeAuthUserCreate(request_t& req, response_t& res) {
 	return action::AuthUserCreateAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_servlet::routeAuthUserUpdate(request_t& req, response_t& res) {
+	return action::AuthUserUpdateAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_servlet::routeAuthUserDelete(request_t& req, response_t& res) {
+	return action::AuthUserDeleteAction::run(req, res, action::runtime_upload_dir_get());
 }
 
 bool http_servlet::routeTemplateReload(request_t& req, response_t& res) {
@@ -417,7 +429,10 @@ bool http_servlet::doPost(request_t& req, response_t& res) {
 		{ "/api/v1/auth/register", &http_servlet::routeAuthRegister },
 		{ "/api/v1/auth/login", &http_servlet::routeAuthLogin },
 		{ "/api/v1/auth/logout", &http_servlet::routeAuthLogout },
+		{ "/api/v1/auth/password", &http_servlet::routeAuthPassword },
 		{ "/api/v1/auth/users/create", &http_servlet::routeAuthUserCreate },
+		{ "/api/v1/auth/users/update", &http_servlet::routeAuthUserUpdate },
+		{ "/api/v1/auth/users/delete", &http_servlet::routeAuthUserDelete },
 		{ "/api/v1/upload", &http_servlet::routeUpload },
 		{ "/api/v1/admin/storage/migrate", &http_servlet::routeAdminStorageMigrate },
 		{ "/api/v1/admin/storage/migrate/resolve", &http_servlet::routeAdminStorageMigrateResolve },

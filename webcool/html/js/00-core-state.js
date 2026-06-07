@@ -90,8 +90,11 @@ function selectRenameInputText(input) {
         authRegister: '/api/v1/auth/register',
         authLogin: '/api/v1/auth/login',
         authLogout: '/api/v1/auth/logout',
+        authPassword: '/api/v1/auth/password',
         authUsers: '/api/v1/auth/users',
         authUserCreate: '/api/v1/auth/users/create',
+        authUserUpdate: '/api/v1/auth/users/update',
+        authUserDelete: '/api/v1/auth/users/delete',
         adminStorage: '/api/v1/admin/storage',
         adminStorageMigrate: '/api/v1/admin/storage/migrate',
         adminStorageMigrateProgress: '/api/v1/admin/storage/migrate/progress',
@@ -152,6 +155,14 @@ function selectRenameInputText(input) {
       var authCurrentUser = document.getElementById('auth-current-user');
 
       var authLogoutBtn = document.getElementById('auth-logout-btn');
+
+      var accountPasswordForm = document.getElementById('account-password-form');
+
+      var accountOldPassword = document.getElementById('account-old-password');
+
+      var accountNewPassword = document.getElementById('account-new-password');
+
+      var accountConfirmPassword = document.getElementById('account-confirm-password');
 
       var adminLanguageSelect = document.getElementById('admin-language-select');
 

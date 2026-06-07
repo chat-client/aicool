@@ -544,6 +544,57 @@ bool AuthLogoutAction::run(request_t& req, response_t& res)
 	return sendJson(res, 200, root, req.isKeepAlive());
 }
 
+bool AuthPasswordAction::run(request_t& req, response_t& res,
+	const std::string& upload_dir)
+{
+	std::string username;
+	bool admin = false;
+	if (!auth_request_allowed(req, upload_dir, username, admin)) {
+		return auth_send_required(req, res);
+	}
+	const std::string old_password = req.getParameter("old_password")
+		? req.getParameter("old_password") : "";
+	const std::string new_password = req.getParameter("new_password")
+		? req.getParameter("new_password") : "";
+	std::string err;
+	if (!valid_password(new_password, err)) {
+		json_error(res, 400, err.c_str(), req.isKeepAlive());
+		return false;
+	}
+
+	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::vector<user_record_t> users;
+	if (!load_users_unlocked(upload_dir, users, err)) {
+		json_error(res, 500, err.c_str(), req.isKeepAlive());
+		return false;
+	}
+	user_record_t* user = find_user(users, username);
+	if (user == NULL) {
+		json_error(res, 404, "user not found", req.isKeepAlive());
+		return false;
+	}
+	if (user->password_hash != password_hash(user->salt, old_password)) {
+		json_error(res, 403, "old password is incorrect", req.isKeepAlive());
+		return false;
+	}
+	user->salt = random_hex(16);
+	user->password_hash = password_hash(user->salt, new_password);
+	if (!save_users_unlocked(upload_dir, users, err)) {
+		json_error(res, 500, err.c_str(), req.isKeepAlive());
+		return false;
+	}
+	const std::string token = create_session_token(*user);
+	set_auth_cookie(res, token);
+
+	acl::json json;
+	acl::json_node& root = json.create_node();
+	root.add_bool("ok", true);
+	root.add_text("username", user->username.c_str());
+	root.add_bool("admin", user->admin);
+	root.add_text("auth_token", token.c_str());
+	return sendJson(res, 200, root, req.isKeepAlive());
+}
+
 bool AuthUsersAction::run(request_t& req, response_t& res,
 	const std::string& upload_dir)
 {
@@ -616,6 +667,112 @@ bool AuthUserCreateAction::run(request_t& req, response_t& res,
 	root.add_text("username", user.username.c_str());
 	root.add_bool("admin", false);
 	return sendJson(res, 200, root, req.isKeepAlive());
+}
+
+bool AuthUserUpdateAction::run(request_t& req, response_t& res,
+	const std::string& upload_dir)
+{
+	std::string current;
+	if (!require_admin(req, res, upload_dir, current)) {
+		return false;
+	}
+	const std::string username = req.getParameter("username")
+		? req.getParameter("username") : "";
+	const std::string new_username = req.getParameter("new_username")
+		? req.getParameter("new_username") : username;
+	const std::string password = req.getParameter("password")
+		? req.getParameter("password") : "";
+
+	std::string err;
+	if (!valid_username(username, err) || !valid_username(new_username, err)) {
+		json_error(res, 400, err.c_str(), req.isKeepAlive());
+		return false;
+	}
+	if (!password.empty() && !valid_password(password, err)) {
+		json_error(res, 400, err.c_str(), req.isKeepAlive());
+		return false;
+	}
+
+	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::vector<user_record_t> users;
+	if (!load_users_unlocked(upload_dir, users, err)) {
+		json_error(res, 500, err.c_str(), req.isKeepAlive());
+		return false;
+	}
+	user_record_t* target = find_user(users, username);
+	if (target == NULL) {
+		json_error(res, 404, "user not found", req.isKeepAlive());
+		return false;
+	}
+	if (target->admin) {
+		json_error(res, 403, "administrator cannot be modified here", req.isKeepAlive());
+		return false;
+	}
+	if (new_username != username && find_user(users, new_username) != NULL) {
+		json_error(res, 409, "username already exists", req.isKeepAlive());
+		return false;
+	}
+	target->username = new_username;
+	if (!password.empty()) {
+		target->salt = random_hex(16);
+		target->password_hash = password_hash(target->salt, password);
+	}
+	if (!save_users_unlocked(upload_dir, users, err)) {
+		json_error(res, 500, err.c_str(), req.isKeepAlive());
+		return false;
+	}
+
+	acl::json json;
+	acl::json_node& root = json.create_node();
+	root.add_bool("ok", true);
+	root.add_text("username", target->username.c_str());
+	root.add_bool("admin", false);
+	return sendJson(res, 200, root, req.isKeepAlive());
+}
+
+bool AuthUserDeleteAction::run(request_t& req, response_t& res,
+	const std::string& upload_dir)
+{
+	std::string current;
+	if (!require_admin(req, res, upload_dir, current)) {
+		return false;
+	}
+	const std::string username = req.getParameter("username")
+		? req.getParameter("username") : "";
+	std::string err;
+	if (!valid_username(username, err)) {
+		json_error(res, 400, err.c_str(), req.isKeepAlive());
+		return false;
+	}
+
+	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::vector<user_record_t> users;
+	if (!load_users_unlocked(upload_dir, users, err)) {
+		json_error(res, 500, err.c_str(), req.isKeepAlive());
+		return false;
+	}
+	for (std::vector<user_record_t>::iterator it = users.begin();
+		it != users.end(); ++it)
+	{
+		if (it->username != username) {
+			continue;
+		}
+		if (it->admin) {
+			json_error(res, 403, "administrator cannot be deleted", req.isKeepAlive());
+			return false;
+		}
+		users.erase(it);
+		if (!save_users_unlocked(upload_dir, users, err)) {
+			json_error(res, 500, err.c_str(), req.isKeepAlive());
+			return false;
+		}
+		acl::json json;
+		acl::json_node& root = json.create_node();
+		root.add_bool("ok", true);
+		return sendJson(res, 200, root, req.isKeepAlive());
+	}
+	json_error(res, 404, "user not found", req.isKeepAlive());
+	return false;
 }
 
 } // namespace action

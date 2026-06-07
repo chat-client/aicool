@@ -15,6 +15,44 @@
     '虚拟磁盘': 'Virtual Disk',
     '本地磁盘': 'Local Disk',
     '系统设置': 'System Settings',
+    '退出': 'Sign Out',
+    '退出登录': 'Sign Out',
+    '登录': 'Sign In',
+    '注册管理员': 'Create Administrator',
+    '首次使用，请创建管理员用户名和密码。': 'First use: create the administrator username and password.',
+    '请输入用户名和密码。': 'Enter username and password.',
+    '认证失败': 'Authentication failed',
+    '认证状态检查失败': 'Authentication status check failed',
+    '创建管理员': 'Create Administrator',
+    '用户名': 'Username',
+    '密码': 'Password',
+    '用户管理': 'User Management',
+    '管理普通用户账号和密码。': 'Manage regular user accounts and passwords.',
+    '普通用户': 'Regular User',
+    '管理员账号不会在此处修改或删除。': 'Administrator accounts cannot be modified or deleted here.',
+    '添加用户': 'Add User',
+    '账号设置': 'Account Settings',
+    '修改当前登录用户的密码。': 'Change the password for the current signed-in user.',
+    '当前密码': 'Current Password',
+    '新密码': 'New Password',
+    '确认新密码': 'Confirm New Password',
+    '修改密码': 'Change Password',
+    '暂无用户': 'No users yet',
+    '修改': 'Edit',
+    '用户已添加：': 'User added: ',
+    '添加用户失败：': 'Failed to add user: ',
+    '请输入新的用户名': 'Enter the new username',
+    '用户名不能为空': 'Username cannot be empty',
+    '请输入新密码；留空则不修改密码': 'Enter a new password; leave blank to keep it unchanged',
+    '用户已更新：': 'User updated: ',
+    '修改用户失败：': 'Failed to update user: ',
+    '确认删除用户：': 'Delete user: ',
+    '用户已删除：': 'User deleted: ',
+    '删除用户失败：': 'Failed to delete user: ',
+    '请输入当前密码和新密码。': 'Enter the current password and the new password.',
+    '两次输入的新密码不一致。': 'The two new passwords do not match.',
+    '密码已修改。': 'Password changed.',
+    '修改密码失败：': 'Failed to change password: ',
     '系统设置功能命令': 'System settings commands',
     '文件标签树': 'File tag tree',
     '标签树': 'Tag Tree',
@@ -601,6 +639,15 @@
 
   function translateAttributes(el) {
     if (!el || !el.getAttribute) return;
+    if (el.hasAttribute('data-i18n-title')) {
+      el.setAttribute('title', translateText(el.getAttribute('data-i18n-title') || ''));
+    }
+    if (el.hasAttribute('data-i18n-aria-label')) {
+      el.setAttribute('aria-label', translateText(el.getAttribute('data-i18n-aria-label') || ''));
+    }
+    if (el.hasAttribute('data-i18n-placeholder')) {
+      el.setAttribute('placeholder', translateText(el.getAttribute('data-i18n-placeholder') || ''));
+    }
     ['title', 'aria-label', 'alt', 'placeholder'].forEach(function (name) {
       if (!el.hasAttribute(name)) return;
       var value = el.getAttribute(name);
@@ -623,6 +670,11 @@
     }
     if (node.nodeType !== 1) return;
     if (/^(SCRIPT|STYLE|TEXTAREA)$/i.test(node.tagName)) return;
+    if (node.hasAttribute && node.hasAttribute('data-i18n')) {
+      node.textContent = translateText(node.getAttribute('data-i18n') || '');
+      translateAttributes(node);
+      return;
+    }
     translateAttributes(node);
     var walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
       acceptNode: function (textNode) {
@@ -640,7 +692,11 @@
   }
 
   function apply(root) {
-    translateNode(root || document.body || document.documentElement);
+    var target = root || document.body || document.documentElement;
+    if (target && target.nodeType === 9) {
+      target = target.body || target.documentElement;
+    }
+    translateNode(target);
   }
 
   function start() {

@@ -680,8 +680,23 @@ function appendFilePassword(url, path, local) {
         if (adminMenuBtn) {
           adminMenuBtn.hidden = !authState.admin;
         }
+        const usersMenuBtn = document.querySelector('.menu-btn[data-panel="panel-users"]');
+        if (usersMenuBtn) {
+          usersMenuBtn.hidden = !authState.admin;
+        }
+        const accountMenuBtn = document.querySelector('.menu-btn[data-panel="panel-account"]');
+        if (accountMenuBtn) {
+          accountMenuBtn.hidden = !authState.authenticated;
+        }
         const adminPanel = document.getElementById('panel-admin');
-        if (!authState.admin && adminPanel && adminPanel.classList.contains('active')) {
+        const usersPanel = document.getElementById('panel-users');
+        const accountPanel = document.getElementById('panel-account');
+        if (!authState.admin
+          && ((adminPanel && adminPanel.classList.contains('active'))
+            || (usersPanel && usersPanel.classList.contains('active')))) {
+          activatePanel('panel-files');
+        }
+        if (!authState.authenticated && accountPanel && accountPanel.classList.contains('active')) {
           activatePanel('panel-files');
         }
       }
@@ -760,15 +775,24 @@ function appendFilePassword(url, path, local) {
         if (!adminUsersList) {
           return;
         }
-        const list = Array.isArray(users) ? users : [];
+        const list = (Array.isArray(users) ? users : []).filter(function (user) {
+          return user && !user.admin;
+        });
         if (!list.length) {
           adminUsersList.innerHTML = '<p class="empty">' + escapeHtml(t('暂无用户')) + '</p>';
           return;
         }
         adminUsersList.innerHTML = list.map(function (user) {
+          const name = String(user.username || '');
           return '<div class="admin-user-row">' +
-            '<strong>' + escapeHtml(user.username || '') + '</strong>' +
-            '<span class="admin-user-role">' + escapeHtml(user.admin ? t('管理员') : t('普通用户')) + '</span>' +
+            '<div class="admin-user-main">' +
+              '<strong>' + escapeHtml(name) + '</strong>' +
+              '<span class="admin-user-role">' + escapeHtml(t('普通用户')) + '</span>' +
+            '</div>' +
+            '<div class="admin-user-actions">' +
+              '<button type="button" class="admin-user-action" data-user-edit="' + escapeHtml(name) + '">' + escapeHtml(t('修改')) + '</button>' +
+              '<button type="button" class="admin-user-action danger" data-user-delete="' + escapeHtml(name) + '">' + escapeHtml(t('删除')) + '</button>' +
+            '</div>' +
           '</div>';
         }).join('');
       }
@@ -805,6 +829,85 @@ function appendFilePassword(url, path, local) {
           await loadAdminUsers();
         } catch (err) {
           showStatus(t('添加用户失败：') + err.message, 'err');
+        }
+      }
+
+      async function updateNormalUser(username) {
+        const currentName = String(username || '').trim();
+        if (!currentName) {
+          return;
+        }
+        const nextName = window.prompt(t('请输入新的用户名'), currentName);
+        if (nextName === null) {
+          return;
+        }
+        const cleanName = String(nextName || '').trim();
+        if (!cleanName) {
+          showStatus(t('用户名不能为空'), 'err');
+          return;
+        }
+        const nextPassword = window.prompt(t('请输入新密码；留空则不修改密码'), '');
+        if (nextPassword === null) {
+          return;
+        }
+        try {
+          await fetchJson(api.authUserUpdate
+            + '?username=' + encodeURIComponent(currentName)
+            + '&new_username=' + encodeURIComponent(cleanName)
+            + '&password=' + encodeURIComponent(String(nextPassword || '')), { method: 'POST' });
+          showStatus(t('用户已更新：') + cleanName, 'ok');
+          await loadAdminUsers();
+        } catch (err) {
+          showStatus(t('修改用户失败：') + err.message, 'err');
+        }
+      }
+
+      async function deleteNormalUser(username) {
+        const target = String(username || '').trim();
+        if (!target) {
+          return;
+        }
+        if (!window.confirm(t('确认删除用户：') + target + ' ?')) {
+          return;
+        }
+        try {
+          await fetchJson(api.authUserDelete + '?username=' + encodeURIComponent(target), { method: 'POST' });
+          showStatus(t('用户已删除：') + target, 'ok');
+          await loadAdminUsers();
+        } catch (err) {
+          showStatus(t('删除用户失败：') + err.message, 'err');
+        }
+      }
+
+      async function changeOwnPassword() {
+        const oldPassword = accountOldPassword ? String(accountOldPassword.value || '') : '';
+        const newPassword = accountNewPassword ? String(accountNewPassword.value || '') : '';
+        const confirmPassword = accountConfirmPassword ? String(accountConfirmPassword.value || '') : '';
+        if (!oldPassword || !newPassword || !confirmPassword) {
+          showStatus(t('请输入当前密码和新密码。'), 'err');
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          showStatus(t('两次输入的新密码不一致。'), 'err');
+          return;
+        }
+        try {
+          const data = await fetchJson(api.authPassword
+            + '?old_password=' + encodeURIComponent(oldPassword)
+            + '&new_password=' + encodeURIComponent(newPassword), { method: 'POST' });
+          authState.token = data.auth_token || authState.token || '';
+          if (accountOldPassword) {
+            accountOldPassword.value = '';
+          }
+          if (accountNewPassword) {
+            accountNewPassword.value = '';
+          }
+          if (accountConfirmPassword) {
+            accountConfirmPassword.value = '';
+          }
+          showStatus(t('密码已修改。'), 'ok');
+        } catch (err) {
+          showStatus(t('修改密码失败：') + err.message, 'err');
         }
       }
 

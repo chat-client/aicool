@@ -146,6 +146,12 @@ public:
 	static bool run(request_t& req, response_t& res);
 };
 
+class AuthPasswordAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
 class AuthUsersAction {
 public:
 	static bool run(request_t& req, response_t& res,
@@ -153,6 +159,18 @@ public:
 };
 
 class AuthUserCreateAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
+class AuthUserUpdateAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
+class AuthUserDeleteAction {
 public:
 	static bool run(request_t& req, response_t& res,
 		const std::string& upload_dir);

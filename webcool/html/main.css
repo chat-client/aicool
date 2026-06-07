@@ -1189,9 +1189,62 @@
       color: #2f4b68;
     }
 
+    .admin-user-main {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
     .admin-user-role {
       color: var(--muted);
       font-size: 13px;
+    }
+
+    .admin-user-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+
+    .admin-user-action {
+      border: 1px solid #c9ddf0;
+      background: #f5faff;
+      color: #2b4968;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .admin-user-action:hover {
+      background: #e1f1ff;
+      border-color: #a9cdec;
+    }
+
+    .admin-user-action.danger {
+      border-color: #efc7cd;
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+
+    .account-password-form {
+      display: grid;
+      gap: 10px;
+      max-width: 520px;
+    }
+
+    .account-password-label {
+      color: #344963;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .account-password-actions {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 4px;
     }
 
     .admin-storage-input {
@@ -3689,6 +3742,8 @@
       .file-row { grid-template-columns: 1fr; gap: 6px; }
       .admin-storage-row { grid-template-columns: 1fr; }
       .admin-user-create-form { grid-template-columns: 1fr; }
+      .admin-user-row { align-items: stretch; flex-direction: column; }
+      .admin-user-actions { justify-content: flex-end; }
       .admin-language-row { align-items: stretch; flex-direction: column; }
       .admin-language-select { width: 100%; min-width: 0; }
     }
