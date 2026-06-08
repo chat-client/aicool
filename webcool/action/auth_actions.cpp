@@ -487,6 +487,10 @@ bool AuthStatusAction::run(request_t& req, response_t& res,
 	if (authenticated) {
 		root.add_text("username", username.c_str());
 		root.add_bool("admin", admin);
+		std::string err;
+		const bool local_disk_allowed = local_disk_access_allowed(upload_dir,
+			admin, err);
+		root.add_bool("local_disk_allowed", err.empty() && local_disk_allowed);
 	}
 	return sendJson(res, 200, root, req.isKeepAlive());
 }
@@ -532,6 +536,7 @@ bool AuthRegisterAction::run(request_t& req, response_t& res,
 	root.add_bool("ok", true);
 	root.add_text("username", user.username.c_str());
 	root.add_bool("admin", true);
+	root.add_bool("local_disk_allowed", true);
 	root.add_text("auth_token", token.c_str());
 	return sendJson(res, 200, root, req.isKeepAlive());
 }
@@ -562,6 +567,11 @@ bool AuthLoginAction::run(request_t& req, response_t& res,
 			root.add_bool("ok", true);
 			root.add_text("username", users[i].username.c_str());
 			root.add_bool("admin", users[i].admin);
+			std::string settings_err;
+			const bool local_disk_allowed = local_disk_access_allowed(upload_dir,
+				users[i].admin, settings_err);
+			root.add_bool("local_disk_allowed",
+				settings_err.empty() && local_disk_allowed);
 			root.add_text("auth_token", token.c_str());
 			return sendJson(res, 200, root, req.isKeepAlive());
 		}
@@ -627,6 +637,10 @@ bool AuthPasswordAction::run(request_t& req, response_t& res,
 	root.add_bool("ok", true);
 	root.add_text("username", user->username.c_str());
 	root.add_bool("admin", user->admin);
+	std::string settings_err;
+	const bool local_disk_allowed = local_disk_access_allowed(upload_dir,
+		user->admin, settings_err);
+	root.add_bool("local_disk_allowed", settings_err.empty() && local_disk_allowed);
 	root.add_text("auth_token", token.c_str());
 	return sendJson(res, 200, root, req.isKeepAlive());
 }

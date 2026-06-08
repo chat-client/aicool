@@ -23,6 +23,11 @@ static bool is_admin_route(const char* path)
 	return path != NULL && strncmp(path, "/api/v1/admin/", 14) == 0;
 }
 
+static bool is_local_disk_route(const char* path)
+{
+	return path != NULL && strncmp(path, "/api/v1/local-disk/", 19) == 0;
+}
+
 static bool request_bool_param(request_t& req, const char* name)
 {
 	const char* value = req.getParameter(name);
@@ -31,6 +36,20 @@ static bool request_bool_param(request_t& req, const char* name)
 		|| strcasecmp(value, "true") == 0
 		|| strcasecmp(value, "yes") == 0
 		|| strcasecmp(value, "on") == 0);
+}
+
+static bool request_needs_local_disk_access(const char* path, request_t& req)
+{
+	if (is_local_disk_route(path)) {
+		return true;
+	}
+	if (path == NULL || !request_bool_param(req, "local")) {
+		return false;
+	}
+	return strcmp(path, "/api/v1/image/save") == 0
+		|| strcmp(path, "/api/v1/files/lock") == 0
+		|| strcmp(path, "/api/v1/files/unlock") == 0
+		|| strcmp(path, "/api/v1/files/lock/verify") == 0;
 }
 
 } // namespace
@@ -71,6 +90,7 @@ bool http_servlet::doGet(request_t& req, response_t& res) {
 		{ "/api/v1/admin/storage/migrate/resolve", &http_servlet::routeAdminStorageMigrateResolve },
 		{ "/api/v1/admin/storage/migrate/control", &http_servlet::routeAdminStorageMigrateControl },
 		{ "/api/v1/admin/storage/migrate/cleanup", &http_servlet::routeAdminStorageMigrateCleanup },
+		{ "/api/v1/admin/local-disk-settings", &http_servlet::routeAdminLocalDiskSettings },
 		{ "/api/v1/delete", &http_servlet::routeDelete },
 		{ "/api/v1/restore", &http_servlet::routeRestore },
 		{ "/api/v1/files/move", &http_servlet::routeMoveFile },
@@ -139,6 +159,20 @@ bool http_servlet::doGet(request_t& req, response_t& res) {
 				root.add_bool("ok", false);
 				root.add_text("error", "admin permission required");
 				return action::sendJson(res, 403, root, req.isKeepAlive());
+			}
+			if (request_needs_local_disk_access(path, req)) {
+				std::string err;
+				if (!action::local_disk_access_allowed(action::runtime_upload_dir_get(),
+					admin, err))
+				{
+					acl::json json;
+					acl::json_node& root = json.create_node();
+					root.add_bool("ok", false);
+					root.add_text("error", err.empty()
+						? "local disk access denied" : err.c_str());
+					return action::sendJson(res, err.empty() ? 403 : 500,
+						root, req.isKeepAlive());
+				}
 			}
 		}
 		return (this->*(it->second))(req, res);
@@ -228,6 +262,11 @@ bool http_servlet::routeAdminStorageMigrateControl(request_t& req, response_t& r
 
 bool http_servlet::routeAdminStorageMigrateCleanup(request_t& req, response_t& res) {
 	return action::AdminStorageMigrateCleanupAction::run(req, res);
+}
+
+bool http_servlet::routeAdminLocalDiskSettings(request_t& req, response_t& res) {
+	return action::AdminLocalDiskSettingsAction::run(req, res,
+		action::runtime_upload_dir_get());
 }
 
 bool http_servlet::routeDelete(request_t& req, response_t& res) {
@@ -522,6 +561,7 @@ bool http_servlet::doPost(request_t& req, response_t& res) {
 		{ "/api/v1/admin/storage/migrate/resolve", &http_servlet::routeAdminStorageMigrateResolve },
 		{ "/api/v1/admin/storage/migrate/control", &http_servlet::routeAdminStorageMigrateControl },
 		{ "/api/v1/admin/storage/migrate/cleanup", &http_servlet::routeAdminStorageMigrateCleanup },
+		{ "/api/v1/admin/local-disk-settings", &http_servlet::routeAdminLocalDiskSettings },
 		{ "/api/v1/image/save", &http_servlet::routeImageSave },
 		{ "/api/v1/restore", &http_servlet::routeRestore },
 		{ "/api/v1/files/move", &http_servlet::routeMoveFile },
@@ -584,6 +624,20 @@ bool http_servlet::doPost(request_t& req, response_t& res) {
 					root.add_bool("ok", false);
 					root.add_text("error", "admin permission required");
 					return action::sendJson(res, 403, root, req.isKeepAlive());
+				}
+				if (request_needs_local_disk_access(path, req)) {
+					std::string err;
+					if (!action::local_disk_access_allowed(action::runtime_upload_dir_get(),
+						admin, err))
+					{
+						acl::json json;
+						acl::json_node& root = json.create_node();
+						root.add_bool("ok", false);
+						root.add_text("error", err.empty()
+							? "local disk access denied" : err.c_str());
+						return action::sendJson(res, err.empty() ? 403 : 500,
+							root, req.isKeepAlive());
+					}
 				}
 			}
 			return (this->*(it->second))(req, res);

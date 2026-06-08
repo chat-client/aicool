@@ -14,6 +14,7 @@
 #include <string.h>
 #include <time.h>
 
+#include <fstream>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -56,6 +57,21 @@ struct storage_migrate_task_t {
 std::mutex g_storage_migrate_mutex;
 storage_migrate_task_t g_storage_migrate_task;
 unsigned long long g_storage_migrate_seq = 0;
+
+struct webcool_settings_t {
+	bool local_disk_admin;
+	bool local_disk_user;
+};
+
+std::mutex g_settings_mutex;
+
+static webcool_settings_t default_settings()
+{
+	webcool_settings_t settings;
+	settings.local_disk_admin = true;
+	settings.local_disk_user = true;
+	return settings;
+}
 
 static void json_error(response_t& res, int status, const char* msg,
 	bool keep_alive)
@@ -229,6 +245,91 @@ static bool init_storage_databases(const std::string& path, std::string& err)
 		&& init_tag_db(path, err)
 		&& init_recycle_bin_db(path, err)
 		&& init_category_folder_db(path, err);
+}
+
+static std::string settings_dir(const std::string& upload_dir)
+{
+	return join_upload_path(upload_dir, ".webcool_settings");
+}
+
+static std::string settings_file(const std::string& upload_dir)
+{
+	return settings_dir(upload_dir) + "/settings.db";
+}
+
+static bool parse_bool_text(const std::string& text, bool fallback)
+{
+	if (text == "1" || text == "true" || text == "yes" || text == "on") {
+		return true;
+	}
+	if (text == "0" || text == "false" || text == "no" || text == "off") {
+		return false;
+	}
+	return fallback;
+}
+
+static bool request_bool_param(request_t& req, const char* name, bool fallback)
+{
+	const char* value = req.getParameter(name);
+	return value ? parse_bool_text(value, fallback) : fallback;
+}
+
+static bool load_settings_unlocked(const std::string& upload_dir,
+	webcool_settings_t& settings, std::string& err)
+{
+	settings = default_settings();
+	std::ifstream in(settings_file(upload_dir).c_str(), std::ios::in);
+	if (!in.good()) {
+		return true;
+	}
+	std::string line;
+	while (std::getline(in, line)) {
+		if (line.empty()) {
+			continue;
+		}
+		const std::string::size_type pos = line.find('=');
+		if (pos == std::string::npos) {
+			err = "invalid settings database";
+			return false;
+		}
+		const std::string key = line.substr(0, pos);
+		const std::string value = line.substr(pos + 1);
+		if (key == "local_disk_admin") {
+			settings.local_disk_admin = parse_bool_text(value, settings.local_disk_admin);
+		} else if (key == "local_disk_user") {
+			settings.local_disk_user = parse_bool_text(value, settings.local_disk_user);
+		}
+	}
+	return true;
+}
+
+static bool save_settings_unlocked(const std::string& upload_dir,
+	const webcool_settings_t& settings, std::string& err)
+{
+	const std::string dir = settings_dir(upload_dir);
+	if (!make_dir_recursive(dir.c_str())) {
+		err = "cannot create settings directory";
+		return false;
+	}
+	const std::string path = settings_file(upload_dir);
+	const std::string tmp = path + ".tmp";
+	std::ofstream out(tmp.c_str(), std::ios::out | std::ios::trunc);
+	if (!out.good()) {
+		err = "cannot write settings database";
+		return false;
+	}
+	out << "local_disk_admin=" << (settings.local_disk_admin ? "1" : "0") << '\n';
+	out << "local_disk_user=" << (settings.local_disk_user ? "1" : "0") << '\n';
+	out.close();
+	if (!out.good()) {
+		err = "cannot flush settings database";
+		return false;
+	}
+	if (rename(tmp.c_str(), path.c_str()) != 0) {
+		err = strerror(errno);
+		return false;
+	}
+	return true;
 }
 
 static std::string join_storage_path(const std::string& parent,
@@ -744,6 +845,17 @@ void runtime_upload_dir_set(const std::string& upload_dir)
 	g_runtime_upload_dir = upload_dir;
 }
 
+bool local_disk_access_allowed(const std::string& upload_dir, bool admin,
+	std::string& err)
+{
+	std::lock_guard<std::mutex> guard(g_settings_mutex);
+	webcool_settings_t settings;
+	if (!load_settings_unlocked(upload_dir, settings, err)) {
+		return false;
+	}
+	return admin ? settings.local_disk_admin : settings.local_disk_user;
+}
+
 bool AdminStorageInfoAction::run(request_t& req, response_t& res,
 	const std::string& upload_dir)
 {
@@ -751,6 +863,36 @@ bool AdminStorageInfoAction::run(request_t& req, response_t& res,
 	acl::json_node& root = json.create_node();
 	root.add_bool("ok", true);
 	root.add_text("path", upload_dir.c_str());
+	return sendJson(res, 200, root, req.isKeepAlive());
+}
+
+bool AdminLocalDiskSettingsAction::run(request_t& req, response_t& res,
+	const std::string& upload_dir)
+{
+	std::string err;
+	webcool_settings_t settings;
+	{
+		std::lock_guard<std::mutex> guard(g_settings_mutex);
+		if (!load_settings_unlocked(upload_dir, settings, err)) {
+			json_error(res, 500, err.c_str(), req.isKeepAlive());
+			return true;
+		}
+		if (req.getMethod() == acl::HTTP_METHOD_POST) {
+			settings.local_disk_admin = request_bool_param(req,
+				"local_disk_admin", settings.local_disk_admin);
+			settings.local_disk_user = request_bool_param(req,
+				"local_disk_user", settings.local_disk_user);
+			if (!save_settings_unlocked(upload_dir, settings, err)) {
+				json_error(res, 500, err.c_str(), req.isKeepAlive());
+				return true;
+			}
+		}
+	}
+	acl::json json;
+	acl::json_node& root = json.create_node();
+	root.add_bool("ok", true);
+	root.add_bool("local_disk_admin", settings.local_disk_admin);
+	root.add_bool("local_disk_user", settings.local_disk_user);
 	return sendJson(res, 200, root, req.isKeepAlive());
 }
 

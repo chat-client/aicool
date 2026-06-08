@@ -684,6 +684,10 @@ function appendFilePassword(url, path, local) {
         if (usersMenuBtn) {
           usersMenuBtn.hidden = !authState.admin;
         }
+        const localDiskMenuBtn = document.querySelector('.menu-btn[data-panel="panel-local-disk"]');
+        if (localDiskMenuBtn) {
+          localDiskMenuBtn.hidden = !authState.authenticated || !authState.localDiskAllowed;
+        }
         const accountMenuBtn = document.querySelector('.menu-btn[data-panel="panel-account"]');
         if (accountMenuBtn) {
           accountMenuBtn.hidden = !authState.authenticated;
@@ -691,9 +695,14 @@ function appendFilePassword(url, path, local) {
         const adminPanel = document.getElementById('panel-admin');
         const usersPanel = document.getElementById('panel-users');
         const accountPanel = document.getElementById('panel-account');
+        const localDiskPanel = document.getElementById('panel-local-disk');
         if (!authState.admin
           && ((adminPanel && adminPanel.classList.contains('active'))
             || (usersPanel && usersPanel.classList.contains('active')))) {
+          activatePanel('panel-files');
+        }
+        if ((!authState.authenticated || !authState.localDiskAllowed)
+          && localDiskPanel && localDiskPanel.classList.contains('active')) {
           activatePanel('panel-files');
         }
         if (!authState.authenticated && accountPanel && accountPanel.classList.contains('active')) {
@@ -705,6 +714,7 @@ function appendFilePassword(url, path, local) {
         authState.authenticated = false;
         authState.username = '';
         authState.admin = false;
+        authState.localDiskAllowed = true;
         authState.token = '';
         applyAuthUi();
         if (authUsername) {
@@ -718,6 +728,7 @@ function appendFilePassword(url, path, local) {
         authState.authenticated = !!data.authenticated;
         authState.username = data.username || '';
         authState.admin = !!data.admin;
+        authState.localDiskAllowed = data.local_disk_allowed !== false;
         if (!authState.authenticated) {
           authState.token = '';
         }
@@ -753,6 +764,7 @@ function appendFilePassword(url, path, local) {
           authState.authenticated = true;
           authState.username = data.username || username;
           authState.admin = !!data.admin;
+          authState.localDiskAllowed = data.local_disk_allowed !== false;
           authState.token = data.auth_token || '';
           if (authPassword) {
             authPassword.value = '';

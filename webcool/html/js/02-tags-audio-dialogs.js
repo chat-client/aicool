@@ -966,13 +966,24 @@ function getLocalDirPassword(path) {
       }
 
       function activateAdminView(name) {
+        const isLocalDisk = name === 'local-disk';
         if (adminStorageTab) {
-          adminStorageTab.classList.toggle('active', name === 'storage');
+          adminStorageTab.classList.toggle('active', !isLocalDisk);
+        }
+        if (adminLocalDiskTab) {
+          adminLocalDiskTab.classList.toggle('active', isLocalDisk);
         }
         if (adminStorageView) {
-          adminStorageView.hidden = name !== 'storage';
+          adminStorageView.hidden = isLocalDisk;
         }
-        loadAdminStoragePath();
+        if (adminLocalDiskView) {
+          adminLocalDiskView.hidden = !isLocalDisk;
+        }
+        if (isLocalDisk) {
+          loadAdminLocalDiskSettings();
+        } else {
+          loadAdminStoragePath();
+        }
       }
 
       function activateAccountView(name) {
@@ -1300,5 +1311,43 @@ function saveUnlockedFilePasswords() {
           adminStoragePath.value = currentAdminStoragePath;
         } catch (err) {
           showStatus(t('加载存储路径失败：') + err.message, 'err');
+        }
+      }
+
+      async function loadAdminLocalDiskSettings() {
+        if (!adminLocalDiskAdminCheckbox || !adminLocalDiskUserCheckbox) {
+          return;
+        }
+        try {
+          const data = await fetchJson(api.adminLocalDiskSettings);
+          adminLocalDiskAdminCheckbox.checked = data.local_disk_admin !== false;
+          adminLocalDiskUserCheckbox.checked = data.local_disk_user !== false;
+        } catch (err) {
+          showStatus(t('加载本地磁盘访问设置失败：') + err.message, 'err');
+        }
+      }
+
+      async function saveAdminLocalDiskSettings() {
+        if (!adminLocalDiskAdminCheckbox || !adminLocalDiskUserCheckbox) {
+          return;
+        }
+        if (adminLocalDiskSettingsSubmit) {
+          adminLocalDiskSettingsSubmit.disabled = true;
+        }
+        try {
+          const url = api.adminLocalDiskSettings
+            + '?local_disk_admin=' + encodeURIComponent(adminLocalDiskAdminCheckbox.checked ? '1' : '0')
+            + '&local_disk_user=' + encodeURIComponent(adminLocalDiskUserCheckbox.checked ? '1' : '0');
+          const data = await fetchJson(url, { method: 'POST' });
+          adminLocalDiskAdminCheckbox.checked = data.local_disk_admin !== false;
+          adminLocalDiskUserCheckbox.checked = data.local_disk_user !== false;
+          await refreshAuthStatus();
+          showStatus(t('本地磁盘访问设置已保存'), 'ok');
+        } catch (err) {
+          showStatus(t('保存本地磁盘访问设置失败：') + err.message, 'err');
+        } finally {
+          if (adminLocalDiskSettingsSubmit) {
+            adminLocalDiskSettingsSubmit.disabled = false;
+          }
         }
       }

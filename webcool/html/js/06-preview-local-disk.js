@@ -735,9 +735,13 @@ function saveUnlockedFolderPasswords() {
         if (panelId === 'panel-files' && !(options && options.skipLoadFiles)) {
           loadFiles();
         } else if (panelId === 'panel-local-disk') {
-          loadLocalDisk(activeLocalDiskPath || '');
+          if (authState.localDiskAllowed) {
+            loadLocalDisk(activeLocalDiskPath || '');
+          } else {
+            activatePanel('panel-files');
+          }
         } else if (panelId === 'panel-admin') {
-          loadAdminStoragePath();
+          activateAdminView('storage');
         }
       }
 

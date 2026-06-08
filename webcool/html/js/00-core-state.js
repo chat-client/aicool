@@ -101,6 +101,7 @@ function selectRenameInputText(input) {
         adminStorageMigrateResolve: '/api/v1/admin/storage/migrate/resolve',
         adminStorageMigrateControl: '/api/v1/admin/storage/migrate/control',
         adminStorageMigrateCleanup: '/api/v1/admin/storage/migrate/cleanup',
+        adminLocalDiskSettings: '/api/v1/admin/local-disk-settings',
         convertVideo: '/api/v1/video/convert',
         convertCancel: '/api/v1/video/convert/cancel',
         convertProgress: '/api/v1/video/convert/progress',
@@ -116,9 +117,13 @@ function selectRenameInputText(input) {
 
       var adminStorageTab = document.getElementById('admin-storage-tab');
 
+      var adminLocalDiskTab = document.getElementById('admin-local-disk-tab');
+
       var adminUsersTab = document.getElementById('admin-users-tab');
 
       var adminStorageView = document.getElementById('admin-storage-view');
+
+      var adminLocalDiskView = document.getElementById('admin-local-disk-view');
 
       var adminUsersView = document.getElementById('admin-users-view');
 
@@ -179,6 +184,14 @@ function selectRenameInputText(input) {
       var adminStorageBrowseBtn = document.getElementById('admin-storage-browse-btn');
 
       var adminStorageChooseBtn = document.getElementById('admin-storage-choose-btn');
+
+      var adminLocalDiskSettingsForm = document.getElementById('admin-local-disk-settings-form');
+
+      var adminLocalDiskAdminCheckbox = document.getElementById('admin-local-disk-admin');
+
+      var adminLocalDiskUserCheckbox = document.getElementById('admin-local-disk-user');
+
+      var adminLocalDiskSettingsSubmit = document.getElementById('admin-local-disk-settings-submit');
 
       var adminStorageProgress = document.getElementById('admin-storage-progress');
 
@@ -433,6 +446,7 @@ function selectRenameInputText(input) {
         authenticated: false,
         username: '',
         admin: false,
+        localDiskAllowed: true,
         token: ''
       };
 

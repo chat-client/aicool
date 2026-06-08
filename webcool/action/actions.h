@@ -20,6 +20,8 @@ std::string runtime_ffmpeg_path_get();
 void runtime_upload_dir_init(const std::string& upload_dir);
 std::string runtime_upload_dir_get();
 void runtime_upload_dir_set(const std::string& upload_dir);
+bool local_disk_access_allowed(const std::string& upload_dir, bool admin,
+	std::string& err);
 bool auth_system_initialized(const std::string& upload_dir);
 bool auth_request_allowed(request_t& req, const std::string& upload_dir,
 	std::string& username, bool& admin);
@@ -126,6 +128,12 @@ public:
 class AdminStorageMigrateCleanupAction {
 public:
 	static bool run(request_t& req, response_t& res);
+};
+
+class AdminLocalDiskSettingsAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
 };
 
 class AuthStatusAction {

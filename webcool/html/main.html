@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>文件管理控制台</title>
-  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260607-17">
+  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260607-18">
   <script>
     (function () {
       var lang = 'zh';
@@ -11,7 +11,7 @@
         lang = localStorage.getItem('webcool:language:v1') === 'en' ? 'en' : 'zh';
       } catch (_) {}
       document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
-      document.write('<script src="/webcool/html/i18n/' + lang + '.js?v=auth-20260607-17"><\/script>');
+      document.write('<script src="/webcool/html/i18n/' + lang + '.js?v=auth-20260607-18"><\/script>');
     })();
   </script>
 </head>
@@ -265,6 +265,7 @@
         <div class="admin-shell">
           <aside class="admin-command-bar" aria-label="系统设置功能命令">
             <button id="admin-storage-tab" class="admin-command-btn active" type="button">存储路径</button>
+            <button id="admin-local-disk-tab" class="admin-command-btn" type="button" data-i18n="本地磁盘">本地磁盘</button>
             <button id="reload-template-btn" class="admin-command-btn" type="button">刷新模板缓存</button>
           </aside>
           <div class="admin-display">
@@ -291,6 +292,23 @@
                   <button type="button" id="admin-storage-progress-cancel" class="tag-dialog-btn danger">取消</button>
                 </div>
               </div>
+            </section>
+            <section id="admin-local-disk-view" class="admin-view" hidden>
+              <h2 data-i18n="本地磁盘访问">本地磁盘访问</h2>
+              <p class="admin-view-desc" data-i18n="分别控制管理员和普通用户是否可以访问服务器本地磁盘。">分别控制管理员和普通用户是否可以访问服务器本地磁盘。</p>
+              <form id="admin-local-disk-settings-form" class="account-password-form">
+                <label class="account-password-label">
+                  <input id="admin-local-disk-admin" type="checkbox">
+                  <span data-i18n="允许管理员访问本地磁盘">允许管理员访问本地磁盘</span>
+                </label>
+                <label class="account-password-label">
+                  <input id="admin-local-disk-user" type="checkbox">
+                  <span data-i18n="允许普通用户访问本地磁盘">允许普通用户访问本地磁盘</span>
+                </label>
+                <div class="account-password-actions">
+                  <button id="admin-local-disk-settings-submit" class="admin-storage-choose-btn" type="submit" data-i18n="保存">保存</button>
+                </div>
+              </form>
             </section>
           </div>
         </div>
@@ -500,6 +518,6 @@
     </div>
   </div>
 
-  <script src="/webcool/html/main.js?v=auth-20260607-17"></script>
+  <script src="/webcool/html/main.js?v=auth-20260607-18"></script>
 </body>
 </html>

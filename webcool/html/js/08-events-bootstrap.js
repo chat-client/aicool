@@ -441,6 +441,19 @@
         });
       }
 
+      if (adminLocalDiskTab) {
+        adminLocalDiskTab.addEventListener('click', function () {
+          activateAdminView('local-disk');
+        });
+      }
+
+      if (adminLocalDiskSettingsForm) {
+        adminLocalDiskSettingsForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          saveAdminLocalDiskSettings();
+        });
+      }
+
       if (adminLanguageSelect) {
         adminLanguageSelect.value = UI_LANG;
       }
