@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="下载 webcool（文酷）服务端与移动端：macOS、Debian/Ubuntu、CentOS/RHEL、Windows 安装包及 Android APK；iOS 请前往 App Store 搜索 webcool 或文酷。">
+  <meta name="keywords" content="webcool, 文酷, 下载, macOS, deb, rpm, Android, iOS, App Store">
+  <title>下载 webcool · 文酷</title>
+  <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="css/download.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a class="brand" href="../index.html">
+        <img class="brand-icon" src="../assets/favicon-64.png" alt="" width="36" height="36">
+        <span>webcool</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="../index.html" class="zh-only">首页</a><a href="../index.html" class="en-only">Home</a></li>
+        <li><a href="../about/" class="zh-only">关于</a><a href="../about/" class="en-only">About</a></li>
+        <li><a href="#demo" class="zh-only">在线演示</a><a href="#demo" class="en-only">Live Demo</a></li>
+        <li><a href="#server" class="zh-only">服务端</a><a href="#server" class="en-only">Server</a></li>
+        <li><a href="#mirror" class="zh-only">网盘镜像</a><a href="#mirror" class="en-only">Cloud Mirror</a></li>
+        <li><a href="#mobile" class="zh-only">移动端</a><a href="#mobile" class="en-only">Mobile</a></li>
+        <li><a href="#install" class="zh-only">安装说明</a><a href="#install" class="en-only">Install Guide</a></li>
+      </ul>
+      <div class="nav-actions">
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <button type="button" data-lang="zh" class="active">中文</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+        <button class="menu-toggle" type="button" aria-label="Menu">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="download-hero">
+    <div class="container">
+      <h1 class="zh-only">下载 webcool</h1>
+      <h1 class="en-only">Download webcool</h1>
+      <p class="hero-subtitle zh-only">文酷 · 私有文件管理柜</p>
+      <p class="hero-subtitle en-only">Wencool · Private File Management</p>
+      <p class="hero-desc zh-only">
+        选择对应平台的安装包或应用。服务端支持 macOS、Linux 与 Windows，
+        安装包自包含 webcool、sqlite 与 ffmpeg；移动端连接你的 webcool 服务器。
+      </p>
+      <p class="hero-desc en-only">
+        Choose the installer or app for your platform. Server packages for macOS, Linux, and Windows
+        bundle webcool, sqlite, and ffmpeg. Mobile apps connect to your webcool server.
+      </p>
+      <div class="version-badge">
+        <span class="zh-only">当前版本</span>
+        <span class="en-only">Latest</span>
+        <strong id="release-version">v1.0.0</strong>
+        <span>·</span>
+        <span class="zh-only">更新于</span>
+        <span class="en-only">Updated</span>
+        <span id="release-date">2026-06-18</span>
+      </div>
+      <div id="demo" class="demo-banner download-demo-banner">
+        <p class="zh-only">
+          <strong>在线演示：</strong>访问
+          <a href="http://39.97.46.27:8080/" target="_blank" rel="noopener">http://39.97.46.27:8080/</a>，
+          使用账号 <code>demo</code>、密码 <code>111111</code> 登录，即可体验 webcool 文件管理控制台。
+        </p>
+        <p class="en-only">
+          <strong>Live demo:</strong> Open
+          <a href="http://39.97.46.27:8080/" target="_blank" rel="noopener">http://39.97.46.27:8080/</a>
+          and sign in with username <code>demo</code> and password <code>111111</code> to explore the webcool file console.
+        </p>
+        <div class="download-demo-actions">
+          <a class="btn btn-demo" href="http://39.97.46.27:8080/" target="_blank" rel="noopener">
+            <span class="zh-only">打开在线演示</span>
+            <span class="en-only">Open Live Demo</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Server downloads -->
+  <section id="server" class="download-section">
+    <div class="container">
+      <h2 class="download-section-title zh-only">服务端安装包</h2>
+      <h2 class="download-section-title en-only">Server Installers</h2>
+      <p class="download-section-desc zh-only">
+        适用于家庭服务器、工作站或私有云部署。安装后运行 <code>webcool -s 0.0.0.0:8080</code> 即可在浏览器访问控制台。
+      </p>
+      <p class="download-section-desc en-only">
+        For home servers, workstations, or private cloud. After install, run <code>webcool -s 0.0.0.0:8080</code> and open the console in your browser.
+      </p>
+      <div class="download-grid">
+        <article class="download-card">
+          <div class="download-card-icon">🍎</div>
+          <h3>macOS</h3>
+          <p class="platform-meta">.pkg · Apple Silicon &amp; Intel</p>
+          <p class="platform-desc zh-only">双击安装包完成安装，程序部署于 <code>/opt/webcool</code>，启动入口为 <code>/usr/local/bin/webcool</code>。</p>
+          <p class="platform-desc en-only">Double-click the .pkg to install under <code>/opt/webcool</code>; launcher at <code>/usr/local/bin/webcool</code>.</p>
+          <div class="download-actions">
+            <a class="btn btn-primary" data-download-key="macos_arm64">
+              <span class="zh-only">下载 Apple Silicon</span>
+              <span class="en-only">Apple Silicon</span>
+            </a>
+            <a class="btn btn-outline" data-download-key="macos_x64">
+              <span class="zh-only">下载 Intel</span>
+              <span class="en-only">Intel (x86_64)</span>
+            </a>
+          </div>
+        </article>
+        <article class="download-card">
+          <div class="download-card-icon">🐧</div>
+          <h3>Debian / Ubuntu</h3>
+          <p class="platform-meta">.deb · amd64 &amp; arm64</p>
+          <p class="platform-desc zh-only">适用于 Debian、Ubuntu 及衍生发行版。安装后同样部署于 <code>/opt/webcool</code>。</p>
+          <p class="platform-desc en-only">For Debian, Ubuntu, and derivatives. Installs to <code>/opt/webcool</code>.</p>
+          <div class="download-actions">
+            <a class="btn btn-primary" data-download-key="deb_amd64">
+              <span class="zh-only">下载 amd64</span>
+              <span class="en-only">amd64</span>
+            </a>
+            <a class="btn btn-outline" data-download-key="deb_arm64">
+              <span class="zh-only">下载 arm64</span>
+              <span class="en-only">arm64</span>
+            </a>
+          </div>
+        </article>
+        <article class="download-card">
+          <div class="download-card-icon">🔴</div>
+          <h3>CentOS / RHEL</h3>
+          <p class="platform-meta">.rpm · x86_64 &amp; aarch64</p>
+          <p class="platform-desc zh-only">适用于 CentOS、RHEL、Rocky Linux、AlmaLinux 等 RPM 系发行版。</p>
+          <p class="platform-desc en-only">For CentOS, RHEL, Rocky Linux, AlmaLinux, and other RPM-based distros.</p>
+          <div class="download-actions">
+            <a class="btn btn-primary" data-download-key="rpm_x86_64">
+              <span class="zh-only">下载 x86_64</span>
+              <span class="en-only">x86_64</span>
+            </a>
+            <a class="btn btn-outline" data-download-key="rpm_aarch64">
+              <span class="zh-only">下载 aarch64</span>
+              <span class="en-only">aarch64</span>
+            </a>
+          </div>
+        </article>
+        <article class="download-card">
+          <div class="download-card-icon">🪟</div>
+          <h3>Windows</h3>
+          <p class="platform-meta">.exe / .zip · x64</p>
+          <p class="platform-desc zh-only">
+            推荐使用安装向导（setup.exe），<br>
+            默认安装至 <code>C:\Program Files\webcool</code>,<br>
+            并创建开始菜单与桌面快捷方式;<br>
+            上传数据位于 <code>C:\ProgramData\webcool\uploads</code>。
+            <!--也可下载 ZIP 解压后运行 <code>run-webcool.ps1</code>。-->
+          </p>
+          <p class="platform-desc en-only">
+            Prefer the setup.exe installer: <br> 
+            Defaults to <code>C:\Program Files\webcool</code>,<br>
+            Start Menu &amp; desktop shortcuts; <br>
+            Uploads go to <code>C:\ProgramData\webcool\uploads</code>.
+            <!--Or download the ZIP and run <code>run-webcool.ps1</code>.-->
+          </p>
+          <div class="download-actions">
+            <a class="btn btn-primary" data-download-key="windows_setup">
+              <span class="zh-only">下载安装程序</span>
+              <span class="en-only">Setup EXE</span>
+            </a>
+            <a class="btn btn-outline" data-download-key="windows_zip">
+              <span class="zh-only">下载 ZIP 包</span>
+              <span class="en-only">ZIP Package</span>
+            </a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cloud mirror downloads -->
+  <section id="mirror" class="download-section alt">
+    <div class="container">
+      <h2 class="download-section-title zh-only">网盘镜像下载</h2>
+      <h2 class="download-section-title en-only">Cloud Drive Mirrors</h2>
+      <p class="download-section-desc zh-only">
+        若本站直链下载较慢或不可用，可从夸克网盘、百度网盘获取相同安装包（含服务端与 Android APK 等）。
+      </p>
+      <p class="download-section-desc en-only">
+        If direct downloads are slow or unavailable, get the same installers (server packages and Android APK) from Quark or Baidu Netdisk.
+      </p>
+      <div class="download-grid">
+        <article class="download-card">
+          <div class="download-card-icon">☁️</div>
+          <h3 class="zh-only">夸克网盘</h3>
+          <h3 class="en-only">Quark Drive</h3>
+          <p class="platform-meta zh-only">国内网盘 · 免提取码</p>
+          <p class="platform-meta en-only">Quark · No extraction code</p>
+          <p class="platform-desc zh-only">
+            在夸克 App 或浏览器中打开分享链接，保存到网盘后下载对应平台安装包。
+          </p>
+          <p class="platform-desc en-only">
+            Open the share link in the Quark app or browser, save to your drive, then download the installer you need.
+          </p>
+          <div class="download-actions">
+            <a class="btn btn-primary" href="https://pan.quark.cn/s/f0902ac840be#/list/share" target="_blank" rel="noopener">
+              <span class="zh-only">打开夸克网盘</span>
+              <span class="en-only">Open Quark Drive</span>
+            </a>
+          </div>
+        </article>
+        <article class="download-card">
+          <div class="download-card-icon">📦</div>
+          <h3 class="zh-only">百度网盘</h3>
+          <h3 class="en-only">Baidu Netdisk</h3>
+          <p class="platform-meta zh-only">提取码：<strong>1234</strong></p>
+          <p class="platform-meta en-only">Extraction code: <strong>1234</strong></p>
+          <p class="platform-desc zh-only">
+            打开链接后输入提取码 <code>1234</code>，在百度网盘 App 或网页版中下载安装包。
+          </p>
+          <p class="platform-desc en-only">
+            Open the link, enter code <code>1234</code>, then download from the Baidu Netdisk app or web client.
+          </p>
+          <div class="download-actions">
+            <a class="btn btn-primary" href="https://pan.baidu.com/share/init?surl=6AiiSLlmSPMcIcjCfxsJJg&amp;pwd=1234" target="_blank" rel="noopener">
+              <span class="zh-only">打开百度网盘</span>
+              <span class="en-only">Open Baidu Netdisk</span>
+            </a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mobile downloads -->
+  <section id="mobile" class="download-section alt">
+    <div class="container">
+      <h2 class="download-section-title zh-only">移动端应用</h2>
+      <h2 class="download-section-title en-only">Mobile Apps</h2>
+      <p class="download-section-desc zh-only">
+        安装移动端后，在登录页填写 webcool 服务器地址，或使用局域网扫描自动发现。
+      </p>
+      <p class="download-section-desc en-only">
+        After installing, enter your webcool server URL on login, or use LAN scan to auto-discover.
+      </p>
+      <div class="download-grid">
+        <article class="download-card">
+          <div class="download-card-icon">🤖</div>
+          <h3>Android</h3>
+          <p class="platform-meta">.apk · Android 6.0+</p>
+          <p class="platform-desc zh-only">
+            下载 APK 后安装。若系统提示未知来源，请在设置中允许安装来自此来源的应用。
+            支持相册增量备份、虚拟磁盘浏览、标签管理与视频投屏。
+          </p>
+          <p class="platform-desc en-only">
+            Download and install the APK. Allow installs from this source if prompted.
+            Album backup, virtual disk browse, tags, and video casting included.
+          </p>
+          <div class="download-actions">
+            <a class="btn btn-primary" data-download-key="android">
+              <span class="zh-only">下载 Android APK</span>
+              <span class="en-only">Download APK</span>
+            </a>
+          </div>
+        </article>
+        <article class="download-card ios-card">
+          <div class="download-card-icon">📱</div>
+          <h3>iOS</h3>
+          <p class="platform-meta">App Store · iPhone / iPad</p>
+          <p class="platform-desc zh-only">
+            iOS 版请前往 Apple App Store 下载，不支持在此页面直接安装。
+          </p>
+          <p class="platform-desc en-only">
+            The iOS app is available on the Apple App Store — not as a direct download here.
+          </p>
+          <div class="appstore-guide">
+            <strong class="zh-only">在 App Store 中搜索</strong>
+            <strong class="en-only">Search on the App Store</strong>
+            <div class="appstore-keywords">
+              <span>webcool</span>
+              <span class="zh-only">文酷</span>
+              <span class="en-only">Wencool</span>
+            </div>
+            <ol class="appstore-steps zh-only">
+              <li>打开 iPhone 或 iPad 上的 <strong>App Store</strong></li>
+              <li>点击底部搜索，输入 <strong>webcool</strong> 或 <strong>文酷</strong></li>
+              <li>找到 webcool 应用后点击「获取」安装</li>
+              <li>打开应用，填写 webcool 服务器地址或扫描局域网</li>
+            </ol>
+            <ol class="appstore-steps en-only">
+              <li>Open the <strong>App Store</strong> on your iPhone or iPad</li>
+              <li>Tap Search and enter <strong>webcool</strong> or <strong>文酷</strong></li>
+              <li>Find the webcool app and tap Get to install</li>
+              <li>Launch the app, enter your server URL or use LAN scan</li>
+            </ol>
+          </div>
+          <div class="download-actions" style="margin-top: 16px;">
+            <a class="btn btn-primary" href="https://apps.apple.com/cn/search?term=webcool" target="_blank" rel="noopener">
+              <span class="zh-only">前往 App Store 搜索</span>
+              <span class="en-only">Open App Store Search</span>
+            </a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install guide -->
+  <section id="install" class="download-section">
+    <div class="container">
+      <div class="install-notes">
+        <h3 class="zh-only">安装与启动</h3>
+        <h3 class="en-only">Install &amp; Run</h3>
+        <details open>
+          <summary>macOS</summary>
+          <pre class="zh-only"># 安装 .pkg 后启动
+webcool -s 0.0.0.0:8080
+
+# 数据默认目录
+~/Library/Application Support/webcool/data</pre>
+          <pre class="en-only"># After installing the .pkg
+webcool -s 0.0.0.0:8080 -D
+
+# Default data directory
+~/Library/Application Support/webcool/data</pre>
+        </details>
+        <details>
+          <summary>Debian / Ubuntu</summary>
+          <pre>sudo dpkg -i webcool_*.deb
+webcool -s 0.0.0.0:8080 -D</pre>
+        </details>
+        <details>
+          <summary>CentOS / RHEL</summary>
+          <pre>sudo rpm -ivh webcool-*.rpm
+webcool -s 0.0.0.0:8080 -D</pre>
+        </details>
+        <details>
+          <!-- <summary>webcool.ps1Windows</summary> -->
+          <pre class="zh-only"># 运行 setup.exe 安装向导
+# 默认目录：C:\Program Files\webcool
+# 数据目录：C:\ProgramData\webcool\uploads
+
+          <pre class="en-only"># Run setup.exe installer
+# Default: C:\Program Files\webcool
+# Data: C:\ProgramData\webcool\uploads
+
+        </details>
+        <details>
+          <summary>Android</summary>
+          <pre class="zh-only"># 安装 APK 后打开应用
+# 登录页填写：http://&lt;服务器IP&gt;:8080
+# 或使用「局域网扫描」自动发现</pre>
+          <pre class="en-only"># After installing the APK, open the app
+# Enter: http://&lt;server-ip&gt;:8080
+# Or use LAN scan to auto-discover</pre>
+        </details>
+        <p class="download-unavailable zh-only" style="margin-top: 16px;">
+          安装包文件请放置于本站 <code>download/files/</code> 目录，并在 <code>releases.json</code> 中更新版本与文件名。
+        </p>
+        <p class="download-unavailable en-only" style="margin-top: 16px;">
+          Place installer files in <code>download/files/</code> and update <code>releases.json</code> with version and filenames.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="../index.html">
+            <img class="brand-icon" src="../assets/favicon-64.png" alt="" width="36" height="36">
+            <span>webcool</span>
+          </a>
+          <p class="zh-only">webcool（文酷）— 私有文件管理柜。</p>
+          <p class="en-only">webcool — private file management ecosystem.</p>
+        </div>
+        <div class="footer-col">
+          <h5 class="zh-only">链接</h5>
+          <h5 class="en-only">Links</h5>
+          <ul>
+            <li><a href="../index.html" class="zh-only">返回首页</a><a href="../index.html" class="en-only">Back to Home</a></li>
+            <li><a href="../about/" class="zh-only">关于</a><a href="../about/" class="en-only">About</a></li>
+            <li><a href="#demo" class="zh-only">在线演示</a><a href="#demo" class="en-only">Live Demo</a></li>
+            <li><a href="#server" class="zh-only">服务端下载</a><a href="#server" class="en-only">Server Downloads</a></li>
+            <li><a href="#mirror" class="zh-only">网盘镜像</a><a href="#mirror" class="en-only">Cloud Mirrors</a></li>
+            <li><a href="#mobile" class="zh-only">移动端下载</a><a href="#mobile" class="en-only">Mobile Downloads</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 webcool · 文酷</span>
+        <span class="zh-only"><a href="../about/">关于</a> · 反馈：<a href="mailto:whouseit@126.com">whouseit@126.com</a></span>
+        <span class="en-only"><a href="../about/">About</a> · <a href="mailto:whouseit@126.com">whouseit@126.com</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/download.js"></script>
+</body>
+</html>

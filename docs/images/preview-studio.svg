@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="620" viewBox="0 0 1100 620" role="img" aria-labelledby="title desc">
+  <title id="title">webcool 多媒体预览与编辑</title>
+  <desc id="desc">展示图片编辑、视频续播、音频播放、文本查看和 PDF 预览能力。</desc>
+  <rect width="1100" height="620" rx="24" fill="#f8fbff"/>
+  <text x="54" y="78" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#223d5d">预览与媒体工作台</text>
+  <rect x="54" y="118" width="462" height="392" rx="18" fill="#ffffff" stroke="#cfe1f3"/>
+  <rect x="80" y="148" width="410" height="48" rx="12" fill="#f4f9ff" stroke="#dce8f5"/>
+  <text x="102" y="179" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#31587d">图片预览：design.png</text>
+  <text x="350" y="179" font-family="Arial, sans-serif" font-size="18" fill="#31587d">− □ ×</text>
+  <rect x="92" y="218" width="386" height="46" rx="10" fill="#eef6ff" stroke="#d5e7f6"/>
+  <text x="116" y="248" font-family="Arial, sans-serif" font-size="15" fill="#31587d">↶  ↷  ✂  ＋  －  1280 x 720  ⬇  💾</text>
+  <rect x="92" y="286" width="386" height="184" rx="14" fill="#dfeffd" stroke="#bdd7ee"/>
+  <circle cx="186" cy="360" r="42" fill="#79b7e8"/>
+  <rect x="260" y="322" width="158" height="84" rx="12" fill="#ffffff" opacity="0.82"/>
+  <text x="285" y="372" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#2a5278">图片编辑</text>
+  <rect x="554" y="118" width="492" height="172" rx="18" fill="#ffffff" stroke="#cfe1f3"/>
+  <text x="584" y="160" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#233f60">视频播放与续播</text>
+  <rect x="584" y="184" width="410" height="70" rx="12" fill="#1d2d44"/>
+  <rect x="612" y="230" width="330" height="8" rx="4" fill="#60748d"/>
+  <rect x="612" y="230" width="186" height="8" rx="4" fill="#4bd18f"/>
+  <text x="612" y="214" font-family="Arial, sans-serif" font-size="15" fill="#ffffff">从上次位置继续播放</text>
+  <rect x="554" y="316" width="224" height="194" rx="18" fill="#ffffff" stroke="#cfe1f3"/>
+  <text x="584" y="360" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#233f60">PDF 预览</text>
+  <rect x="584" y="382" width="162" height="94" rx="10" fill="#f1f6fc" stroke="#dce8f5"/>
+  <text x="620" y="438" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#e05050">PDF</text>
+  <rect x="822" y="316" width="224" height="194" rx="18" fill="#ffffff" stroke="#cfe1f3"/>
+  <text x="852" y="360" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#233f60">音频/文本</text>
+  <text x="852" y="406" font-family="Arial, sans-serif" font-size="16" fill="#31587d">♫ 顺序 / 随机 / 循环</text>
+  <text x="852" y="446" font-family="Arial, sans-serif" font-size="16" fill="#31587d">{ } 代码与日志查看</text>
+</svg>

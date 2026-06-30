@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="620" viewBox="0 0 1100 620" role="img" aria-labelledby="title desc">
+  <title id="title">webcool 标签树展示</title>
+  <desc id="desc">展示 webcool 标签树的多级标签、保留标签、自建标签，以及标签视图中文件仅移除关联不删除原文件的行为。</desc>
+  <rect width="1100" height="620" rx="24" fill="#f5faff"/>
+  <rect x="28" y="28" width="286" height="564" rx="18" fill="#ffffff" stroke="#cfe1f3"/>
+  <text x="58" y="78" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#233b5d">Tag Tree</text>
+  <rect x="56" y="112" width="230" height="426" rx="16" fill="#fbfdff" stroke="#d7e6f5"/>
+  <text x="82" y="152" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#2d5275">标签分类</text>
+  <text x="82" y="194" font-family="Arial, sans-serif" font-size="15" fill="#355f86">▾ 视频</text>
+  <text x="108" y="228" font-family="Arial, sans-serif" font-size="15" fill="#5a7c9c">• 教程</text>
+  <text x="108" y="262" font-family="Arial, sans-serif" font-size="15" fill="#5a7c9c">• 课程</text>
+  <text x="82" y="306" font-family="Arial, sans-serif" font-size="15" fill="#355f86">▾ 音频</text>
+  <text x="108" y="340" font-family="Arial, sans-serif" font-size="15" fill="#5a7c9c">• 访谈</text>
+  <text x="82" y="384" font-family="Arial, sans-serif" font-size="15" fill="#355f86">▾ 图片</text>
+  <text x="108" y="418" font-family="Arial, sans-serif" font-size="15" fill="#5a7c9c">• 海报</text>
+  <text x="82" y="462" font-family="Arial, sans-serif" font-size="15" fill="#355f86">▾ 工作资料 🔒</text>
+  <text x="108" y="496" font-family="Arial, sans-serif" font-size="15" fill="#5a7c9c">• 产品方案</text>
+  <text x="108" y="530" font-family="Arial, sans-serif" font-size="15" fill="#5a7c9c">• 客户样片</text>
+  <rect x="344" y="28" width="728" height="564" rx="18" fill="#ffffff" stroke="#cfe1f3"/>
+  <text x="378" y="78" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#233b5d">标签视图文件列表</text>
+  <rect x="378" y="112" width="662" height="54" rx="12" fill="#f7fbff" stroke="#dce8f5"/>
+  <text x="406" y="146" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#516b86">当前标签: 工作资料 / 产品方案</text>
+  <rect x="378" y="190" width="662" height="72" rx="12" fill="#ffffff" stroke="#e3edf7"/>
+  <text x="406" y="224" font-family="Arial, sans-serif" font-size="16" fill="#25476a">🏷 产品路线图.pdf</text>
+  <text x="406" y="248" font-family="Arial, sans-serif" font-size="14" fill="#5d7b98">来源目录: 分类目录/工作/方案归档</text>
+  <rect x="908" y="206" width="102" height="36" rx="10" fill="#eaf4ff"/>
+  <text x="934" y="229" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#2f587f">预览</text>
+  <rect x="378" y="282" width="662" height="72" rx="12" fill="#ffffff" stroke="#e3edf7"/>
+  <text x="406" y="316" font-family="Arial, sans-serif" font-size="16" fill="#25476a">🏷 样片说明.mp4</text>
+  <text x="406" y="340" font-family="Arial, sans-serif" font-size="14" fill="#5d7b98">来源目录: 分类目录/工作/视频素材</text>
+  <rect x="908" y="298" width="102" height="36" rx="10" fill="#eaf4ff"/>
+  <text x="934" y="321" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#2f587f">观影</text>
+  <rect x="378" y="374" width="662" height="72" rx="12" fill="#ffffff" stroke="#e3edf7"/>
+  <text x="406" y="408" font-family="Arial, sans-serif" font-size="16" fill="#25476a">🏷 客户需求.txt</text>
+  <text x="406" y="432" font-family="Arial, sans-serif" font-size="14" fill="#5d7b98">来源目录: 分类目录/工作/方案归档</text>
+  <rect x="908" y="390" width="102" height="36" rx="10" fill="#fff5f1"/>
+  <text x="934" y="413" font-family="Arial, sans-serif" font-size="14" fill="#a85a45">移除</text>
+  <rect x="378" y="476" width="662" height="82" rx="16" fill="#eef7ff" stroke="#cfe1f3"/>
+  <text x="406" y="516" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#24486b">标签视图的关键规则</text>
+  <text x="406" y="546" font-family="Arial, sans-serif" font-size="14" fill="#355f86">• 标签用于跨目录聚合文件，不改变原始存放位置</text>
+  <text x="406" y="572" font-family="Arial, sans-serif" font-size="14" fill="#355f86">• 在标签视图中点击“移除”，只解除关联，不删除原文件</text>
+</svg>

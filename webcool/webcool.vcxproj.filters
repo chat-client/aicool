@@ -1,0 +1,262 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="源文件\action">
+      <UniqueIdentifier>{2bbca7f2-fcd7-44f6-b667-9e1762c58cd9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\action\admin">
+      <UniqueIdentifier>{9f5c4de2-7855-4f8b-b11c-99b6b8017a6a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\action\convert">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\action\file">
+      <UniqueIdentifier>{b2c3d4e5-f6a7-8901-bcde-f23456789012}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\action\localdisk">
+      <UniqueIdentifier>{cfd3192d-7c5a-49c9-89e0-f5411e38c877}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\template">
+      <UniqueIdentifier>{da9a4bf6-59b4-44f4-a9e7-0caec0c50f8d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\win32">
+      <UniqueIdentifier>{6de9ddec-b1f1-4553-ab3b-5b4db83923a8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="action\action_util.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="action\admin\storage_backup.cpp">
+      <Filter>源文件\action\admin</Filter>
+    </ClCompile>
+    <ClCompile Include="action\admin\admin_common.cpp">
+      <Filter>源文件\action\admin</Filter>
+    </ClCompile>
+    <ClCompile Include="action\admin\localdisk_setting.cpp">
+      <Filter>源文件\action\admin</Filter>
+    </ClCompile>
+    <ClCompile Include="action\admin\storage_migrate.cpp">
+      <Filter>源文件\action\admin</Filter>
+    </ClCompile>
+    <ClCompile Include="action\auth_actions.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="action\user_prefs.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\copy_action.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\delete_action.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\download_action.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\file_collect.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\file_util.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\list_files_action.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\move_action.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\open_file_action.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\recycle_bin.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\rename_action.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file\restore_action.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
+    <ClCompile Include="action\file_lock_actions.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder_actions.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="action\image_actions.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="action\localdisk\file_ops.cpp">
+      <Filter>源文件\action\localdisk</Filter>
+    </ClCompile>
+    <ClCompile Include="action\localdisk\list_download.cpp">
+      <Filter>源文件\action\localdisk</Filter>
+    </ClCompile>
+    <ClCompile Include="action\localdisk\open_import.cpp">
+      <Filter>源文件\action\localdisk</Filter>
+    </ClCompile>
+    <ClCompile Include="action\page_actions.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag_actions.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="action\upload_action.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\convert_api_action.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\convert_command.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\convert_ffmpeg.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\convert_output.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\convert_path.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\convert_probe.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\convert_stream.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\convert_task.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\convert_worker.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\local_convert_action.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\local_stream_action.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\remote_convert_action.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\video_probe_action.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="action\video_resume_action.cpp">
+      <Filter>源文件\action</Filter>
+    </ClCompile>
+    <ClCompile Include="http_servlet.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="template\html_renderer.cpp">
+      <Filter>源文件\template</Filter>
+    </ClCompile>
+    <ClCompile Include="config.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="http_router.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="http_service.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="master_service.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="win32\server_thread.cpp">
+      <Filter>源文件\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="win32\webcool_controller.cpp">
+      <Filter>源文件\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="win32\win32_gui.cpp">
+      <Filter>源文件\win32</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="http_servlet.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="action\action_util.h">
+      <Filter>源文件\action</Filter>
+    </ClInclude>
+    <ClInclude Include="action\actions.h">
+      <Filter>源文件\action</Filter>
+    </ClInclude>
+    <ClInclude Include="action\admin\admin_internal.h">
+      <Filter>源文件\action\admin</Filter>
+    </ClInclude>
+    <ClInclude Include="action\file\file_common.h">
+      <Filter>源文件\action\file</Filter>
+    </ClInclude>
+    <ClInclude Include="action\convert\convert_common.h">
+      <Filter>源文件\action\convert</Filter>
+    </ClInclude>
+    <ClInclude Include="action\localdisk\local_disk_common.h">
+      <Filter>源文件\action\localdisk</Filter>
+    </ClInclude>
+    <ClInclude Include="platform_compat.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="template\html_renderer.h">
+      <Filter>源文件\template</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="http_router.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="http_service.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="master_service.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="win32\server_thread.h">
+      <Filter>源文件\win32</Filter>
+    </ClInclude>
+    <ClInclude Include="win32\webcool_controller.h">
+      <Filter>源文件\win32</Filter>
+    </ClInclude>
+    <ClInclude Include="win32\win32_gui.h">
+      <Filter>源文件\win32</Filter>
+    </ClInclude>
+    <ClInclude Include="win32\resource.h">
+      <Filter>源文件\win32</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\webcool.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="win32\webcool.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

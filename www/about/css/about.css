@@ -1,0 +1,131 @@
+.about-hero {
+  padding: calc(var(--nav-height) + 48px) 0 32px;
+  text-align: center;
+}
+
+.about-hero h1 {
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 800;
+  color: var(--primary-dark);
+  margin: 0 0 12px;
+  letter-spacing: -0.02em;
+}
+
+.about-hero .hero-desc {
+  max-width: 680px;
+  margin: 0 auto;
+  color: var(--text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.about-section {
+  padding: 40px 0 56px;
+}
+
+.about-section.alt {
+  background: var(--bg-elevated);
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.about-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px 28px;
+}
+
+.about-section.alt .about-card {
+  background: var(--bg);
+}
+
+.about-card h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+  margin: 0 0 16px;
+}
+
+.about-card p {
+  margin: 0 0 14px;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+
+.about-card p:last-child {
+  margin-bottom: 0;
+}
+
+.contact-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px 18px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.contact-email:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.bio-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.bio-list li {
+  position: relative;
+  padding-left: 22px;
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+
+.bio-list li:last-child {
+  margin-bottom: 0;
+}
+
+.bio-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.bio-highlight {
+  margin-top: 20px;
+  padding: 18px 20px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--primary);
+}
+
+.bio-highlight p {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 768px) {
+  .about-grid {
+    grid-template-columns: 1fr;
+  }
+}

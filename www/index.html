@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="webcool（文酷）私有文件管理生态：浏览器控制台与 iOS/Android 移动端，支持 macOS/Linux/Windows 部署，相册增量备份、虚拟磁盘、多媒体预览、视频转码与投屏。">
+  <meta name="keywords" content="webcool, 文酷, 文件管理, 私有云, iOS, Android, 相册备份, 增量备份, 视频投屏, AirPlay, DLNA">
+  <title>webcool · 文酷 — 私有文件管理生态</title>
+  <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a class="brand" href="#">
+        <img class="brand-icon" src="assets/favicon-64.png" alt="" width="36" height="36">
+        <span>webcool</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#products"><span class="zh-only">产品</span><span class="en-only">Products</span></a></li>
+        <li><a href="#features"><span class="zh-only">功能</span><span class="en-only">Features</span></a></li>
+        <li><a href="#workflow"><span class="zh-only">工作流</span><span class="en-only">Workflow</span></a></li>
+        <li><a href="#showcase"><span class="zh-only">界面</span><span class="en-only">Screenshots</span></a></li>
+        <li><a href="#scenarios"><span class="zh-only">场景</span><span class="en-only">Scenarios</span></a></li>
+        <li><a href="#demo"><span class="zh-only">在线演示</span><span class="en-only">Live Demo</span></a></li>
+        <li><a href="#start"><span class="zh-only">快速开始</span><span class="en-only">Get Started</span></a></li>
+        <li><a href="download/"><span class="zh-only">下载</span><span class="en-only">Download</span></a></li>
+        <li><a href="about/"><span class="zh-only">关于</span><span class="en-only">About</span></a></li>
+      </ul>
+      <div class="nav-actions">
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <button type="button" data-lang="zh" class="active">中文</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+        <button class="menu-toggle" type="button" aria-label="Menu">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="hero-badge-dot"></span>
+          <span class="zh-only">自托管 · 跨平台 · 中英双语</span>
+          <span class="en-only">Self-Hosted · Cross-Platform · Bilingual UI</span>
+        </div>
+        <h1>webcool</h1>
+        <p class="hero-subtitle zh-only">文酷 — 你的私有文件，随时在手边</p>
+        <p class="hero-subtitle en-only">Your Private Files, Always Within Reach</p>
+        <p class="hero-desc zh-only">
+          webcool（文酷）是面向个人与私有环境的全能文件管理控制台：浏览器端管理远程与本地磁盘，
+          iOS / Android 原生移动端随时访问；统一 REST API 协作，支持标签组织、多媒体预览、
+          手机相册备份、视频转码、视频投屏与局域网自动发现服务器。
+        </p>
+        <p class="hero-desc en-only">
+          webcool is an all-in-one file management console for private environments — a full browser
+          console plus native iOS/Android mobile apps. Unified REST API for disk management, tags,
+          media preview, phone album backup, video transcoding, video casting, and LAN server discovery.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#start">
+            <span class="zh-only">开始使用</span>
+            <span class="en-only">Get Started</span>
+          </a>
+          <a class="btn btn-secondary" href="#products">
+            <span class="zh-only">了解产品</span>
+            <span class="en-only">Learn More</span>
+          </a>
+          <a class="btn btn-secondary" href="download/">
+            <span class="zh-only">软件下载</span>
+            <span class="en-only">Download</span>
+          </a>
+          <a class="btn btn-demo" href="http://39.97.46.27:8080/" target="_blank" rel="noopener">
+            <span class="zh-only">在线演示</span>
+            <span class="en-only">Live Demo</span>
+          </a>
+        </div>
+        <div id="demo" class="demo-banner">
+          <p class="zh-only">
+            <strong>在线演示：</strong>访问
+            <a href="http://39.97.46.27:8080/" target="_blank" rel="noopener">http://39.97.46.27:8080/</a>，
+            使用下方账号登录即可体验 webcool 文件管理控制台。
+          </p>
+          <p class="en-only">
+            <strong>Live demo:</strong> Open
+            <a href="http://39.97.46.27:8080/" target="_blank" rel="noopener">http://39.97.46.27:8080/</a>
+            and sign in with the credentials below to explore the webcool file console.
+          </p>
+          <div class="demo-creds">
+            <span class="zh-only">账号 <code>demo</code></span>
+            <span class="en-only">Username <code>demo</code></span>
+            <span class="zh-only">密码 <code>111111</code></span>
+            <span class="en-only">Password <code>111111</code></span>
+          </div>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-item">
+            <strong>50</strong>
+            <span class="zh-only">文件批量上传</span>
+            <span class="en-only">Batch Upload</span>
+          </div>
+          <div class="stat-item">
+            <strong>2</strong>
+            <span class="zh-only">界面语言</span>
+            <span class="en-only">UI Languages</span>
+          </div>
+          <div class="stat-item">
+            <strong>LAN</strong>
+            <span class="zh-only">局域网发现</span>
+            <span class="en-only">LAN Discovery</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-card">
+          <img src="assets/images/remote-disk-overview.svg" alt="webcool remote disk overview" width="520" height="293">
+        </div>
+        <div class="hero-float hero-float-1">
+          📷 <span class="zh-only">相册备份</span><span class="en-only">Album Backup</span>
+        </div>
+        <div class="hero-float hero-float-2">
+          📺 <span class="zh-only">视频投屏</span><span class="en-only">Video Casting</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Products -->
+  <section id="products" class="products">
+    <div class="container">
+      <span class="section-label zh-only">产品矩阵</span>
+      <span class="section-label en-only">Product Suite</span>
+      <h2 class="section-title zh-only">服务端 + 移动端，完整私有文件生态</h2>
+      <h2 class="section-title en-only">Server + Mobile, A Complete Private File Ecosystem</h2>
+      <p class="section-desc zh-only">
+        webcool 浏览器控制台提供完整文件管理能力，移动端将其延伸到手机。
+        两者通过统一 REST API 协作，数据完全掌握在你手中。
+      </p>
+      <p class="section-desc en-only">
+        The webcool browser console delivers full file management; the mobile apps extend it to your phone.
+        Both communicate via a unified REST API — your data stays entirely under your control.
+      </p>
+      <div class="product-cards">
+        <article class="product-card">
+          <div class="product-icon product-icon-server">🖥</div>
+          <span class="tag">webcool</span>
+          <h3 class="zh-only">Web 文件控制台</h3>
+          <h3 class="en-only">Web File Console</h3>
+          <p class="zh-only">
+            高性能 C++ Web 服务，浏览器内完成文件管理的全部环节。
+            虚拟磁盘与本地磁盘双模式、50 文件批量上传、拖拽操作、视频转码、
+            备份同步、存储迁移，以及用户与权限管理。
+          </p>
+          <p class="en-only">
+            A high-performance C++ web service covering the full file management lifecycle in the browser.
+            Dual virtual/local disk modes, 50-file batch upload, drag-and-drop, video transcoding,
+            backup sync, storage migration, and user access control.
+          </p>
+          <ul class="product-features">
+            <li class="zh-only">虚拟磁盘 &amp; 本地磁盘，列表 / 分栏浏览</li>
+            <li class="en-only">Virtual &amp; local disk with list / split views</li>
+            <li class="zh-only">拖拽上传、批量移动、Shift 多选回收</li>
+            <li class="en-only">Drag upload, batch move, Shift multi-select to recycle</li>
+            <li class="zh-only">视频编码探测、ffmpeg 转码、续播与图片编辑</li>
+            <li class="en-only">Codec detection, ffmpeg transcoding, resume &amp; image editing</li>
+            <li class="zh-only">备份路径、自动同步、存储路径安全迁移</li>
+            <li class="en-only">Backup paths, auto sync, safe storage path migration</li>
+            <li class="zh-only">macOS / Linux / Windows 安装包，自包含 ffmpeg 与 sqlite</li>
+            <li class="en-only">macOS / Linux / Windows installers with bundled ffmpeg &amp; sqlite</li>
+            <li class="zh-only">用户管理、本地磁盘权限、中英界面切换</li>
+            <li class="en-only">User management, local disk permissions, zh/en UI</li>
+          </ul>
+        </article>
+        <article class="product-card">
+          <div class="product-icon product-icon-mobile">📱</div>
+          <span class="tag">Mobile</span>
+          <h3 class="zh-only">原生移动客户端</h3>
+          <h3 class="en-only">Native Mobile Client</h3>
+          <p class="zh-only">
+            iOS（SwiftUI）与 Android（Java）原生应用，直接调用 webcool
+            <code>/api/v1/*</code> 接口，功能对齐 Web 端核心能力。
+          </p>
+          <p class="en-only">
+            Native iOS (SwiftUI) and Android (Java) apps that call webcool's existing
+            <code>/api/v1/*</code> endpoints, aligned with core desktop capabilities.
+          </p>
+          <ul class="product-features">
+            <li class="zh-only">登录 / 注册 / 修改密码，Bearer 令牌认证</li>
+            <li class="en-only">Login, register, change password, Bearer token auth</li>
+            <li class="zh-only">虚拟磁盘浏览、上传、移动、加锁 / 解锁</li>
+            <li class="en-only">Virtual disk browse, upload, move, lock / unlock</li>
+            <li class="zh-only">标签树：创建 / 移动 / 删除标签，绑定文件</li>
+            <li class="en-only">Tag tree: create, move, delete tags, bind files</li>
+            <li class="zh-only">服务器磁盘浏览（按账号权限）</li>
+            <li class="en-only">Server disk browse (permission-based)</li>
+            <li class="zh-only">手机相册备份：增量 / 重新 / 按日期同步</li>
+            <li class="en-only">Phone album backup: incremental, full resync, sync by date</li>
+            <li class="zh-only">Wi-Fi 局域网扫描，自动发现 webcool 服务</li>
+            <li class="en-only">Wi-Fi LAN scan to auto-discover webcool servers</li>
+            <li class="zh-only">视频投屏：iOS AirPlay / Android Google Cast 与 DLNA</li>
+            <li class="en-only">Video cast: iOS AirPlay, Android Google Cast &amp; DLNA</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features">
+    <div class="container">
+      <span class="section-label zh-only">核心能力</span>
+      <span class="section-label en-only">Core Capabilities</span>
+      <h2 class="section-title zh-only">轻量但不简陋</h2>
+      <h2 class="section-title en-only">Lightweight, Not Basic</h2>
+      <p class="section-desc zh-only">
+        从文件浏览到多媒体预览，从标签组织到安全加锁 — webcool 浏览器端与移动端共同构成一套实用的私有文件管理方案。
+      </p>
+      <p class="section-desc en-only">
+        From file browsing to media preview, tag organization to security locks —
+        webcool browser and mobile together form a practical private file management solution.
+      </p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📂</div>
+          <h4 class="zh-only">双磁盘管理</h4>
+          <h4 class="en-only">Dual Disk Management</h4>
+          <p class="zh-only">虚拟磁盘管理上传空间，本地磁盘直接浏览服务器文件系统，均支持列表与分栏模式。</p>
+          <p class="en-only">Virtual disk for uploads, local disk for server filesystem — both with list and split views.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🏷</div>
+          <h4 class="zh-only">标签树</h4>
+          <h4 class="en-only">Tag Tree</h4>
+          <p class="zh-only">跨目录按主题组织，支持子标签、批量加标签；标签视图删除仅解除引用，图片标签可预览模式浏览。</p>
+          <p class="en-only">Cross-directory topic organization, sub-tags, batch tagging; tag-view delete only removes references.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎬</div>
+          <h4 class="zh-only">多媒体预览</h4>
+          <h4 class="en-only">Media Preview</h4>
+          <p class="zh-only">图片、视频、音频、PDF、文本、Markdown 在线打开；视频续播，图片可旋转剪切编辑并保存。</p>
+          <p class="en-only">Images, video, audio, PDF, text, Markdown online; video resume, image rotate/crop/edit &amp; save.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h4 class="zh-only">上传与转码</h4>
+          <h4 class="en-only">Upload &amp; Transcode</h4>
+          <p class="zh-only">最多 50 文件同时上传，拖拽到目录树或上传区；上传后自动探测编码，不兼容则 ffmpeg 转码并显示进度。</p>
+          <p class="en-only">Up to 50 files at once, drag to tree or drop zone; auto codec detection, ffmpeg transcode with progress.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔐</div>
+          <h4 class="zh-only">加锁体系</h4>
+          <h4 class="en-only">Lock System</h4>
+          <p class="zh-only">目录、文件、标签均可加锁，继承式目录锁；前后端双重校验，改名同步更新锁与标签信息。</p>
+          <p class="en-only">Lock dirs, files, tags with inheritable dir locks; frontend + backend validation, rename syncs lock data.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💾</div>
+          <h4 class="zh-only">备份与迁移</h4>
+          <h4 class="en-only">Backup &amp; Migration</h4>
+          <p class="zh-only">多备份路径镜像、上传自动同步、手动备份同步；存储路径变更需确认迁移，避免数据不一致。</p>
+          <p class="en-only">Multi backup paths, upload auto-sync, manual backup sync; storage path change requires migration confirm.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🗑</div>
+          <h4 class="zh-only">回收站保护</h4>
+          <h4 class="en-only">Recycle Bin</h4>
+          <p class="zh-only">远程文件进 webcool 回收站，本地目录进系统回收站；支持批量恢复与彻底删除。</p>
+          <p class="en-only">Remote files to webcool recycle bin, local dirs to system trash; batch restore or permanent delete.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">👥</div>
+          <h4 class="zh-only">用户与权限</h4>
+          <h4 class="en-only">Users &amp; Permissions</h4>
+          <p class="zh-only">管理员与普通用户分权，可分别控制本地磁盘访问；账号设置支持改密与界面语言切换。</p>
+          <p class="en-only">Admin vs regular users; separate local disk access control; account settings for password &amp; language.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📷</div>
+          <h4 class="zh-only">手机相册备份</h4>
+          <h4 class="en-only">Phone Album Backup</h4>
+          <p class="zh-only">将本地照片与视频同步到 webcool 虚拟磁盘：支持增量备份、重新同步全量重传、按指定日期起同步；可按年/月/日自动归档到目标目录。</p>
+          <p class="en-only">Sync local photos &amp; videos to webcool virtual disk: incremental backup, full resync, or sync from a chosen date; auto-archive by year/month/day folders.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📺</div>
+          <h4 class="zh-only">移动端视频投屏</h4>
+          <h4 class="en-only">Mobile Video Casting</h4>
+          <p class="zh-only">视频预览页一键投屏到电视：iOS 支持 AirPlay；Android 优先 Google Cast，并自动搜索 DLNA 设备，可从当前进度续播。</p>
+          <p class="en-only">Cast from video preview to TV: iOS AirPlay; Android Google Cast with DLNA discovery, resume from current position.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📡</div>
+          <h4 class="zh-only">移动端 LAN 发现</h4>
+          <h4 class="en-only">Mobile LAN Discovery</h4>
+          <p class="zh-only">移动端扫描同一 Wi-Fi 下的 webcool 服务器，登录页一键连接，免手动输入 IP 地址。</p>
+          <p class="en-only">Mobile apps scan for webcool servers on the same Wi-Fi — one-tap connect, no manual IP entry.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Workflow -->
+  <section id="workflow" class="workflow">
+    <div class="container">
+      <span class="section-label zh-only">完整工作流</span>
+      <span class="section-label en-only">Complete Workflow</span>
+      <h2 class="section-title zh-only">上传、检测、转码、预览 — 一条链路打通</h2>
+      <h2 class="section-title en-only">Upload, Detect, Transcode, Preview — One Connected Flow</h2>
+      <p class="section-desc zh-only">
+        webcool 在上传完成后不会简单「存进去就结束」，而是继续处理播放兼容性，
+        把文件管理、媒体消费和长期运维衔接起来。
+      </p>
+      <p class="section-desc en-only">
+        webcool doesn't stop at storing files — it continues with playback compatibility,
+        connecting file management, media consumption, and long-term operations.
+      </p>
+      <div class="workflow-track">
+        <div class="workflow-step">
+          <div class="workflow-num">1</div>
+          <h4 class="zh-only">选择并上传</h4>
+          <h4 class="en-only">Select &amp; Upload</h4>
+          <p class="zh-only">拖拽或选择最多 50 个文件，指定虚拟磁盘目标目录，实时显示进度、速度与暂停控制。</p>
+          <p class="en-only">Drag or select up to 50 files, pick a virtual disk folder, with live progress, speed &amp; pause controls.</p>
+        </div>
+        <div class="workflow-arrow" aria-hidden="true">→</div>
+        <div class="workflow-step">
+          <div class="workflow-num">2</div>
+          <h4 class="zh-only">编码探测</h4>
+          <h4 class="en-only">Codec Detection</h4>
+          <p class="zh-only">视频上传后自动检测音频编码是否适合浏览器播放，例如 AC3 等不兼容格式会主动提示。</p>
+          <p class="en-only">After upload, auto-detects if audio codec suits browser playback — AC3 etc. triggers a prompt.</p>
+        </div>
+        <div class="workflow-arrow" aria-hidden="true">→</div>
+        <div class="workflow-step">
+          <div class="workflow-num">3</div>
+          <h4 class="zh-only">按需转码</h4>
+          <h4 class="en-only">Transcode On Demand</h4>
+          <p class="zh-only">内置 ffmpeg 支持（安装包自带），转码过程有进度提示，完成后即可在线播放或续播。</p>
+          <p class="en-only">Built-in ffmpeg support (bundled in installer packages), progress shown, then play or resume online.</p>
+        </div>
+        <div class="workflow-arrow" aria-hidden="true">→</div>
+        <div class="workflow-step">
+          <div class="workflow-num">4</div>
+          <h4 class="zh-only">组织与保护</h4>
+          <h4 class="en-only">Organize &amp; Protect</h4>
+          <p class="zh-only">打标签跨目录归类、加锁保护敏感内容、备份同步到镜像路径，删除先进回收站。</p>
+          <p class="en-only">Tag across dirs, lock sensitive content, sync backups to mirror paths, delete goes to recycle bin.</p>
+        </div>
+      </div>
+      <div class="album-sync-modes">
+        <h3 class="album-sync-title zh-only">移动端相册备份 · 三种同步方式</h3>
+        <h3 class="album-sync-title en-only">Mobile Album Backup · Three Sync Modes</h3>
+        <div class="album-sync-grid">
+          <div class="album-sync-card">
+            <strong class="zh-only">增量同步</strong>
+            <strong class="en-only">Incremental</strong>
+            <p class="zh-only">仅上传上次同步后的新照片与视频，节省流量与时间，适合日常自动备份。</p>
+            <p class="en-only">Upload only new photos &amp; videos since last sync — ideal for everyday backup.</p>
+          </div>
+          <div class="album-sync-card">
+            <strong class="zh-only">重新同步</strong>
+            <strong class="en-only">Full Resync</strong>
+            <p class="zh-only">清除同步检查点，从相册开头重新扫描并上传，适合更换目录或需要全量重传时。</p>
+            <p class="en-only">Reset checkpoint and re-upload from scratch — for folder changes or full redo.</p>
+          </div>
+          <div class="album-sync-card">
+            <strong class="zh-only">按日期同步</strong>
+            <strong class="en-only">Sync by Date</strong>
+            <p class="zh-only">指定起始日期，仅同步该时间点之后的媒体；可按年/月/日格式自动归档到服务端目录。</p>
+            <p class="en-only">Pick a start date to sync media after that point; auto-archive into year/month/day folders.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Showcase -->
+  <section id="showcase" class="showcase">
+    <div class="container">
+      <span class="section-label zh-only">界面预览</span>
+      <span class="section-label en-only">Interface Preview</span>
+      <h2 class="section-title zh-only">在浏览器与手机上，同样流畅</h2>
+      <h2 class="section-title en-only">Smooth on Browser and Phone Alike</h2>
+      <div class="showcase-tabs">
+        <button class="showcase-tab active" data-panel="panel-remote" type="button">
+          <span class="zh-only">虚拟磁盘</span><span class="en-only">Virtual Disk</span>
+        </button>
+        <button class="showcase-tab" data-panel="panel-local" type="button">
+          <span class="zh-only">本地磁盘</span><span class="en-only">Local Disk</span>
+        </button>
+        <button class="showcase-tab" data-panel="panel-tags" type="button">
+          <span class="zh-only">标签树</span><span class="en-only">Tag Tree</span>
+        </button>
+        <button class="showcase-tab" data-panel="panel-preview" type="button">
+          <span class="zh-only">多媒体</span><span class="en-only">Media</span>
+        </button>
+        <button class="showcase-tab" data-panel="panel-recycle" type="button">
+          <span class="zh-only">回收站</span><span class="en-only">Recycle Bin</span>
+        </button>
+        <button class="showcase-tab" data-panel="panel-security" type="button">
+          <span class="zh-only">系统管理</span><span class="en-only">Admin</span>
+        </button>
+      </div>
+      <div id="panel-remote" class="showcase-panel active">
+        <div class="showcase-frame">
+          <img src="assets/images/remote-disk-overview.svg" alt="Remote disk overview" loading="lazy">
+        </div>
+        <p class="showcase-caption zh-only">虚拟磁盘总览 — 目录树、文件列表、标签与回收站</p>
+        <p class="showcase-caption en-only">Virtual disk overview — directory tree, file list, tags &amp; recycle bin</p>
+      </div>
+      <div id="panel-local" class="showcase-panel">
+        <div class="showcase-frame">
+          <img src="assets/images/local-disk-split.svg" alt="Local disk split view" loading="lazy">
+        </div>
+        <p class="showcase-caption zh-only">本地磁盘分栏模式 — 直接浏览服务器文件系统</p>
+        <p class="showcase-caption en-only">Local disk column mode — browse the server filesystem directly</p>
+      </div>
+      <div id="panel-tags" class="showcase-panel">
+        <div class="showcase-frame">
+          <img src="assets/images/tag-tree-overview.svg" alt="Tag tree" loading="lazy">
+        </div>
+        <p class="showcase-caption zh-only">标签树 — 跨目录按主题组织文件</p>
+        <p class="showcase-caption en-only">Tag tree — organize files by topic across directories</p>
+      </div>
+      <div id="panel-preview" class="showcase-panel">
+        <div class="showcase-frame">
+          <img src="assets/images/preview-studio.svg" alt="Media preview" loading="lazy">
+        </div>
+        <p class="showcase-caption zh-only">多媒体预览与编辑 — 图片旋转剪切、视频续播、Markdown 阅读；移动端支持投屏到电视</p>
+        <p class="showcase-caption en-only">Media preview &amp; editing — image rotate/crop, video resume, Markdown; mobile cast to TV</p>
+      </div>
+      <div id="panel-recycle" class="showcase-panel">
+        <div class="showcase-frame">
+          <img src="assets/images/recycle-bin-recovery.svg" alt="Recycle bin recovery" loading="lazy">
+        </div>
+        <p class="showcase-caption zh-only">回收站 — 误删可恢复，支持批量恢复与彻底删除</p>
+        <p class="showcase-caption en-only">Recycle bin — recover accidental deletes, batch restore or permanent delete</p>
+      </div>
+      <div id="panel-security" class="showcase-panel">
+        <div class="showcase-frame">
+          <img src="assets/images/security-and-admin.svg" alt="Security and admin" loading="lazy">
+        </div>
+        <p class="showcase-caption zh-only">加锁体系与系统管理 — 存储迁移、备份同步、语言与用户权限</p>
+        <p class="showcase-caption en-only">Lock system &amp; admin — storage migration, backup sync, language &amp; user permissions</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section id="architecture">
+    <div class="container">
+      <span class="section-label zh-only">架构</span>
+      <span class="section-label en-only">Architecture</span>
+      <h2 class="section-title zh-only">简洁的三层架构</h2>
+      <h2 class="section-title en-only">A Simple Three-Tier Architecture</h2>
+      <div class="arch-diagram">
+        <div class="arch-flow">
+          <div class="arch-node">
+            <div class="arch-node-icon">📱</div>
+            <strong>webcool</strong>
+            <span class="zh-only">移动端 · iOS / Android · 相册 · 投屏</span>
+            <span class="en-only">Mobile · iOS / Android · Album · Cast</span>
+          </div>
+          <div class="arch-arrow">⟷</div>
+          <div class="arch-node">
+            <div class="arch-node-icon">🌐</div>
+            <strong>webcool</strong>
+            <span class="zh-only">Web 控制台</span>
+            <span class="en-only">Web Console</span>
+          </div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-node">
+            <div class="arch-node-icon">💾</div>
+            <strong class="zh-only">存储</strong>
+            <strong class="en-only">Storage</strong>
+            <span class="zh-only">远程 + 本地磁盘</span>
+            <span class="en-only">Remote + Local Disks</span>
+          </div>
+        </div>
+        <div class="arch-api">
+          Authorization: Bearer &lt;auth_token&gt; &nbsp;·&nbsp; /api/v1/* &nbsp;·&nbsp; i18n zh / en
+        </div>
+        <div class="arch-notes">
+          <div class="arch-note">
+            <strong class="zh-only">自包含部署</strong>
+            <strong class="en-only">Self-Contained Deploy</strong>
+            <span class="zh-only">安装包内置 webcool、sqlite、ffmpeg；Linux/macOS 置于 /opt/webcool，Windows 默认 C:\Program Files\webcool</span>
+            <span class="en-only">Bundles webcool, sqlite, ffmpeg; Linux/macOS under /opt/webcool, Windows under C:\Program Files\webcool</span>
+          </div>
+          <div class="arch-note">
+            <strong class="zh-only">模块化前端</strong>
+            <strong class="en-only">Modular Frontend</strong>
+            <span class="zh-only">i18n 资源独立，功能拆分为 core、upload、preview、admin 等模块</span>
+            <span class="en-only">Separate i18n resources, features split into core, upload, preview, admin modules</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Platforms -->
+  <section id="platforms">
+    <div class="container">
+      <span class="section-label zh-only">支持平台</span>
+      <span class="section-label en-only">Supported Platforms</span>
+      <h2 class="section-title zh-only">一处部署，多端访问</h2>
+      <h2 class="section-title en-only">Deploy Once, Access Everywhere</h2>
+      <p class="section-desc zh-only">
+        webcool 提供 macOS (.pkg)、Debian/Ubuntu (.deb)、CentOS/RHEL (.rpm) 与 Windows (.exe) 安装包，
+        自包含运行环境；移动端覆盖 iOS 与 Android 原生体验。
+      </p>
+      <p class="section-desc en-only">
+        webcool offers macOS (.pkg), Debian/Ubuntu (.deb), CentOS/RHEL (.rpm), and Windows (.exe) installers
+        with a self-contained runtime; mobile apps cover native iOS and Android experiences.
+      </p>
+      <div class="platforms-grid">
+        <div class="platform-card">
+          <div class="platform-icon">🖥</div>
+          <h4>webcool</h4>
+          <p class="zh-only">Linux / macOS / Windows<br>浏览器控制台 + 安装包部署</p>
+          <p class="en-only">Linux / macOS / Windows<br>Browser console + installer deploy</p>
+          <div class="platform-tags">
+            <span>.pkg</span><span>.deb</span><span>.rpm</span><span>.exe</span>
+          </div>
+          <a class="btn btn-ghost" href="download/#server" style="margin-top: 14px;">
+            <span class="zh-only">下载服务端</span>
+            <span class="en-only">Download Server</span>
+          </a>
+        </div>
+        <div class="platform-card">
+          <div class="platform-icon">🍎</div>
+          <h4>iOS</h4>
+          <p class="zh-only">SwiftUI 原生应用<br>iPhone / iPad · 相册备份 · AirPlay</p>
+          <p class="en-only">SwiftUI native app<br>iPhone / iPad · album backup · AirPlay</p>
+        </div>
+        <div class="platform-card">
+          <div class="platform-icon">🤖</div>
+          <h4>Android</h4>
+          <p class="zh-only">Java 原生应用<br>手机 / 平板 · 相册备份 · 投屏</p>
+          <p class="en-only">Java native app<br>Phone / Tablet · album backup · cast</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Scenarios -->
+  <section id="scenarios" class="scenarios">
+    <div class="container">
+      <span class="section-label zh-only">适用场景</span>
+      <span class="section-label en-only">Use Cases</span>
+      <h2 class="section-title zh-only">为真实私有环境而设计</h2>
+      <h2 class="section-title en-only">Built for Real Private Environments</h2>
+      <div class="scenarios-grid">
+        <div class="scenario-card">
+          <span class="scenario-icon">🎞</span>
+          <h4 class="zh-only">家庭媒体库</h4>
+          <h4 class="en-only">Home Media Library</h4>
+          <p class="zh-only">电影、课程、音乐与图片集中管理；浏览器端转码续播，移动端还可 AirPlay / DLNA 投屏到电视。</p>
+          <p class="en-only">Movies, courses, music &amp; photos in one place; browser transcode &amp; resume, mobile AirPlay / DLNA cast to TV.</p>
+        </div>
+        <div class="scenario-card">
+          <span class="scenario-icon">☁</span>
+          <h4 class="zh-only">私有云文件中心</h4>
+          <h4 class="en-only">Private Cloud Hub</h4>
+          <p class="zh-only">内网或个人服务器部署，备份同步保障数据冗余；移动端相册可增量备份到私有空间。</p>
+          <p class="en-only">Deploy on LAN or personal server; backup sync for redundancy; mobile albums incrementally backed up to your private space.</p>
+        </div>
+        <div class="scenario-card">
+          <span class="scenario-icon">💻</span>
+          <h4 class="zh-only">开发者工作台</h4>
+          <h4 class="en-only">Developer Workbench</h4>
+          <p class="zh-only">浏览代码、日志、配置与 PDF 文档，Markdown 文件可直接渲染阅读。</p>
+          <p class="en-only">Browse code, logs, configs &amp; PDFs; Markdown files rendered for reading.</p>
+        </div>
+        <div class="scenario-card">
+          <span class="scenario-icon">🎵</span>
+          <h4 class="zh-only">多媒体资料库</h4>
+          <h4 class="en-only">Multimedia Archive</h4>
+          <p class="zh-only">给视频、音频、图片打标签，跨目录按主题分类整理。</p>
+          <p class="en-only">Tag videos, audio, images; organize by topic across directories.</p>
+        </div>
+        <div class="scenario-card">
+          <span class="scenario-icon">🗄</span>
+          <h4 class="zh-only">本机文件控制台</h4>
+          <h4 class="en-only">Local File Console</h4>
+          <p class="zh-only">通过浏览器管理服务器本地磁盘，分栏模式拖拽移动，系统目录受保护。</p>
+          <p class="en-only">Manage server local disk via browser; split view drag-move, system dirs protected.</p>
+        </div>
+        <div class="scenario-card">
+          <span class="scenario-icon">🔒</span>
+          <h4 class="zh-only">安全文件柜</h4>
+          <h4 class="en-only">Secure File Cabinet</h4>
+          <p class="zh-only">目录锁、文件锁、标签锁多层保护，敏感资料访问可控。</p>
+          <p class="en-only">Directory, file &amp; tag locks for multi-layer protection of sensitive data.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section id="start" class="quickstart">
+    <div class="container">
+      <span class="section-label zh-only">快速开始</span>
+      <span class="section-label en-only">Quick Start</span>
+      <h2 class="section-title zh-only">三步搭建你的私有文件空间</h2>
+      <h2 class="section-title en-only">Three Steps to Your Private File Space</h2>
+      <p class="section-desc zh-only">安装 webcool 服务端、浏览器完成初始配置、手机安装移动端连接 — 全程可在局域网内完成。</p>
+      <p class="section-desc en-only">Install webcool server, finish browser setup, connect the mobile app on your phone — all within your LAN.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h4 class="zh-only">安装 webcool 服务端</h4>
+          <h4 class="en-only">Install the webcool Server</h4>
+          <p class="zh-only">从 <a href="download/">下载页</a> 获取对应平台安装包（macOS / deb / rpm / Windows），或手动部署二进制。安装包自包含 ffmpeg 与 sqlite。</p>
+          <p class="en-only">Get the platform installer from the <a href="download/">download page</a> (macOS / deb / rpm / Windows) or deploy manually. Installers bundle ffmpeg &amp; sqlite.</p>
+          <code>webcool -s 0.0.0.0:8080 -d ./uploads</code>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h4 class="zh-only">浏览器首次配置</h4>
+          <h4 class="en-only">Browser First Setup</h4>
+          <p class="zh-only">打开 Web 控制台，创建管理员账号；在系统设置中配置存储路径、备份与语言偏好。</p>
+          <p class="en-only">Open the web console, create admin account; configure storage, backup &amp; language in system settings.</p>
+          <code>http://&lt;server-ip&gt;:8080</code>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h4 class="zh-only">安装 webcool 移动端</h4>
+          <h4 class="en-only">Install webcool Mobile</h4>
+          <p class="zh-only">在 iPhone 或 Android 安装 webcool 移动端，连接服务器后可同步相册、浏览文件，或使用局域网扫描自动发现。</p>
+          <p class="en-only">Install webcool mobile on iPhone or Android; connect to your server, sync albums, browse files, or use LAN scan to auto-discover.</p>
+          <code>http://192.168.x.x:8080</code>
+        </div>
+      </div>
+      <div class="quickstart-tip">
+        <span class="zh-only"><strong>运维提示：</strong>使用 <code>webcool -V</code> 查看版本、存储路径、ffmpeg 等运行信息。macOS 默认数据目录 <code>~/Library/Application Support/webcool/data</code>；Windows 默认 <code>C:\ProgramData\webcool\uploads</code>。</span>
+        <span class="en-only"><strong>Ops tip:</strong> Run <code>webcool -V</code> for version, paths, ffmpeg, etc. Default data: macOS <code>~/Library/Application Support/webcool/data</code>; Windows <code>C:\ProgramData\webcool\uploads</code>.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="#">
+            <img class="brand-icon" src="assets/favicon-64.png" alt="" width="36" height="36">
+            <span>webcool</span>
+          </a>
+          <p class="zh-only">webcool（文酷）— 私有文件管理生态，浏览器控制台与移动端一体。自托管、数据自主、轻量但不简陋。</p>
+          <p class="en-only">webcool — a private file management ecosystem with browser console and mobile apps. Self-hosted, data sovereignty, lightweight yet complete.</p>
+        </div>
+        <div class="footer-col">
+          <h5 class="zh-only">导航</h5>
+          <h5 class="en-only">Navigation</h5>
+          <ul>
+            <li><a href="#products" class="zh-only">产品</a><a href="#products" class="en-only">Products</a></li>
+            <li><a href="#features" class="zh-only">功能</a><a href="#features" class="en-only">Features</a></li>
+            <li><a href="#workflow" class="zh-only">工作流</a><a href="#workflow" class="en-only">Workflow</a></li>
+            <li><a href="#showcase" class="zh-only">界面</a><a href="#showcase" class="en-only">Screenshots</a></li>
+            <li><a href="#scenarios" class="zh-only">场景</a><a href="#scenarios" class="en-only">Scenarios</a></li>
+            <li><a href="#demo" class="zh-only">在线演示</a><a href="#demo" class="en-only">Live Demo</a></li>
+            <li><a href="#start" class="zh-only">快速开始</a><a href="#start" class="en-only">Get Started</a></li>
+            <li><a href="download/" class="zh-only">下载</a><a href="download/" class="en-only">Download</a></li>
+            <li><a href="about/" class="zh-only">关于</a><a href="about/" class="en-only">About</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 webcool · 文酷</span>
+        <span class="zh-only"><a href="about/">关于</a> · 反馈：<a href="mailto:whouseit@126.com">whouseit@126.com</a></span>
+        <span class="en-only"><a href="about/">About</a> · <a href="mailto:whouseit@126.com">whouseit@126.com</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

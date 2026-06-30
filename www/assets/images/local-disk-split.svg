@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="620" viewBox="0 0 1100 620" role="img" aria-labelledby="title desc">
+  <title id="title">webcool 本地磁盘分栏模式</title>
+  <desc id="desc">展示本地磁盘目录树、文件列表、拖拽移动、多选和本地回收站能力。</desc>
+  <rect width="1100" height="620" rx="24" fill="#f7fbff"/>
+  <text x="48" y="74" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#213b5a">本地磁盘分栏模式</text>
+  <rect x="48" y="112" width="992" height="58" rx="14" fill="#ffffff" stroke="#d4e5f4"/>
+  <text x="78" y="149" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#31587d">⌂ 当前用户目录</text>
+  <text x="250" y="149" font-family="Arial, sans-serif" font-size="16" fill="#59748f">/Users/demo</text>
+  <text x="858" y="149" font-family="Arial, sans-serif" font-size="15" fill="#31587d">☐ 显示隐藏项</text>
+  <rect x="48" y="198" width="404" height="360" rx="18" fill="#ffffff" stroke="#cfe1f3"/>
+  <text x="78" y="244" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#254567">目录树</text>
+  <g font-family="Arial, sans-serif" font-size="16" fill="#2d557c">
+    <rect x="78" y="272" width="330" height="42" rx="10" fill="#e7f3ff" stroke="#bdd8f0"/>
+    <text x="96" y="299">▾ ☐ Desktop</text><text x="360" y="299">＋ －</text>
+    <text x="116" y="344">▸ ☐ Movies 🔒</text>
+    <text x="116" y="386">▸ ☐ Documents</text>
+    <text x="116" y="428">▸ ☐ Downloads</text>
+    <text x="116" y="470">▸ ☐ Pictures</text>
+  </g>
+  <rect x="486" y="198" width="554" height="360" rx="18" fill="#ffffff" stroke="#cfe1f3"/>
+  <text x="516" y="244" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#254567">文件列表</text>
+  <rect x="516" y="272" width="486" height="48" rx="10" fill="#f5faff" stroke="#dce8f5"/>
+  <text x="540" y="302" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#4a6683">☑ 文件名</text>
+  <text x="760" y="302" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#4a6683">大小</text>
+  <text x="875" y="302" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#4a6683">操作</text>
+  <g font-family="Arial, sans-serif" font-size="15" fill="#25476a">
+    <rect x="516" y="336" width="486" height="48" rx="10" fill="#ffffff" stroke="#e3edf7"/>
+    <text x="540" y="366">☐ 🏷 video.mp4</text><text x="760" y="366">1.8 GB</text><text x="875" y="366">观影 移除</text>
+    <rect x="516" y="396" width="486" height="48" rx="10" fill="#ffffff" stroke="#e3edf7"/>
+    <text x="540" y="426">☐ 🏷 report.pdf</text><text x="760" y="426">12 MB</text><text x="875" y="426">预览 移除</text>
+    <rect x="516" y="456" width="486" height="48" rx="10" fill="#ffffff" stroke="#e3edf7"/>
+    <text x="540" y="486">☐ 🏷 notes.txt</text><text x="760" y="486">64 KB</text><text x="875" y="486">查看 移除</text>
+  </g>
+  <path d="M420 374 C490 356 490 426 560 406" fill="none" stroke="#1e6fd9" stroke-width="4" stroke-linecap="round"/>
+  <polygon points="560,406 546,398 548,416" fill="#1e6fd9"/>
+  <text x="414" y="530" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#1e6fd9">多选拖拽移动到目标目录</text>
+</svg>

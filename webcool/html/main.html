@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>文件管理控制台</title>
+  <link rel="icon" href="/webcool/html/icon/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260617-02">
+  <style>
+    html.auth-booting .shell,
+    html.auth-booting .auth-gate {
+      display: none !important;
+    }
+  </style>
+  <script>document.documentElement.classList.add('auth-booting');</script>
+  <script>
+    (function () {
+      var lang = 'zh';
+      var hasUserPrefs = false;
+      try {
+        var user = sessionStorage.getItem('webcool:current-user:v1') || '';
+        var raw = sessionStorage.getItem('webcool:user-prefs:v1');
+        if (user && raw) {
+          var cached = JSON.parse(raw);
+          if (cached && cached.username === user
+            && (cached.ui_language === 'en' || cached.ui_language === 'zh')) {
+            lang = cached.ui_language;
+            hasUserPrefs = true;
+          }
+        }
+        if (!hasUserPrefs) {
+          lang = localStorage.getItem('webcool:language:v1') === 'en' ? 'en' : 'zh';
+        }
+      } catch (_) {}
+      document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+      document.write('<script src="/webcool/html/i18n/' + lang + '.js?v=auth-20260617-02"><\/script>');
+    })();
+  </script>
+  <script>
+    (function () {
+      var size = 'sm';
+      try {
+        var user = sessionStorage.getItem('webcool:current-user:v1') || '';
+        var raw = sessionStorage.getItem('webcool:user-prefs:v1');
+        if (user && raw) {
+          var cached = JSON.parse(raw);
+          if (cached && cached.username === user
+            && (cached.font_size === 'md' || cached.font_size === 'lg' || cached.font_size === 'sm')) {
+            size = cached.font_size;
+          }
+        }
+      } catch (_) {}
+      var scale = size === 'lg' ? 1.24 : (size === 'md' ? 1.12 : 1);
+      document.documentElement.style.setProperty('--font-scale', scale.toFixed(3));
+      document.documentElement.setAttribute('data-font-size', size);
+    })();
+  </script>
+</head>
+<body>
+  <main class="shell" hidden>
+    <aside class="left-pane">
+      <div class="left-pane-head">
+        <h1 class="brand">文件控制台</h1>
+        <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle-btn" aria-label="收起左侧栏" title="收起左侧栏">◀</button>
+      </div>
+      <p class="brand-sub">左帧用于功能切换，右帧展示对应内容与操作结果。</p>
+      <div id="auth-user-chip" class="auth-user-chip" hidden>
+        <span id="auth-current-user"></span>
+        <button id="auth-logout-btn" type="button" title="退出登录" aria-label="退出登录" data-i18n-title="退出登录" data-i18n-aria-label="退出登录" data-i18n="退出">退出</button>
+      </div>
+      <nav class="menu" aria-label="功能菜单">
+        <button type="button" class="menu-btn" data-panel="panel-upload">上传文件</button>
+        <button type="button" class="menu-btn active" data-panel="panel-files">虚拟磁盘</button>
+        <button type="button" class="menu-btn" data-panel="panel-local-disk">本地磁盘</button>
+        <button type="button" class="menu-btn" data-panel="panel-account" data-i18n="账号设置">账号设置</button>
+        <button type="button" class="menu-btn" data-panel="panel-users" data-i18n="用户管理" hidden>用户管理</button>
+        <button type="button" class="menu-btn" data-panel="panel-admin" data-i18n="系统设置" hidden>系统设置</button>
+      </nav>
+      <section class="left-tag-tree-section" aria-label="文件标签树">
+        <div class="left-tag-tree-head">
+          <span>标签树</span>
+          <button type="button" id="files-tag-toggle" class="tree-switch-btn" aria-label="展开或创建文件标签树">+</button>
+        </div>
+        <div id="tag-manager" class="left-tag-manager"></div>
+      </section>
+    </aside>
+
+    <section class="right-pane">
+      <section class="panel section" id="panel-upload">
+        <h1>上传文件</h1>
+        <p class="sub">支持最多五十个文件同时上传，并展示实时上传进度。</p>
+        <form id="upload-form" enctype="multipart/form-data">
+          <input type="hidden" id="upload-folder-path" name="folder" value="">
+          <div class="upload-box" id="upload-drop-zone">
+            <div class="file-row">
+              <label for="upload-files-input">选择文件</label>
+              <input id="upload-files-input" type="file" name="file" multiple>
+            </div>
+            <div class="upload-drop-copy">
+              <strong>拖拽文件到此处上传</strong>
+              <span>可一次选择或拖入最多 50 个文件</span>
+            </div>
+            <div class="upload-selected-head">
+              <div id="upload-selected-summary" class="upload-selected-summary">尚未选择文件</div>
+              <button type="button" id="upload-clear-selection" class="upload-clear-selection" hidden>清空</button>
+            </div>
+            <div id="upload-selected-list" class="upload-selected-list" hidden></div>
+          </div>
+          <input class="btn" type="submit" value="上传文件">
+        </form>
+        <div id="upload-progress" class="progress-wrap" aria-live="polite">
+          <div class="progress-track">
+            <div id="upload-progress-fill" class="progress-fill"></div>
+          </div>
+          <div id="upload-progress-text" class="progress-text">准备上传...</div>
+          <div class="upload-progress-actions">
+            <button type="button" id="upload-progress-pause" class="tag-dialog-btn secondary" hidden>暂停</button>
+            <button type="button" id="upload-progress-resume" class="tag-dialog-btn secondary" hidden>继续</button>
+            <button type="button" id="upload-progress-cancel" class="tag-dialog-btn danger" hidden>取消</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section active" id="panel-files">
+        <h1>虚拟磁盘</h1>
+        <p class="sub">像资源管理器一样浏览多级文件夹，支持建删目录、预览、下载、删除和拖拽移动文件。</p>
+        <div class="file-view-toolbar">
+          <div id="file-view-context" class="file-view-context">当前视图：全部文件</div>
+          <label class="local-hidden-toggle remote-hidden-toggle">
+            <input id="remote-disk-show-hidden" type="checkbox">
+            <span>显示隐藏项</span>
+          </label>
+        </div>
+        <div id="remote-browser-upload-zone" class="upload-box remote-browser-upload-zone" aria-live="polite">
+          <div class="upload-drop-copy">
+            <strong data-i18n="从电脑拖入多个文件到此处，或拖到左侧目录树文件夹">从电脑拖入多个文件到此处，或拖到左侧目录树文件夹</strong>
+            <span id="remote-browser-upload-target" data-i18n="上传到当前选中目录">上传到当前选中目录</span>
+          </div>
+          <div class="upload-selected-head">
+            <div id="remote-upload-staging-summary" class="upload-selected-summary" hidden></div>
+            <div id="remote-upload-staging-actions" class="upload-staging-actions" hidden>
+              <button type="button" id="remote-upload-staging-upload-btn" class="folder-action-btn" data-i18n="上传">上传</button>
+              <button type="button" id="remote-upload-staging-clear-btn" class="folder-action-btn danger" data-i18n="清空">清空</button>
+            </div>
+          </div>
+          <div id="remote-upload-staging-list" class="upload-selected-list" hidden></div>
+        </div>
+        <div class="explorer-shell">
+          <aside class="folder-browser">
+            <div class="folder-browser-head">
+              <h2>文件夹</h2>
+              <div class="folder-browser-actions">
+                <button id="folder-create-btn" class="folder-action-btn" type="button">新建</button>
+                <button id="folder-delete-btn" class="folder-action-btn danger" type="button" disabled>删除</button>
+                <button id="folder-restore-btn" class="folder-action-btn" type="button" disabled>恢复</button>
+              </div>
+            </div>
+            <div id="folder-tree-empty" class="folder-tree-empty">加载中...</div>
+            <div id="folder-tree" class="folder-tree"></div>
+            <button id="folder-browser-resize" class="folder-browser-resize" type="button" title="拖拽调整目录树宽度" aria-label="拖拽调整目录树宽度"></button>
+          </aside>
+
+          <div class="file-browser">
+            <div class="list-head">
+              <h2 id="file-list-title">当前目录文件</h2>                <div id="tag-view-mode-btns" class="tag-view-mode-btns" hidden>
+                  <button id="tag-view-list-btn" class="tag-view-btn active" type="button">列表</button>
+                  <button id="tag-view-preview-btn" class="tag-view-btn" type="button">预览</button>
+                </div>              <div class="sort-row">
+                <span class="counter" id="file-counter">0 个文件</span>
+                <label for="sort-key">排序</label>
+                <select id="sort-key">
+                  <option value="name">按名称</option>
+                  <option value="size">按大小</option>
+                  <option value="uploaded_at">按上传时间</option>
+                </select>
+                <select id="sort-order">
+                  <option value="asc">升序</option>
+                  <option value="desc">降序</option>
+                </select>
+              </div>
+            </div>
+            <div class="file-table-wrap">
+              <table class="file-table" id="file-table">
+                <thead>
+                  <tr>
+                    <th class="file-select-col">
+                      <span class="file-select-tools">
+                        <input id="file-select-all" type="checkbox" aria-label="全选当前列表文件">
+                        <button id="file-bulk-tag-action" class="file-tag-quick-btn" type="button" title="给选中文件加标签" aria-label="给选中文件加标签" disabled>🏷</button>
+                      </span>
+                    </th>
+                    <th>
+                      <button class="sort-btn" data-sort-key="name" type="button">
+                        文件名 <span class="arrow">-</span>
+                      </button>
+                    </th>
+                    <th>
+                      <button class="sort-btn" data-sort-key="size" type="button">
+                        文件大小 <span class="arrow">-</span>
+                      </button>
+                    </th>
+                    <th>
+                      <button class="sort-btn" data-sort-key="uploaded_at" type="button">
+                        上传时间 <span class="arrow">-</span>
+                      </button>
+                    </th>
+                    <th class="file-actions-head">
+                      <span class="file-actions-head-label">操作</span>
+                      <span class="file-actions-head-label-recycle">动作</span>
+                    </th>
+                    <th class="file-bulk-head">
+                      <button id="file-bulk-action" class="file-bulk-action-btn" type="button" disabled>删除</button>
+                    </th>
+                    <th class="file-permanent-head">
+                      <button id="file-bulk-delete-action" class="file-bulk-action-btn" type="button" disabled>彻底删除</button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="file-list"></tbody>
+              </table>
+            </div>
+            <div id="tag-image-preview-wrap" class="tag-image-preview-wrap" hidden></div>
+          </div>
+        </div>
+        <p id="file-empty" class="empty">加载中...</p>
+      </section>
+
+      <section class="panel section" id="panel-local-disk">
+        <h1>本地磁盘</h1>
+        <p class="sub">浏览服务器本机磁盘目录，支持图片预览、视频观影、音频听音和文本查看。</p>
+        <div id="local-disk-context" class="file-view-context">当前路径：/</div>
+        <div class="local-disk-toolbar">
+          <button id="local-disk-home-btn" class="folder-action-btn icon-only" type="button" title="当前用户目录" aria-label="当前用户目录">⌂</button>
+          <button id="local-disk-root-btn" class="folder-action-btn" type="button">根目录</button>
+          <button id="local-disk-trash-btn" class="folder-action-btn" type="button">回收站</button>
+          <button id="local-disk-up-btn" class="folder-action-btn" type="button">上一级</button>
+          <button id="local-disk-view-split-btn" class="folder-action-btn local-disk-view-btn active" type="button" title="分栏视图" aria-label="分栏视图">⊟ 分栏</button>
+          <button id="local-disk-view-table-btn" class="folder-action-btn local-disk-view-btn" type="button" title="列表视图" aria-label="列表视图">☰ 列表</button>
+          <button id="local-disk-import-btn" class="folder-action-btn" type="button" disabled>上传</button>
+          <label class="local-hidden-toggle">
+            <input id="local-disk-show-hidden" type="checkbox">
+            <span>显示隐藏项</span>
+          </label>
+        </div>
+        <div id="local-disk-remote-upload-zone" class="upload-box local-disk-remote-upload-zone is-disabled" aria-live="polite">
+          <div class="upload-drop-copy">
+            <strong data-i18n="拖拽本地文件到此处，上传到虚拟磁盘">拖拽本地文件到此处，上传到虚拟磁盘</strong>
+            <span id="local-disk-remote-upload-target" data-i18n="请先在「虚拟磁盘」中选择目标文件夹">请先在「虚拟磁盘」中选择目标文件夹</span>
+          </div>
+        </div>
+        <div class="file-table-wrap" id="local-disk-table-wrap" hidden>
+          <table class="file-table local-disk-table" id="local-disk-table">
+            <thead>
+              <tr>
+                <th>
+                  <span class="local-disk-name-head">
+                    <input id="local-disk-table-select-all" class="local-disk-select" type="checkbox" aria-label="全选当前目录文件">
+                    <button id="local-disk-table-bulk-tag-btn" class="file-tag-quick-btn" type="button" title="给选中文件加标签" aria-label="给选中文件加标签" disabled>🏷</button>
+                    <button class="sort-btn local-sort-btn active" data-local-sort-key="name" type="button">
+                      名称 <span class="arrow">↑</span>
+                    </button>
+                  </span>
+                </th>
+                <th>
+                  <button class="sort-btn local-sort-btn" data-local-sort-key="type" type="button">
+                    类型 <span class="arrow">-</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="sort-btn local-sort-btn" data-local-sort-key="size" type="button">
+                    大小 <span class="arrow">-</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="sort-btn local-sort-btn" data-local-sort-key="modified_at" type="button">
+                    修改时间 <span class="arrow">-</span>
+                  </button>
+                </th>
+                <th class="file-actions-head">操作</th>
+                <th class="file-bulk-head">
+                  <button id="local-disk-table-bulk-remove-btn" class="file-bulk-action-btn" type="button" title="移至回收站" aria-label="移至回收站" disabled>移除</button>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="local-disk-list"></tbody>
+          </table>
+        </div>
+        <div class="local-disk-explorer" id="local-disk-explorer">
+          <aside class="local-disk-dir-browser">
+            <div class="folder-browser-head">
+              <h2>目录树</h2>
+            </div>
+            <div id="local-disk-dir-list" class="local-disk-dir-list"></div>
+            <p id="local-disk-dir-empty" class="folder-tree-empty">无子目录</p>
+            <button id="local-disk-dir-resize" class="local-disk-dir-resize" type="button" title="拖拽调整目录树宽度" aria-label="拖拽调整目录树宽度"></button>
+          </aside>
+          <div class="local-disk-file-browser">
+            <div class="folder-browser-head">
+              <h2>当前目录文件</h2>
+            </div>
+            <div class="file-table-wrap">
+              <table class="file-table" id="local-disk-split-table">
+                <thead>
+                  <tr>
+                    <th>
+                      <span class="local-disk-name-head">
+                        <input id="local-disk-select-all" class="local-disk-select" type="checkbox" aria-label="全选当前目录文件">
+                        <button id="local-disk-bulk-tag-btn" class="file-tag-quick-btn" type="button" title="给选中文件加标签" aria-label="给选中文件加标签" disabled>🏷</button>
+                        <button class="sort-btn local-sort-btn" data-local-sort-key="name" type="button">
+                          文件名 <span class="arrow">-</span>
+                        </button>
+                      </span>
+                    </th>
+                    <th>
+                      <button class="sort-btn local-sort-btn" data-local-sort-key="size" type="button">
+                        大小 <span class="arrow">-</span>
+                      </button>
+                    </th>
+                    <th>
+                      <button class="sort-btn local-sort-btn" data-local-sort-key="modified_at" type="button">
+                        修改时间 <span class="arrow">-</span>
+                      </button>
+                    </th>
+                    <th class="file-actions-head">操作</th>
+                    <th class="file-bulk-head">
+                      <button id="local-disk-bulk-remove-btn" class="file-bulk-action-btn" type="button" title="移至回收站" aria-label="移至回收站" disabled>移除</button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="local-disk-split-list"></tbody>
+              </table>
+            </div>
+            <p id="local-disk-split-empty" class="empty">当前目录没有文件。</p>
+          </div>
+        </div>
+        <p id="local-disk-empty" class="empty">加载中...</p>
+      </section>
+
+      <section class="panel section" id="panel-admin">
+        <h1>系统设置</h1>
+        <p class="sub">管理服务运行参数与维护操作。</p>
+        <div class="admin-shell">
+          <aside class="admin-command-bar" aria-label="系统设置功能命令">
+            <button id="admin-storage-tab" class="admin-command-btn active" type="button">存储路径</button>
+            <button id="admin-local-disk-tab" class="admin-command-btn" type="button" data-i18n="本地磁盘">本地磁盘</button>
+            <button id="reload-template-btn" class="admin-command-btn" type="button">刷新模板缓存</button>
+          </aside>
+          <div class="admin-display">
+            <section id="admin-storage-view" class="admin-view">
+              <h2>存储路径</h2>
+              <p class="admin-view-desc">当前虚拟磁盘文件保存的位置。</p>
+              <div class="admin-storage-row">
+                <input id="admin-storage-path" class="admin-storage-input" type="text" autocomplete="off" spellcheck="false">
+                <button id="admin-storage-browse-btn" class="admin-storage-browse-btn" type="button" title="浏览本地目录" aria-label="浏览本地目录">...</button>
+                <button id="admin-storage-choose-btn" class="admin-storage-choose-btn" type="button">设置</button>
+                <button id="admin-storage-sync-btn" class="admin-storage-choose-btn" type="button" data-i18n="同步">同步</button>
+              </div>
+              <h3 class="admin-storage-subtitle" data-i18n="数据备份路径">数据备份路径</h3>
+              <p class="admin-view-desc" data-i18n="设置后会将虚拟磁盘数据完整镜像到备份目录。">设置后会将虚拟磁盘数据完整镜像到备份目录。</p>
+              <div class="admin-storage-row">
+                <input id="admin-storage-backup-path" class="admin-storage-input" type="text" autocomplete="off" spellcheck="false" placeholder="备份路径" data-i18n-placeholder="备份路径">
+                <button id="admin-storage-backup-browse-btn" class="admin-storage-browse-btn" type="button" title="浏览本地目录" aria-label="浏览本地目录">...</button>
+                <button id="admin-storage-backup-set-btn" class="admin-storage-choose-btn" type="button" data-i18n="添加备份">添加备份</button>
+              </div>
+              <div class="admin-storage-backup-options">
+                <span id="admin-storage-upload-sync-state" class="admin-storage-backup-option-text" data-i18n="上传数据自动同步：已启用">上传数据自动同步：已启用</span>
+                <button id="admin-storage-upload-sync-toggle-btn" class="tag-dialog-btn secondary" type="button" data-i18n="禁用上传自动同步">禁用上传自动同步</button>
+              </div>
+              <div id="admin-storage-backup-list" class="admin-storage-backup-list"></div>
+              <div id="admin-storage-progress" class="admin-storage-progress" hidden>
+                <div class="admin-storage-progress-head">
+                  <strong id="admin-storage-progress-title" data-i18n="正在移动存储文件">正在移动存储文件</strong>
+                  <span id="admin-storage-progress-text">0%</span>
+                </div>
+                <div class="admin-storage-progress-track">
+                  <div id="admin-storage-progress-fill" class="admin-storage-progress-fill"></div>
+                </div>
+                <p id="admin-storage-progress-message" class="admin-storage-progress-message">等待开始...</p>
+                <div class="admin-storage-progress-actions">
+                  <button type="button" id="admin-storage-progress-pause" class="tag-dialog-btn secondary">暂停</button>
+                  <button type="button" id="admin-storage-progress-resume" class="tag-dialog-btn secondary" hidden>继续</button>
+                  <button type="button" id="admin-storage-progress-cancel" class="tag-dialog-btn danger">取消</button>
+                </div>
+              </div>
+            </section>
+            <section id="admin-local-disk-view" class="admin-view" hidden>
+              <h2 data-i18n="本地磁盘访问">本地磁盘访问</h2>
+              <p class="admin-view-desc" data-i18n="分别控制管理员和普通用户是否可以访问服务器本地磁盘。">分别控制管理员和普通用户是否可以访问服务器本地磁盘。</p>
+              <form id="admin-local-disk-settings-form" class="account-password-form">
+                <label class="account-password-label">
+                  <input id="admin-local-disk-admin" type="checkbox">
+                  <span data-i18n="允许管理员访问本地磁盘">允许管理员访问本地磁盘</span>
+                </label>
+                <label class="account-password-label">
+                  <input id="admin-local-disk-user" type="checkbox">
+                  <span data-i18n="允许普通用户访问本地磁盘">允许普通用户访问本地磁盘</span>
+                </label>
+                <div class="account-password-actions">
+                  <button id="admin-local-disk-settings-submit" class="admin-storage-choose-btn" type="submit" data-i18n="保存">保存</button>
+                </div>
+              </form>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section" id="panel-users">
+        <h1 data-i18n="用户管理">用户管理</h1>
+        <p class="sub" data-i18n="管理普通用户账号和密码。">管理普通用户账号和密码。</p>
+        <section id="admin-users-view" class="admin-view">
+          <h2 data-i18n="普通用户">普通用户</h2>
+          <p class="admin-view-desc" data-i18n="管理员账号不会在此处修改或删除。">管理员账号不会在此处修改或删除。</p>
+          <form id="admin-user-create-form" class="admin-user-create-form">
+            <input id="admin-new-username" class="admin-storage-input" type="text" placeholder="用户名" data-i18n-placeholder="用户名" autocomplete="off" maxlength="40">
+            <input id="admin-new-password" class="admin-storage-input" type="password" placeholder="密码" data-i18n-placeholder="密码" autocomplete="new-password" maxlength="128">
+            <button id="admin-user-create-btn" class="admin-storage-choose-btn" type="submit" data-i18n="添加用户">添加用户</button>
+          </form>
+          <div id="admin-users-list" class="admin-users-list"></div>
+        </section>
+      </section>
+
+      <section class="panel section" id="panel-account">
+        <h1 data-i18n="账号设置">账号设置</h1>
+        <p class="sub" data-i18n="修改当前登录用户的密码、界面语言与字体大小。">修改当前登录用户的密码、界面语言与字体大小。</p>
+        <div class="admin-shell">
+          <aside class="admin-command-bar" aria-label="账号设置功能命令" data-i18n-aria-label="账号设置功能命令">
+            <button id="account-password-tab" class="admin-command-btn active" type="button" data-i18n="修改密码">修改密码</button>
+            <button id="account-language-tab" class="admin-command-btn" type="button" data-i18n="语言设置">语言设置</button>
+            <button id="account-font-size-tab" class="admin-command-btn" type="button" data-i18n="字体大小">字体大小</button>
+          </aside>
+          <div class="admin-display">
+            <section id="account-password-view" class="admin-view">
+              <h2 data-i18n="修改密码">修改密码</h2>
+              <p class="admin-view-desc" data-i18n="修改当前登录用户的密码。">修改当前登录用户的密码。</p>
+              <form id="account-password-form" class="account-password-form">
+                <label class="account-password-label" for="account-old-password" data-i18n="当前密码">当前密码</label>
+                <input id="account-old-password" class="admin-storage-input" type="password" autocomplete="current-password" maxlength="128">
+                <label class="account-password-label" for="account-new-password" data-i18n="新密码">新密码</label>
+                <input id="account-new-password" class="admin-storage-input" type="password" autocomplete="new-password" maxlength="128">
+                <label class="account-password-label" for="account-confirm-password" data-i18n="确认新密码">确认新密码</label>
+                <input id="account-confirm-password" class="admin-storage-input" type="password" autocomplete="new-password" maxlength="128">
+                <div class="account-password-actions">
+                  <button id="account-password-submit" class="admin-storage-choose-btn" type="submit" data-i18n="修改密码">修改密码</button>
+                </div>
+              </form>
+            </section>
+            <section id="account-language-view" class="admin-view" hidden>
+              <h2 data-i18n="语言设置">语言设置</h2>
+              <p class="admin-view-desc" data-i18n="设置界面显示语言，保存后会切换到对应语言版本。">设置界面显示语言，保存后会切换到对应语言版本。</p>
+              <div class="admin-language-row">
+                <select id="admin-language-select" class="admin-language-select">
+                  <option value="zh">简体中文</option>
+                  <option value="en">English</option>
+                </select>
+                <button id="admin-language-apply-btn" class="admin-storage-choose-btn" type="button" data-i18n="应用">应用</button>
+              </div>
+            </section>
+            <section id="account-font-size-view" class="admin-view" hidden>
+              <h2 data-i18n="字体大小">字体大小</h2>
+              <p class="admin-view-desc" data-i18n="设置界面文字大小，保存后立即生效。">设置界面文字大小，保存后立即生效。</p>
+              <div class="admin-language-row">
+                <select id="admin-font-size-select" class="admin-language-select">
+                  <option value="sm" data-i18n="小号">小号</option>
+                  <option value="md" data-i18n="中号">中号</option>
+                  <option value="lg" data-i18n="大号">大号</option>
+                </select>
+                <button id="admin-font-size-apply-btn" class="admin-storage-choose-btn" type="button" data-i18n="应用">应用</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <div id="status" class="status"></div>
+    </section>
+  </main>
+
+  <div id="auth-gate" class="auth-gate" hidden>
+    <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <h1 id="auth-title" data-i18n="登录">登录</h1>
+      <p id="auth-desc" data-i18n="请输入用户名和密码。">请输入用户名和密码。</p>
+      <label class="auth-language-row" for="auth-language-select">
+        <span data-i18n="界面语言">界面语言</span>
+        <select id="auth-language-select" class="auth-language-select">
+          <option value="zh">简体中文</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+      <form id="auth-form" class="auth-form">
+        <label for="auth-username" data-i18n="用户名">用户名</label>
+        <input id="auth-username" type="text" autocomplete="username" maxlength="40">
+        <label for="auth-password" data-i18n="密码">密码</label>
+        <input id="auth-password" type="password" autocomplete="current-password" maxlength="128">
+        <p id="auth-error" class="auth-error" hidden></p>
+        <button id="auth-submit-btn" type="submit" data-i18n="登录">登录</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="preview-layer" class="preview-layer"></div>
+  <div id="tag-dialog" class="tag-dialog" hidden>
+    <div class="tag-dialog-backdrop" data-tag-dialog-close="1"></div>
+    <div class="tag-dialog-card" role="dialog" aria-modal="true" aria-labelledby="tag-dialog-title">
+      <form id="tag-dialog-form" class="tag-dialog-form">
+        <div class="tag-dialog-head">
+          <h2 id="tag-dialog-title">新建标签</h2>
+          <p id="tag-dialog-desc">请输入标签名称。</p>
+        </div>
+        <label id="tag-dialog-label" class="tag-dialog-label" for="tag-dialog-input">标签名称</label>
+        <input id="tag-dialog-input" class="tag-dialog-input" type="text" maxlength="60" autocomplete="off">
+        <div class="tag-dialog-actions">
+          <button type="button" id="tag-dialog-cancel" class="tag-dialog-btn secondary">取消</button>
+          <button type="submit" class="tag-dialog-btn">确认</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="lock-dialog" class="tag-dialog" hidden>
+    <div class="tag-dialog-backdrop" data-lock-dialog-close="1"></div>
+    <div class="tag-dialog-card lock-dialog-card" role="dialog" aria-modal="true" aria-labelledby="lock-dialog-title">
+      <form id="lock-dialog-form" class="tag-dialog-form">
+        <div class="tag-dialog-head">
+          <h2 id="lock-dialog-title">解锁目录</h2>
+          <p id="lock-dialog-desc">请输入目录锁密码。</p>
+        </div>
+        <label class="tag-dialog-label" for="lock-dialog-input">锁密码</label>
+        <input id="lock-dialog-input" class="tag-dialog-input" type="password" autocomplete="current-password">
+        <div id="lock-dialog-error" class="lock-dialog-error" role="alert" hidden></div>
+        <div class="tag-dialog-actions">
+          <button type="button" id="lock-dialog-cancel" class="tag-dialog-btn secondary">取消</button>
+          <button type="submit" id="lock-dialog-confirm" class="tag-dialog-btn">确认</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="confirm-dialog" class="tag-dialog" hidden>
+    <div class="tag-dialog-backdrop" data-confirm-dialog-close="1"></div>
+    <div class="tag-dialog-card confirm-dialog-card" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+      <div class="tag-dialog-form">
+        <div class="confirm-dialog-hero">
+          <div id="confirm-dialog-icon" class="confirm-dialog-icon" aria-hidden="true">❓</div>
+          <div class="tag-dialog-head confirm-dialog-head">
+            <h2 id="confirm-dialog-title">确认操作</h2>
+            <p id="confirm-dialog-desc">请确认是否继续。</p>
+          </div>
+        </div>
+        <div id="confirm-dialog-highlight" class="confirm-dialog-highlight" hidden></div>
+        <p id="confirm-dialog-note" class="confirm-dialog-note" hidden></p>
+        <div class="tag-dialog-actions confirm-dialog-actions">
+          <button type="button" id="confirm-dialog-cancel" class="tag-dialog-btn secondary">取消</button>
+          <button type="button" id="confirm-dialog-extra" class="tag-dialog-btn secondary" hidden>否</button>
+          <button type="button" id="confirm-dialog-extra2" class="tag-dialog-btn secondary" hidden></button>
+          <button type="button" id="confirm-dialog-extra3" class="tag-dialog-btn secondary" hidden></button>
+          <button type="button" id="confirm-dialog-confirm" class="tag-dialog-btn danger">确认</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="admin-storage-picker-dialog" class="tag-dialog" hidden>
+    <div class="tag-dialog-backdrop" data-admin-storage-picker-close="1"></div>
+    <div class="tag-dialog-card admin-storage-picker-card" role="dialog" aria-modal="true" aria-labelledby="admin-storage-picker-title">
+      <div class="tag-dialog-form">
+        <div class="tag-dialog-head">
+          <h2 id="admin-storage-picker-title">选择存储路径</h2>
+          <p id="admin-storage-picker-path">请选择一个本地目录作为新的存储路径。</p>
+        </div>
+        <div class="admin-storage-picker-shortcuts">
+          <button type="button" id="admin-storage-picker-root" class="admin-storage-picker-shortcut">根路径</button>
+          <button type="button" id="admin-storage-picker-home" class="admin-storage-picker-shortcut">Home路径</button>
+        </div>
+        <div id="admin-storage-picker-tree" class="admin-storage-picker-tree"></div>
+        <p id="admin-storage-picker-empty" class="folder-tree-empty">当前没有可选择的目录。</p>
+        <div class="tag-dialog-actions">
+          <button type="button" id="admin-storage-picker-cancel" class="tag-dialog-btn secondary">取消</button>
+          <button type="button" id="admin-storage-picker-confirm" class="tag-dialog-btn">确定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="local-import-dialog" class="tag-dialog" hidden>
+    <div class="tag-dialog-backdrop" data-local-import-close="1"></div>
+    <div class="tag-dialog-card local-import-dialog-card" role="dialog" aria-modal="true" aria-labelledby="local-import-title">
+      <div class="tag-dialog-form">
+        <div class="tag-dialog-head">
+          <h2 id="local-import-title">上传到虚拟磁盘</h2>
+          <p id="local-import-desc">选择远程目标目录。</p>
+        </div>
+        <div id="local-import-tree" class="local-import-tree"></div>
+        <p id="local-import-empty" class="folder-tree-empty">当前没有文件夹。</p>
+        <div class="tag-dialog-actions">
+          <button type="button" id="local-import-cancel" class="tag-dialog-btn secondary">取消</button>
+          <button type="button" id="local-import-confirm" class="tag-dialog-btn">确定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="local-import-progress-dialog" class="tag-dialog" hidden>
+    <div class="tag-dialog-backdrop"></div>
+    <div class="tag-dialog-card local-import-progress-card" role="dialog" aria-modal="false" aria-labelledby="local-import-progress-title">
+      <div class="tag-dialog-form">
+        <div class="tag-dialog-head tag-dialog-head-with-actions">
+          <div class="tag-dialog-head-copy">
+            <h2 id="local-import-progress-title">上传中</h2>
+            <p id="local-import-progress-desc">正在上传本地文件到虚拟磁盘。</p>
+          </div>
+          <div class="tag-dialog-window-actions">
+            <button type="button" id="local-import-progress-minimize" class="tag-dialog-window-btn" title="最小化" aria-label="最小化" hidden>−</button>
+            <button type="button" id="local-import-progress-restore" class="tag-dialog-window-btn" title="恢复" aria-label="恢复" hidden>□</button>
+          </div>
+        </div>
+        <div class="local-import-progress-track">
+          <div id="local-import-progress-fill" class="local-import-progress-fill"></div>
+        </div>
+        <div id="local-import-progress-text" class="local-import-progress-text">准备上传...</div>
+        <div id="local-import-progress-files" class="local-import-progress-files"></div>
+        <div class="tag-dialog-actions">
+          <button type="button" id="local-import-progress-pause" class="tag-dialog-btn secondary" hidden>暂停</button>
+          <button type="button" id="local-import-progress-resume" class="tag-dialog-btn secondary" hidden>继续</button>
+          <button type="button" id="local-import-progress-cancel" class="tag-dialog-btn danger">取消</button>
+          <button type="button" id="local-import-progress-close" class="tag-dialog-btn secondary" hidden>关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/webcool/html/main.js?v=auth-20260617-02"></script>
+</body>
+</html>
