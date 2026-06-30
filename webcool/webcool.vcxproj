@@ -752,7 +752,18 @@
     <ClCompile Include="action\localdisk\list_download.cpp" />
     <ClCompile Include="action\localdisk\open_import.cpp" />
     <ClCompile Include="action\page_actions.cpp" />
-    <ClCompile Include="action\tag_actions.cpp" />
+    <ClCompile Include="action\tag\tag_bind_action.cpp" />
+    <ClCompile Include="action\tag\tag_binding.cpp" />
+    <ClCompile Include="action\tag\tag_create_action.cpp" />
+    <ClCompile Include="action\tag\tag_db.cpp" />
+    <ClCompile Include="action\tag\tag_delete_action.cpp" />
+    <ClCompile Include="action\tag\tag_files_action.cpp" />
+    <ClCompile Include="action\tag\tag_list_action.cpp" />
+    <ClCompile Include="action\tag\tag_lock_actions.cpp" />
+    <ClCompile Include="action\tag\tag_move_action.cpp" />
+    <ClCompile Include="action\tag\tag_rename_action.cpp" />
+    <ClCompile Include="action\tag\tag_tree.cpp" />
+    <ClCompile Include="action\tag\tag_util.cpp" />
     <ClCompile Include="action\upload_action.cpp" />
     <ClCompile Include="action\convert\convert_api_action.cpp" />
     <ClCompile Include="action\convert\convert_command.cpp" />
@@ -790,6 +801,7 @@
     <ClInclude Include="action\convert\convert_common.h" />
     <ClInclude Include="action\file\file_common.h" />
     <ClInclude Include="action\folder\folder_common.h" />
+    <ClInclude Include="action\tag\tag_common.h" />
     <ClInclude Include="action\localdisk\local_disk_common.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="http_router.h" />

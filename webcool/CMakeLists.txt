@@ -21,6 +21,7 @@ file(GLOB WEBCOOL_SOURCES CONFIGURE_DEPENDS
 	"${CMAKE_CURRENT_LIST_DIR}/action/convert/*.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/action/file/*.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/action/folder/*.cpp"
+	"${CMAKE_CURRENT_LIST_DIR}/action/tag/*.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/action/localdisk/*.cpp")
 
 add_executable(webcool ${WEBCOOL_SOURCES})

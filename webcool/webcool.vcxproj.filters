@@ -147,8 +147,41 @@
     <ClCompile Include="action\page_actions.cpp">
       <Filter>源文件\action</Filter>
     </ClCompile>
-    <ClCompile Include="action\tag_actions.cpp">
-      <Filter>源文件\action</Filter>
+    <ClCompile Include="action\tag\tag_bind_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_binding.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_create_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_db.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_delete_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_files_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_list_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_lock_actions.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_move_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_rename_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_tree.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_util.cpp">
+      <Filter>源文件\action\tag</Filter>
     </ClCompile>
     <ClCompile Include="action\upload_action.cpp">
       <Filter>源文件\action</Filter>
@@ -247,6 +280,9 @@
     </ClInclude>
     <ClInclude Include="action\folder\folder_common.h">
       <Filter>源文件\action\folder</Filter>
+    </ClInclude>
+    <ClInclude Include="action\tag\tag_common.h">
+      <Filter>源文件\action\tag</Filter>
     </ClInclude>
     <ClInclude Include="action\convert\convert_common.h">
       <Filter>源文件\action\convert</Filter>
