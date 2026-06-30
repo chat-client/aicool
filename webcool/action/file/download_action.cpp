@@ -42,7 +42,7 @@ bool DownloadAction::run(request_t& req, response_t& res,
 	const std::string fullpath = join_upload_path(upload_dir, file_path);
 	const std::string basename = base_name_from_relative_path(file_path);
 
-	struct stat st;
+	struct stat st{};
 	if (stat(fullpath.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) {
 		return sendText(res, 404, "file not found\n", req.isKeepAlive());
 	}
@@ -56,7 +56,7 @@ bool DownloadAction::run(request_t& req, response_t& res,
 	}
 
 	FILE* in = fopen(fullpath.c_str(), "rb");
-	if (in == NULL) {
+	if (in == nullptr) {
 		return sendText(res, 403, "file cannot be read\n", req.isKeepAlive());
 	}
 
@@ -67,12 +67,12 @@ bool DownloadAction::run(request_t& req, response_t& res,
 	const bool is_pdf = is_pdf_file(basename.c_str());
 	const char* preview = req.getParameter("preview");
 	const bool inline_preview = (is_image || is_video || is_audio || is_text || is_pdf)
-		&& preview != NULL && strcmp(preview, "1") == 0;
+		&& preview != nullptr && strcmp(preview, "1") == 0;
 	const char* range = req.getHeader("Range");
 	long long range_begin = 0;
 	long long range_end = 0;
 	const bool has_range = parse_range_header(range, fsize, range_begin, range_end);
-	const bool want_range = range != NULL && *range != '\0';
+	const bool want_range = range != nullptr && *range != '\0';
 	if (want_range && !has_range) {
 		acl::string cr;
 		cr.format("bytes */%lld", fsize);
@@ -82,9 +82,9 @@ bool DownloadAction::run(request_t& req, response_t& res,
 			.setHeader("Accept-Ranges", "bytes")
 			.setContentType("text/plain; charset=utf-8");
 		const char* msg = "invalid range\n";
-		res.setContentLength((long long) strlen(msg));
+		res.setContentLength(static_cast<long long>(strlen(msg)));
 		fclose(in);
-		return res.write(msg, strlen(msg)) && res.write(NULL, 0);
+		return res.write(msg, strlen(msg)) && res.write(nullptr, 0);
 	}
 
 	acl::string dispo;
@@ -146,12 +146,13 @@ bool DownloadAction::run(request_t& req, response_t& res,
 			.setContentLength(fsize);
 	}
 
+	size_t count = 0;
 	char buf[8192];
 	long long remain = send_size;
 	while (remain > 0) {
 		size_t want = sizeof(buf);
-		if ((long long) want > remain) {
-			want = (size_t) remain;
+		if (static_cast<long long>(want) > remain) {
+			want = static_cast<size_t>(remain);
 		}
 		const size_t n = fread(buf, 1, want, in);
 		if (n == 0) {
@@ -161,11 +162,15 @@ bool DownloadAction::run(request_t& req, response_t& res,
 			fclose(in);
 			return false;
 		}
-		remain -= (long long) n;
+		remain -= static_cast<long long>(n);
+
+		if (++count % 100 == 0) {
+			acl::fiber::yield();
+		}
 	}
 
 	fclose(in);
-	return res.write(NULL, 0);
+	return res.write(nullptr, 0);
 }
 
 } // namespace action
