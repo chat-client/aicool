@@ -96,8 +96,41 @@
     <ClCompile Include="action\file_lock_actions.cpp">
       <Filter>源文件\action</Filter>
     </ClCompile>
-    <ClCompile Include="action\folder_actions.cpp">
-      <Filter>源文件\action</Filter>
+    <ClCompile Include="action\folder\copy_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\create_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\delete_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_init.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_lock.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_recycle.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_tree.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_util.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\list_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\lock_actions.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\move_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\rename_action.cpp">
+      <Filter>源文件\action\folder</Filter>
     </ClCompile>
     <ClCompile Include="action\image_actions.cpp">
       <Filter>源文件\action</Filter>
@@ -211,6 +244,9 @@
     </ClInclude>
     <ClInclude Include="action\file\file_common.h">
       <Filter>源文件\action\file</Filter>
+    </ClInclude>
+    <ClInclude Include="action\folder\folder_common.h">
+      <Filter>源文件\action\folder</Filter>
     </ClInclude>
     <ClInclude Include="action\convert\convert_common.h">
       <Filter>源文件\action\convert</Filter>

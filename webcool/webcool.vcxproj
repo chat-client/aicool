@@ -735,7 +735,18 @@
     <ClCompile Include="action\file\rename_action.cpp" />
     <ClCompile Include="action\file\restore_action.cpp" />
     <ClCompile Include="action\file_lock_actions.cpp" />
-    <ClCompile Include="action\folder_actions.cpp" />
+    <ClCompile Include="action\folder\copy_action.cpp" />
+    <ClCompile Include="action\folder\create_action.cpp" />
+    <ClCompile Include="action\folder\delete_action.cpp" />
+    <ClCompile Include="action\folder\folder_init.cpp" />
+    <ClCompile Include="action\folder\folder_lock.cpp" />
+    <ClCompile Include="action\folder\folder_recycle.cpp" />
+    <ClCompile Include="action\folder\folder_tree.cpp" />
+    <ClCompile Include="action\folder\folder_util.cpp" />
+    <ClCompile Include="action\folder\list_action.cpp" />
+    <ClCompile Include="action\folder\lock_actions.cpp" />
+    <ClCompile Include="action\folder\move_action.cpp" />
+    <ClCompile Include="action\folder\rename_action.cpp" />
     <ClCompile Include="action\image_actions.cpp" />
     <ClCompile Include="action\localdisk\file_ops.cpp" />
     <ClCompile Include="action\localdisk\list_download.cpp" />
@@ -778,6 +789,7 @@
     <ClInclude Include="action\admin\admin_internal.h" />
     <ClInclude Include="action\convert\convert_common.h" />
     <ClInclude Include="action\file\file_common.h" />
+    <ClInclude Include="action\folder\folder_common.h" />
     <ClInclude Include="action\localdisk\local_disk_common.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="http_router.h" />

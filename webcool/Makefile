@@ -114,7 +114,8 @@ endif
 SRC = $(wildcard *.cpp)  $(wildcard common/*.cpp)  $(wildcard win32/*.cpp) \
 	$(wildcard template/*.cpp) $(wildcard action/*.cpp) \
 	$(wildcard action/admin/*.cpp) $(wildcard action/localdisk/*.cpp) \
-	$(wildcard action/convert/*.cpp) $(wildcard action/file/*.cpp)
+	$(wildcard action/convert/*.cpp) $(wildcard action/file/*.cpp) \
+	$(wildcard action/folder/*.cpp)
 OBJ = $(patsubst %.cpp, %.o, $(SRC))
 
 acl_libs:
