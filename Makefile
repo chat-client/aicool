@@ -13,7 +13,7 @@ tools:
 	for platform in linux mac; do \
 		archive="$(TOOLS_DIR)/$$platform/ffmpeg.tgz"; \
 		ffmpeg="$(TOOLS_DIR)/$$platform/ffmpeg"; \
-		if [ ! -f "$$ffmpeg" ] ]; then \
+		if [ ! -f "$$ffmpeg" ]; then \
 			if [ -f "$$archive" ]; then \
 				echo "Extracting $$archive ..."; \
 				tar -xzf "$$archive" -C "$(TOOLS_DIR)/$$platform"; \
@@ -24,16 +24,16 @@ tools:
 		fi; \
 	done
 
-acl:
-	$(MAKE) -C $(ACL_DIR) all_lib
-
-sqlite:
-	$(MAKE) -C $(SQLITE_DIR) build
-
 sqlite-download:
 	$(MAKE) -C $(SQLITE_DIR) download
 
-app: tools acl sqlite
+sqlite: sqlite-download
+	$(MAKE) -C third-party sqlite-lib
+
+acl:
+	$(MAKE) -C third-party acl-lib
+
+app: tools sqlite acl
 	$(MAKE) -C $(SRC_DIR) BUILD_ACL=0
 
 clean:

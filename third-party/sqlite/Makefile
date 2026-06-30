@@ -3,6 +3,7 @@ CFLAGS ?= -O2 -fPIC
 
 SQLITE_VERSION_NUM ?= 3460100
 SQLITE_YEAR ?= 2024
+SQLITE_TAR := sqlite-autoconf-$(SQLITE_VERSION_NUM).tar.gz
 
 ROOT := $(CURDIR)
 SRC_DIR := $(ROOT)/src
@@ -38,9 +39,14 @@ all: build
 
 download:
 	@mkdir -p "$(SRC_DIR)" "$(LIB_DIR)"
-	curl -L -o "$(PKG)" "https://www.sqlite.org/$(SQLITE_YEAR)/sqlite-autoconf-$(SQLITE_VERSION_NUM).tar.gz"
-	rm -rf "$(SRC_DIR)"/*
-	tar -xzf "$(PKG)" --strip-components=1 -C "$(SRC_DIR)"
+	@set -e; \
+	if [ ! -f "$(PKG)" ]; then \
+		curl -L -o "$(PKG)" "https://www.sqlite.org/$(SQLITE_YEAR)/$(SQLITE_TAR)"; \
+		rm -rf "$(SRC_DIR)"/*; \
+		tar -xzf "$(PKG)" --strip-components=1 -C "$(SRC_DIR)"; \
+	else \
+		echo "Sqlite already exist."; \
+	fi
 
 build: $(SQLITE_SO)
 

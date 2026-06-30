@@ -1,11 +1,11 @@
-# aicool(爱酷)
+# webcool(文酷)
 
 [English](#english) | [中文](#chinese)
 
 
 ## Chinese
 
-aicool 是一个基于 ACL 库的 C++ Web 服务示例。
+webcool 是一个基于 ACL 库的 C++ Web 服务示例。
 
 ### 第三方依赖
 
@@ -49,7 +49,7 @@ git submodule status
 make
 ```
 
-根目录 Makefile 会先构建 third-party/acl 所需库，再从 src 目录编译生成 aicool。
+根目录 Makefile 会先构建 third-party/acl 所需库，再从 src 目录编译生成 webcool。
 
 ### webcool 打包说明（补充）
 
@@ -64,13 +64,13 @@ make
 webcool -F /custom/path/ffmpeg -s 0.0.0.0:8080 -d ./uploads
 ```
 
-[回到顶部](#aicool)
+[回到顶部](#webcool)
 
 ---
 
 ## English
 
-aicool is a C++ web service example based on the ACL library.
+webcool is a C++ web service example based on the ACL library.
 
 ### Third-Party Dependency
 
@@ -108,7 +108,7 @@ Run from the repository root:
 make
 ```
 
-The root Makefile will first build the required libraries under third-party/acl, then build aicool from src.
+The root Makefile will first build the required libraries under third-party/acl, then build webcool from src.
 
 ### webcool Packaging Notes
 
@@ -123,6 +123,6 @@ For webcool binary packages (`webcool/package`):
 webcool -F /custom/path/ffmpeg -s 0.0.0.0:8080 -d ./uploads
 ```
 
-[Back to top](#aicool)
+[Back to top](#webcool)
 
 ---
