@@ -60,13 +60,13 @@
     <ClCompile Include="action\user_prefs.cpp">
       <Filter>源文件\action</Filter>
     </ClCompile>
-    <ClCompile Include="action\file\copy_action.cpp">
+    <ClCompile Include="action\file\file_copy_action.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
-    <ClCompile Include="action\file\delete_action.cpp">
+    <ClCompile Include="action\file\file_delete_action.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
-    <ClCompile Include="action\file\download_action.cpp">
+    <ClCompile Include="action\file\file_download_action.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
     <ClCompile Include="action\file\file_collect.cpp">
@@ -75,34 +75,34 @@
     <ClCompile Include="action\file\file_util.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
-    <ClCompile Include="action\file\list_files_action.cpp">
+    <ClCompile Include="action\file\file_list_action.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
-    <ClCompile Include="action\file\move_action.cpp">
+    <ClCompile Include="action\file\file_move_action.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
-    <ClCompile Include="action\file\open_file_action.cpp">
+    <ClCompile Include="action\file\file_open_action.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
-    <ClCompile Include="action\file\recycle_bin.cpp">
+    <ClCompile Include="action\file\file_recycle_bin.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
-    <ClCompile Include="action\file\rename_action.cpp">
+    <ClCompile Include="action\file\file_rename_action.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
-    <ClCompile Include="action\file\restore_action.cpp">
+    <ClCompile Include="action\file\file_restore_action.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
     <ClCompile Include="action\file_lock_actions.cpp">
       <Filter>源文件\action</Filter>
     </ClCompile>
-    <ClCompile Include="action\folder\copy_action.cpp">
+    <ClCompile Include="action\folder\folder_copy_action.cpp">
       <Filter>源文件\action\folder</Filter>
     </ClCompile>
-    <ClCompile Include="action\folder\create_action.cpp">
+    <ClCompile Include="action\folder\folder_create_action.cpp">
       <Filter>源文件\action\folder</Filter>
     </ClCompile>
-    <ClCompile Include="action\folder\delete_action.cpp">
+    <ClCompile Include="action\folder\folder_delete_action.cpp">
       <Filter>源文件\action\folder</Filter>
     </ClCompile>
     <ClCompile Include="action\folder\folder_init.cpp">
@@ -120,16 +120,16 @@
     <ClCompile Include="action\folder\folder_util.cpp">
       <Filter>源文件\action\folder</Filter>
     </ClCompile>
-    <ClCompile Include="action\folder\list_action.cpp">
+    <ClCompile Include="action\folder\folder_list_action.cpp">
       <Filter>源文件\action\folder</Filter>
     </ClCompile>
-    <ClCompile Include="action\folder\lock_actions.cpp">
+    <ClCompile Include="action\folder\folder_lock_actions.cpp">
       <Filter>源文件\action\folder</Filter>
     </ClCompile>
-    <ClCompile Include="action\folder\move_action.cpp">
+    <ClCompile Include="action\folder\folder_move_action.cpp">
       <Filter>源文件\action\folder</Filter>
     </ClCompile>
-    <ClCompile Include="action\folder\rename_action.cpp">
+    <ClCompile Include="action\folder\folder_rename_action.cpp">
       <Filter>源文件\action\folder</Filter>
     </ClCompile>
     <ClCompile Include="action\image_actions.cpp">
