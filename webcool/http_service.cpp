@@ -147,7 +147,7 @@ bool http_service::doService(int type, HttpRequest& req, HttpResponse& res) {
 		}
 	}
 
-	timeval begin;
+	timeval begin{};
 	gettimeofday(&begin, nullptr);
 
 	if (!it->second(req, res)) {
@@ -158,9 +158,12 @@ bool http_service::doService(int type, HttpRequest& req, HttpResponse& res) {
 		after_handle_(path, req);
 	}
 
-	timeval end;
+	timeval end{};
 	gettimeofday(&end, nullptr);
 	const double cost = acl::stamp_sub(end, begin);
-	logger_debug(DEBUG_ACTION, 1, "Time cost %.2f m, path=%s", cost, path);
+	acl::string methodStr;
+	(void) req.getMethod(&methodStr);
+	logger_debug(DEBUG_ACTION, 1, "Time cost %.2f m, %s path=%s",
+		cost, path, methodStr.c_str());
 	return keep;
 }
