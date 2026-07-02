@@ -68,8 +68,8 @@
     '/webcool/html/js/remote-files.js',
     '/webcool/html/js/preview-local-disk.js',
     '/webcool/html/js/admin-storage.js',
-    '/webcool/html/js/events-bootstrap.js'
-//    '/webcool/html/js/images-plugin.js'
+    '/webcool/html/js/events-bootstrap.js',
+    '/webcool/html/js/view-heic.js'
   ];
 
   function showLoadError(err) {

@@ -432,6 +432,12 @@ private:
 		const std::string& folder_path, std::vector<std::string>& saved_paths);
 };
 
+class UploadStreamAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
 class VideoConvertAction {
 public:
 	static bool run(request_t& req, response_t& res,

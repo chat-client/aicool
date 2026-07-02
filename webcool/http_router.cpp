@@ -366,6 +366,7 @@ void http_router::setup() const {
 		.Post("/api/v1/auth/users/update", &http_router::routeAuthUserUpdate)
 		.Post("/api/v1/auth/users/delete", &http_router::routeAuthUserDelete)
 		.Post("/api/v1/upload", &http_router::routeUpload)
+		.Post("/api/v1/upload/stream", &http_router::routeUploadStream)
 		.Post("/api/v1/admin/storage/migrate", &http_router::routeAdminStorageMigrate)
 		.Post("/api/v1/admin/storage/migrate/resolve", &http_router::routeAdminStorageMigrateResolve)
 		.Post("/api/v1/admin/storage/migrate/control", &http_router::routeAdminStorageMigrateControl)
@@ -751,6 +752,11 @@ bool http_router::routeLocalDiskVideoStreamState(request_t& req, response_t& res
 bool http_router::routeUpload(request_t& req, response_t& res) {
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::UploadAction::run(req, res, dir);
+}
+
+bool http_router::routeUploadStream(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::UploadStreamAction::run(req, res, dir);
 }
 
 bool http_router::routeVideoConvert(request_t& req, response_t& res) {
