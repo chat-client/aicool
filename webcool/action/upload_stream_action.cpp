@@ -9,7 +9,6 @@
 #include <cctype>
 #include <cerrno>
 #include <cstdio>
-#include <cstdlib>
 #include <string>
 
 namespace action {
@@ -39,41 +38,39 @@ bool parse_int64_param(const char* value, long long& out) {
 }
 
 std::string lowercase_copy(std::string text) {
-	for (size_t i = 0; i < text.size(); ++i) {
-		text[i] = static_cast<char>(std::tolower(
-			static_cast<unsigned char>(text[i])));
+	for (char & i : text) {
+		i = static_cast<char>(std::tolower(static_cast<unsigned char>(i)));
 	}
 	return text;
 }
 
 bool is_valid_md5_hex(const std::string& md5) {
-	if (md5.size() != 32) {
-		return false;
-	}
-	for (size_t i = 0; i < md5.size(); ++i) {
-		const unsigned char ch = static_cast<unsigned char>(md5[i]);
-		if (!std::isxdigit(ch)) {
-			return false;
-		}
-	}
-	return true;
+	return md5.size() == 32 &&
+		std::all_of(md5.begin(), md5.end(), [](unsigned char ch) {
+			return std::isxdigit(ch);
+		});
 }
 
 bool md5_file_hex(const std::string& path, std::string& hex, std::string& err) {
 	char out[33] = {};
-	if (acl::md5::md5_file(path.c_str(), nullptr, 0, out, sizeof(out)) < 0) {
-		err = "md5 compute failed";
-		return false;
-	}
-	hex = out;
-	return true;
+	bool res;
+	acl::gofiber_wait_thread([&] {
+		if (acl::md5::md5_file(path.c_str(), nullptr, 0, out, sizeof(out)) < 0) {
+			err = "md5 compute failed";
+			res = false;
+		} else {
+			hex = out;
+			res = true;
+		}
+	});
+	return res;
 }
 
 bool md5_equals(const std::string& expected, const std::string& actual) {
 	return lowercase_copy(expected) == lowercase_copy(actual);
 }
 
-bool resolve_stream_upload_target(request_t& req, acl::json& json,
+bool resolve_stream_upload_target(const request_t& req, acl::json& json,
 	const std::string& upload_dir, StreamUploadTarget& target,
 	acl::json_node*& err, int& status) {
 	const char* filename_param = req.getParameter("filename");
@@ -213,7 +210,7 @@ bool finalize_stream_upload(const std::string& upload_dir,
 		return false;
 	}
 
-	if (::rename(target.tmp_path.c_str(), target.dest_path.c_str()) != 0) {
+	if (rename(target.tmp_path.c_str(), target.dest_path.c_str()) != 0) {
 		err = acl::last_serror();
 		return false;
 	}
