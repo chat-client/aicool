@@ -380,7 +380,7 @@ bool stream_body_to_file_at_offset(acl::istream& in, const long long content_len
 		return false;
 	}
 
-	char buf[65536];
+	char buf[8192];
 	long long read_total = 0;
 	while (read_total < content_length) {
 		size_t want = sizeof(buf);
@@ -389,7 +389,7 @@ bool stream_body_to_file_at_offset(acl::istream& in, const long long content_len
 			want = static_cast<size_t>(remain);
 		}
 
-		const int n = in.read(buf, want);
+		const int n = in.read(buf, want, false);
 		if (n < 0) {
 			err = acl::last_serror();
 			logger_error("upload stream write error: read request body failed,"
@@ -535,10 +535,21 @@ acl::json_node* completed_upload_response(acl::json& json,
 acl::json_node* prepare_stream_tmp_file(acl::json& json,
 	const StreamUploadTarget& target, const long long total_size,
 	const long long offset, const long long content_length,
-	long long& tmp_size, long long& next_offset, int& status) {
+	const bool preserve_existing_tmp, long long& tmp_size,
+	long long& next_offset, int& status) {
 	tmp_size = normalized_tmp_size(target, total_size, "run");
 
 	if (offset == 0 && tmp_size > 0) {
+		if (preserve_existing_tmp) {
+			logger_error("upload stream run notice: existing temp upload found,"
+				" path=%s, tmp=%s, tmp_size=%lld", target.relative_path.c_str(),
+				target.tmp_path.c_str(), tmp_size);
+			acl::json_node& root = make_error_json(json, "offset mismatch");
+			root.add_number("offset", tmp_size);
+			root.add_number("total_size", total_size);
+			status = 409;
+			return &root;
+		}
 		logger_error("upload stream run notice: restarting upload, path=%s,"
 			" tmp=%s, old_tmp_size=%lld", target.relative_path.c_str(),
 			target.tmp_path.c_str(), tmp_size);
@@ -671,8 +682,9 @@ bool UploadStreamAction::run(request_t& req, response_t& res,
 
 	long long tmp_size = 0;
 	long long next_offset = 0;
+	const bool preserve_existing_tmp = req.getParameter("resume") != nullptr;
 	err = prepare_stream_tmp_file(json, target, total_size, offset,
-		content_length, tmp_size, next_offset, status);
+		content_length, preserve_existing_tmp, tmp_size, next_offset, status);
 	if (err != nullptr) {
 		return sendJson(res, status, *err, keep_alive_without_body);
 	}
@@ -698,12 +710,8 @@ bool UploadStreamAction::run(request_t& req, response_t& res,
 	}
 
 	if (expected_md5.empty()) {
-		logger_error("upload stream run error: md5 required to finalize, path=%s,"
-			" offset=%lld, content_length=%lld, total_size=%lld",
-			target.relative_path.c_str(), offset, content_length, total_size);
-		acl::json_node& root = make_error_json(json,
-			"md5 is required to finalize upload");
-		return sendJson(res, 400, root, req.isKeepAlive());
+		acl::json_node& root = make_progress_json(json, tmp_size, total_size);
+		return sendJson(res, 200, root, req.isKeepAlive());
 	}
 
 	acl::json_node& final_root = json.create_node();
