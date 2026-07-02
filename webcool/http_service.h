@@ -32,7 +32,8 @@ public:
 	http_service& AfterHandle(after_handle_t fn);
 
 public:
-	bool doService(int type, HttpRequest& req, HttpResponse& res);
+	bool doService(int type, HttpRequest& req, HttpResponse& res,
+		acl::string& method, acl::string& uri);
 
 public:
 	http_handlers_t* get_handlers() {

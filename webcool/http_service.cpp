@@ -110,7 +110,8 @@ void http_service::Service(int type, const char* path, http_handler_t fn) {
 	}
 }
 
-bool http_service::doService(int type, HttpRequest& req, HttpResponse& res) {
+bool http_service::doService(int type, HttpRequest& req, HttpResponse& res,
+	 acl::string& method, acl::string& uri) {
 	if (type < http_handler_get || type >= http_handler_max) {
 		logger_error("invalid type=%d", type);
 		return false;
@@ -126,6 +127,9 @@ bool http_service::doService(int type, HttpRequest& req, HttpResponse& res) {
 		res.setContentLength(static_cast<long long>(buf.size()));
 		return res.write(buf.c_str(), buf.size()) && keep;
 	}
+
+	(void) req.getMethod(&method);
+	uri = path;
 
 	size_t len = strlen(path);
 	acl::string buf(path);
@@ -161,9 +165,7 @@ bool http_service::doService(int type, HttpRequest& req, HttpResponse& res) {
 	timeval end{};
 	gettimeofday(&end, nullptr);
 	const double cost = acl::stamp_sub(end, begin);
-	acl::string methodStr;
-	(void) req.getMethod(&methodStr);
 	logger_debug(DEBUG_ACTION, 1, "Time cost %.2f m, %s path=%s",
-		cost, path, methodStr.c_str());
+		cost, path, method.c_str());
 	return keep;
 }

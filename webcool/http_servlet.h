@@ -51,8 +51,24 @@ protected:
 	// @override
 	bool doOther(HttpRequest&, HttpResponse& res, const char* method) override;
 
+public:
+	const acl::string& get_method() const {
+		return method_;
+	}
+
+	const acl::string& get_url() const {
+		return uri_;
+	}
+
+	bool isKeepAlive() const {
+		return keep_alive_;
+	}
+
 private:
 	http_service& service_;
+	acl::string method_;
+	acl::string uri_;
+	bool keep_alive_ = false;
 
-	bool doService(int type, HttpRequest& req, HttpResponse& res) const;
+	bool doService(int type, HttpRequest& req, HttpResponse& res);
 };

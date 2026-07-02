@@ -523,13 +523,12 @@ acl::json_node* completed_upload_response(acl::json& json,
 		return nullptr;
 	}
 
-	acl::json_node& root = include_saved_file_without_md5
-		? json.create_node()
-		: make_progress_json(json, total_size, total_size, true);
 	if (include_saved_file_without_md5) {
-		append_saved_file_json(json, root, target, total_size);
-		unlink(target.tmp_path.c_str());
+		handled = false;
+		return nullptr;
 	}
+
+	acl::json_node& root = make_progress_json(json, total_size, total_size, true);
 	return &root;
 }
 
@@ -631,22 +630,23 @@ bool UploadStreamAction::run(request_t& req, response_t& res,
 		log_stream_upload_error("run", "multipart request sent to stream endpoint");
 		acl::json_node& root = make_error_json(json,
 			"use /api/v1/upload for multipart uploads");
-		return sendJson(res, 400, root, req.isKeepAlive());
+		return sendJson(res, 400, root, false);
 	}
 
 	const long long content_length = req.getContentLength();
+	const bool keep_alive_without_body = content_length == 0 && req.isKeepAlive();
 	if (content_length < 0) {
 		logger_error("upload stream run error: invalid content length=%lld",
 			content_length);
 		acl::json_node& root = make_error_json(json, "invalid request body");
-		return sendJson(res, 400, root, req.isKeepAlive());
+		return sendJson(res, 400, root, false);
 	}
 
 	StreamUploadTarget target;
 	acl::json_node* err = nullptr;
 	int status = 200;
 	if (!resolve_stream_upload_target(req, json, upload_dir, target, err, status)) {
-		return sendJson(res, status, *err, req.isKeepAlive());
+		return sendJson(res, status, *err, keep_alive_without_body);
 	}
 
 	StreamUploadGuard upload_guard = acquire_stream_upload_lock(target);
@@ -657,14 +657,16 @@ bool UploadStreamAction::run(request_t& req, response_t& res,
 	err = parse_run_upload_params(req, json, target, total_size, offset,
 		expected_md5, status);
 	if (err != nullptr) {
-		return sendJson(res, status, *err, req.isKeepAlive());
+		return sendJson(res, status, *err, keep_alive_without_body);
 	}
 
-	bool handled = false;
-	acl::json_node* completed_root = completed_upload_response(json, target,
-		total_size, expected_md5, "run", true, handled);
-	if (handled) {
-		return sendJson(res, 200, *completed_root, req.isKeepAlive());
+	if (content_length == 0) {
+		bool handled = false;
+		acl::json_node* completed_root = completed_upload_response(json, target,
+			total_size, expected_md5, "run", true, handled);
+		if (handled) {
+			return sendJson(res, 200, *completed_root, req.isKeepAlive());
+		}
 	}
 
 	long long tmp_size = 0;
@@ -672,7 +674,7 @@ bool UploadStreamAction::run(request_t& req, response_t& res,
 	err = prepare_stream_tmp_file(json, target, total_size, offset,
 		content_length, tmp_size, next_offset, status);
 	if (err != nullptr) {
-		return sendJson(res, status, *err, req.isKeepAlive());
+		return sendJson(res, status, *err, keep_alive_without_body);
 	}
 
 	if (content_length > 0) {
@@ -683,7 +685,7 @@ bool UploadStreamAction::run(request_t& req, response_t& res,
 			target.tmp_path, written, stream_err)) {
 			acl::json_node& root = make_error_json(json, stream_err.empty()
 				? "read request body failed" : stream_err.c_str());
-			return sendJson(res, 500, root, req.isKeepAlive());
+			return sendJson(res, 500, root, false);
 		}
 		tmp_size = offset + written;
 	} else {

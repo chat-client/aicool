@@ -71,7 +71,7 @@ bool http_servlet::doOther(HttpRequest&, HttpResponse& res, const char* method) 
 	return false;
 }
 
-bool http_servlet::doService(int type, HttpRequest& req, HttpResponse& res) const {
+bool http_servlet::doService(int type, HttpRequest& req, HttpResponse& res) {
 	/*
 	const char* sid = req.getSession().getAttribute("sid");
 	if (*sid == 0) {
@@ -89,5 +89,6 @@ bool http_servlet::doService(int type, HttpRequest& req, HttpResponse& res) cons
 		}
 	}
 
-	return service_.doService(type, req, res);
+	keep_alive_ = req.isKeepAlive();
+	return service_.doService(type, req, res, method_, uri_);
 }

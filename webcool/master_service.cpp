@@ -198,7 +198,7 @@ acl::sslbase_io* master_service::setup_ssl(acl::socket_stream& conn,
 }
 
 void master_service::on_accept(acl::socket_stream& conn) {
-	//logger("connect from %s, fd %d", conn.get_peer(), conn.sock_handle());
+	logger("connect from %s, fd %d", conn.get_peer(), conn.sock_handle());
 
 	if (conf_) {
 		acl::sslbase_io* ssl = setup_ssl(conn, *conf_);
@@ -219,7 +219,9 @@ void master_service::on_accept(acl::socket_stream& conn) {
 
 	while(servlet.doRun()) {}
 
-	//logger("disconnect from %s", conn.get_peer());
+	logger("disconnect from %s, method=%s, url=%s, keep-alive=%s",
+		conn.get_peer(), servlet.get_method().c_str(),
+		servlet.get_url().c_str(), servlet.isKeepAlive() ? "true" : "false");
 }
 
 void master_service::proc_pre_jail() {
