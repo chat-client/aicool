@@ -436,6 +436,9 @@ class UploadStreamAction {
 public:
 	static bool run(request_t& req, response_t& res,
 		const std::string& upload_dir);
+
+	static bool status(request_t& req, response_t& res,
+		const std::string& upload_dir);
 };
 
 class VideoConvertAction {

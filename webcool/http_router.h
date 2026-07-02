@@ -113,5 +113,6 @@ private:
 	static bool routeTagLockVerify(request_t& req, response_t& res);
 	static bool routeUpload(request_t& req, response_t& res);
 	static bool routeUploadStream(request_t& req, response_t& res);
+	static bool routeUploadStreamStatus(request_t& req, response_t& res);
 	static bool routeTagFiles(request_t& req, response_t& res);
 };

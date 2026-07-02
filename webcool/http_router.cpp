@@ -351,6 +351,7 @@ void http_router::setup() const {
 		.Get("/api/v1/tags/lock/verify", &http_router::routeTagLockVerify)
 		.Get("/api/v1/tag-files", &http_router::routeTagFiles)
 		.Get("/api/v1/upload", &http_router::routeUpload)
+		.Get("/api/v1/upload/stream", &http_router::routeUploadStreamStatus)
 		.Get("/", [](request_t& req, response_t& res) {
 			return action::IndexAction::run(req, res);
 		});
@@ -757,6 +758,11 @@ bool http_router::routeUpload(request_t& req, response_t& res) {
 bool http_router::routeUploadStream(request_t& req, response_t& res) {
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::UploadStreamAction::run(req, res, dir);
+}
+
+bool http_router::routeUploadStreamStatus(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::UploadStreamAction::status(req, res, dir);
 }
 
 bool http_router::routeVideoConvert(request_t& req, response_t& res) {
