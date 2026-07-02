@@ -120,6 +120,17 @@ std::string optional_normalized_md5(const request_t& req) {
 	return lowercase_copy(md5_param);
 }
 
+acl::json_node* validate_expected_md5(acl::json& json,
+	const StreamUploadTarget& target, const std::string& expected_md5,
+	const char* context) {
+	if (expected_md5.empty() || is_valid_md5_hex(expected_md5)) {
+		return nullptr;
+	}
+	logger_error("upload stream %s error: invalid md5, path=%s, md5=%s",
+		context, target.relative_path.c_str(), expected_md5.c_str());
+	return &make_error_json(json, "invalid md5");
+}
+
 bool md5_file_hex(const std::string& path, std::string& hex, std::string& err) {
 	char out[33] = {};
 	bool res = false;
@@ -424,6 +435,141 @@ bool stream_body_to_file_at_offset(acl::istream& in, const long long content_len
 	return true;
 }
 
+long long normalized_tmp_size(const StreamUploadTarget& target,
+	const long long total_size, const char* context) {
+	long long tmp_size = regular_file_size(target.tmp_path);
+	if (tmp_size < 0) {
+		return 0;
+	}
+	if (tmp_size > total_size) {
+		logger_error("upload stream %s error: temp file larger than total,"
+			" path=%s, tmp=%s, tmp_size=%lld, total_size=%lld",
+			context, target.relative_path.c_str(), target.tmp_path.c_str(),
+			tmp_size, total_size);
+		unlink(target.tmp_path.c_str());
+		return 0;
+	}
+	return tmp_size;
+}
+
+acl::json_node* parse_run_upload_params(request_t& req, acl::json& json,
+	const StreamUploadTarget& target, long long& total_size, long long& offset,
+	std::string& expected_md5, int& status) {
+	acl::json_node* err = nullptr;
+	if (!parse_positive_total_size(req, total_size, json, err)) {
+		status = 400;
+		return err;
+	}
+
+	offset = 0;
+	if (req.getParameter("offset") != nullptr
+		&& !parse_int64_param(req.getParameter("offset"), offset)) {
+		logger_error("upload stream run error: invalid offset, path=%s,"
+			" offset=%s", target.relative_path.c_str(),
+			req.getParameter("offset"));
+		acl::json_node& root = make_error_json(json, "invalid offset");
+		status = 400;
+		return &root;
+	}
+	if (offset < 0 || offset > total_size) {
+		logger_error("upload stream run error: offset out of range, path=%s,"
+			" offset=%lld, total_size=%lld", target.relative_path.c_str(),
+			offset, total_size);
+		acl::json_node& root = make_error_json(json, "invalid offset");
+		status = 400;
+		return &root;
+	}
+
+	expected_md5 = optional_normalized_md5(req);
+	acl::json_node* md5_err = validate_expected_md5(json, target,
+		expected_md5, "run");
+	if (md5_err != nullptr) {
+		status = 400;
+		return md5_err;
+	}
+
+	status = 200;
+	return nullptr;
+}
+
+acl::json_node* completed_upload_response(acl::json& json,
+	const StreamUploadTarget& target, const long long total_size,
+	const std::string& expected_md5, const char* context,
+	const bool include_saved_file_without_md5, bool& handled) {
+	handled = false;
+	const long long dest_size = regular_file_size(target.dest_path);
+	if (dest_size != total_size) {
+		return nullptr;
+	}
+
+	handled = true;
+	if (!expected_md5.empty()) {
+		std::string actual_md5;
+		std::string md5_err;
+		if (md5_file_hex(target.dest_path, actual_md5, md5_err)
+			&& md5_equals(expected_md5, actual_md5)) {
+			acl::json_node& root = json.create_node();
+			append_saved_file_json(json, root, target, total_size);
+			unlink(target.tmp_path.c_str());
+			return &root;
+		}
+
+		logger_error("upload stream %s error: existing destination md5"
+			" mismatch or compute failed, path=%s, dest=%s, expected=%s,"
+			" actual=%s, error=%s", context, target.relative_path.c_str(),
+			target.dest_path.c_str(), expected_md5.c_str(),
+			actual_md5.c_str(), md5_err.c_str());
+		handled = false;
+		return nullptr;
+	}
+
+	acl::json_node& root = include_saved_file_without_md5
+		? json.create_node()
+		: make_progress_json(json, total_size, total_size, true);
+	if (include_saved_file_without_md5) {
+		append_saved_file_json(json, root, target, total_size);
+		unlink(target.tmp_path.c_str());
+	}
+	return &root;
+}
+
+acl::json_node* prepare_stream_tmp_file(acl::json& json,
+	const StreamUploadTarget& target, const long long total_size,
+	const long long offset, const long long content_length,
+	long long& tmp_size, long long& next_offset, int& status) {
+	tmp_size = normalized_tmp_size(target, total_size, "run");
+
+	if (offset == 0 && tmp_size > 0) {
+		logger_error("upload stream run notice: restarting upload, path=%s,"
+			" tmp=%s, old_tmp_size=%lld", target.relative_path.c_str(),
+			target.tmp_path.c_str(), tmp_size);
+		unlink(target.tmp_path.c_str());
+		tmp_size = 0;
+	} else if (offset > 0 && tmp_size != offset) {
+		logger_error("upload stream run error: offset mismatch, path=%s,"
+			" tmp_size=%lld, offset=%lld, total_size=%lld",
+			target.relative_path.c_str(), tmp_size, offset, total_size);
+		acl::json_node& root = make_error_json(json, "offset mismatch");
+		root.add_number("offset", tmp_size);
+		root.add_number("total_size", total_size);
+		status = 409;
+		return &root;
+	}
+
+	if (content_length > total_size - offset) {
+		logger_error("upload stream run error: upload exceeds total_size,"
+			" path=%s, offset=%lld, content_length=%lld, total_size=%lld",
+			target.relative_path.c_str(), offset, content_length, total_size);
+		acl::json_node& root = make_error_json(json, "upload exceeds total_size");
+		status = 400;
+		return &root;
+	}
+
+	next_offset = offset + content_length;
+	status = 200;
+	return nullptr;
+}
+
 } // namespace
 
 bool UploadStreamAction::status(request_t& req, response_t& res,
@@ -444,49 +590,20 @@ bool UploadStreamAction::status(request_t& req, response_t& res,
 	}
 
 	const std::string expected_md5 = optional_normalized_md5(req);
-	if (!expected_md5.empty() && !is_valid_md5_hex(expected_md5)) {
-		logger_error("upload stream status error: invalid md5, path=%s, md5=%s",
-			target.relative_path.c_str(), expected_md5.c_str());
-		acl::json_node& root = make_error_json(json, "invalid md5");
-		return sendJson(res, 400, root, req.isKeepAlive());
+	acl::json_node* md5_err = validate_expected_md5(json, target,
+		expected_md5, "status");
+	if (md5_err != nullptr) {
+		return sendJson(res, 400, *md5_err, req.isKeepAlive());
 	}
 
-	const long long dest_size = regular_file_size(target.dest_path);
-	if (dest_size == total_size) {
-		if (!expected_md5.empty()) {
-			std::string actual_md5;
-			std::string md5_err;
-			if (md5_file_hex(target.dest_path, actual_md5, md5_err)
-				&& md5_equals(expected_md5, actual_md5)) {
-				acl::json_node& root = json.create_node();
-				append_saved_file_json(json, root, target, total_size);
-				unlink(target.tmp_path.c_str());
-				return sendJson(res, 200, root, req.isKeepAlive());
-			}
-			logger_error("upload stream status error: existing destination md5"
-				" mismatch or compute failed, path=%s, dest=%s, expected=%s,"
-				" actual=%s, error=%s", target.relative_path.c_str(),
-				target.dest_path.c_str(), expected_md5.c_str(),
-				actual_md5.c_str(), md5_err.c_str());
-		} else {
-			acl::json_node& root = make_progress_json(json, total_size,
-				total_size, true);
-			return sendJson(res, 200, root, req.isKeepAlive());
-		}
+	bool handled = false;
+	acl::json_node* completed_root = completed_upload_response(json, target,
+		total_size, expected_md5, "status", false, handled);
+	if (handled) {
+		return sendJson(res, 200, *completed_root, req.isKeepAlive());
 	}
 
-	long long tmp_size = regular_file_size(target.tmp_path);
-	if (tmp_size < 0) {
-		tmp_size = 0;
-	}
-	if (tmp_size > total_size) {
-		logger_error("upload stream status error: temp file larger than total,"
-			" path=%s, tmp=%s, tmp_size=%lld, total_size=%lld",
-			target.relative_path.c_str(), target.tmp_path.c_str(), tmp_size,
-			total_size);
-		unlink(target.tmp_path.c_str());
-		tmp_size = 0;
-	}
+	long long tmp_size = normalized_tmp_size(target, total_size, "status");
 
 	if (tmp_size == total_size && !expected_md5.empty()) {
 		acl::json_node& root = json.create_node();
@@ -535,97 +652,28 @@ bool UploadStreamAction::run(request_t& req, response_t& res,
 	StreamUploadGuard upload_guard = acquire_stream_upload_lock(target);
 
 	long long total_size = 0;
-	if (!parse_positive_total_size(req, total_size, json, err)) {
-		return sendJson(res, 400, *err, req.isKeepAlive());
-	}
-
 	long long offset = 0;
-	if (req.getParameter("offset") != nullptr
-		&& !parse_int64_param(req.getParameter("offset"), offset)) {
-		logger_error("upload stream run error: invalid offset, path=%s,"
-			" offset=%s", target.relative_path.c_str(),
-			req.getParameter("offset"));
-		acl::json_node& root = make_error_json(json, "invalid offset");
-		return sendJson(res, 400, root, req.isKeepAlive());
-	}
-	if (offset < 0 || offset > total_size) {
-		logger_error("upload stream run error: offset out of range, path=%s,"
-			" offset=%lld, total_size=%lld", target.relative_path.c_str(),
-			offset, total_size);
-		acl::json_node& root = make_error_json(json, "invalid offset");
-		return sendJson(res, 400, root, req.isKeepAlive());
+	std::string expected_md5;
+	err = parse_run_upload_params(req, json, target, total_size, offset,
+		expected_md5, status);
+	if (err != nullptr) {
+		return sendJson(res, status, *err, req.isKeepAlive());
 	}
 
-	const std::string expected_md5 = optional_normalized_md5(req);
-	if (!expected_md5.empty() && !is_valid_md5_hex(expected_md5)) {
-		logger_error("upload stream run error: invalid md5, path=%s, md5=%s",
-			target.relative_path.c_str(), expected_md5.c_str());
-		acl::json_node& root = make_error_json(json, "invalid md5");
-		return sendJson(res, 400, root, req.isKeepAlive());
+	bool handled = false;
+	acl::json_node* completed_root = completed_upload_response(json, target,
+		total_size, expected_md5, "run", true, handled);
+	if (handled) {
+		return sendJson(res, 200, *completed_root, req.isKeepAlive());
 	}
 
-	const long long dest_size = regular_file_size(target.dest_path);
-	if (dest_size == total_size) {
-		if (!expected_md5.empty()) {
-			std::string actual_md5;
-			std::string md5_err;
-			if (md5_file_hex(target.dest_path, actual_md5, md5_err)
-				&& md5_equals(expected_md5, actual_md5)) {
-				acl::json_node& root = json.create_node();
-				append_saved_file_json(json, root, target, total_size);
-				unlink(target.tmp_path.c_str());
-				return sendJson(res, 200, root, req.isKeepAlive());
-			}
-			logger_error("upload stream run error: existing destination md5"
-				" mismatch or compute failed, path=%s, dest=%s, expected=%s,"
-				" actual=%s, error=%s", target.relative_path.c_str(),
-				target.dest_path.c_str(), expected_md5.c_str(),
-				actual_md5.c_str(), md5_err.c_str());
-		} else {
-			acl::json_node& root = json.create_node();
-			append_saved_file_json(json, root, target, total_size);
-			unlink(target.tmp_path.c_str());
-			return sendJson(res, 200, root, req.isKeepAlive());
-		}
+	long long tmp_size = 0;
+	long long next_offset = 0;
+	err = prepare_stream_tmp_file(json, target, total_size, offset,
+		content_length, tmp_size, next_offset, status);
+	if (err != nullptr) {
+		return sendJson(res, status, *err, req.isKeepAlive());
 	}
-
-	long long tmp_size = regular_file_size(target.tmp_path);
-	if (tmp_size < 0) {
-		tmp_size = 0;
-	}
-	if (tmp_size > total_size) {
-		logger_error("upload stream run error: temp file larger than total,"
-			" path=%s, tmp=%s, tmp_size=%lld, total_size=%lld",
-			target.relative_path.c_str(), target.tmp_path.c_str(), tmp_size,
-			total_size);
-		unlink(target.tmp_path.c_str());
-		tmp_size = 0;
-	}
-
-	if (offset == 0 && tmp_size > 0) {
-		logger_error("upload stream run notice: restarting upload, path=%s,"
-			" tmp=%s, old_tmp_size=%lld", target.relative_path.c_str(),
-			target.tmp_path.c_str(), tmp_size);
-		unlink(target.tmp_path.c_str());
-		tmp_size = 0;
-	} else if (offset > 0 && tmp_size != offset) {
-		logger_error("upload stream run error: offset mismatch, path=%s,"
-			" tmp_size=%lld, offset=%lld, total_size=%lld",
-			target.relative_path.c_str(), tmp_size, offset, total_size);
-		acl::json_node& root = make_error_json(json, "offset mismatch");
-		root.add_number("offset", tmp_size);
-		root.add_number("total_size", total_size);
-		return sendJson(res, 409, root, req.isKeepAlive());
-	}
-
-	if (content_length > total_size - offset) {
-		logger_error("upload stream run error: upload exceeds total_size,"
-			" path=%s, offset=%lld, content_length=%lld, total_size=%lld",
-			target.relative_path.c_str(), offset, content_length, total_size);
-		acl::json_node& root = make_error_json(json, "upload exceeds total_size");
-		return sendJson(res, 400, root, req.isKeepAlive());
-	}
-	const long long next_offset = offset + content_length;
 
 	if (content_length > 0) {
 		long long written = 0;
@@ -656,10 +704,10 @@ bool UploadStreamAction::run(request_t& req, response_t& res,
 		return sendJson(res, 400, root, req.isKeepAlive());
 	}
 
-	acl::json_node& root = json.create_node();
+	acl::json_node& final_root = json.create_node();
 	std::string finalize_err;
 	if (!finalize_stream_upload(upload_dir, target, expected_md5, total_size,
-		json, root, finalize_err)) {
+		json, final_root, finalize_err)) {
 		logger_error("upload stream run error: finalize failed, path=%s,"
 			" tmp=%s, error=%s", target.relative_path.c_str(),
 			target.tmp_path.c_str(), finalize_err.c_str());
@@ -667,7 +715,7 @@ bool UploadStreamAction::run(request_t& req, response_t& res,
 			? "finalize upload failed" : finalize_err.c_str());
 		return sendJson(res, 500, eroot, req.isKeepAlive());
 	}
-	return sendJson(res, 200, root, req.isKeepAlive());
+	return sendJson(res, 200, final_root, req.isKeepAlive());
 }
 
 } // namespace action
