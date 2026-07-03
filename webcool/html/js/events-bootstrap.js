@@ -1726,6 +1726,10 @@
       });
 
       fileList.addEventListener('dragstart', function (e) {
+        if (e.target.closest('.file-rename-input')) {
+          e.preventDefault();
+          return;
+        }
         const row = e.target.closest('tr[data-drag-file]');
         if (!row || !e.dataTransfer) {
           return;

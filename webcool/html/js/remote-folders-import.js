@@ -165,7 +165,7 @@ function isRecycleFolderPath(path) {
             : '';
           const displayName = getSharedFolderDisplayName(path, node.name || '');
           const nameHtml = isRenaming
-            ? '<input class="folder-rename-input" data-folder-rename-input="' + escapeHtml(path) + '" value="' + escapeHtml(node.name || '') + '" maxlength="120">'
+            ? '<input class="folder-rename-input" draggable="false" data-folder-rename-input="' + escapeHtml(path) + '" value="' + escapeHtml(node.name || '') + '" maxlength="120">'
             : '<span class="folder-tree-name">' + folderIconHtml + escapeHtml(displayName) + '</span>';
           const lockHtml = folderLockIconHtml(node);
           const countHtml = path ? String(Number(node.file_count || 0)) : '';
@@ -175,7 +175,7 @@ function isRecycleFolderPath(path) {
                 (hasChildren
                   ? '<button type="button" class="folder-tree-toggle" data-folder-toggle="' + escapeHtml(path) + '">' + (expanded ? '▾' : '▸') + '</button>'
                   : '<span class="folder-tree-toggle placeholder">•</span>') +
-                '<div class="folder-tree-entry" data-folder-select="' + escapeHtml(path) + '" data-drag-folder="' + escapeHtml(path) + '" draggable="true">' +
+                '<div class="folder-tree-entry" data-folder-select="' + escapeHtml(path) + '" data-drag-folder="' + escapeHtml(path) + '" draggable="' + (isRenaming ? 'false' : 'true') + '">' +
                   nameHtml +
                   lockHtml +
                   '<span class="folder-tree-count">' + countHtml + '</span>' +

@@ -320,8 +320,9 @@ function appendFilePassword(url, path, local) {
           const selectBox = isDir
             ? (isDriveRoot ? '<span class="file-select-tools"><span class="local-disk-select-placeholder"></span></span>' : '<span class="file-select-tools"><input class="local-disk-select" type="checkbox" data-local-select="' + encodedPath + '" aria-label="' + escapeHtml(t('选择 ') + name) + '"' + checked + '></span>')
             : '<span class="file-select-tools"><input class="local-disk-select" type="checkbox" data-local-select="' + encodedPath + '" aria-label="' + escapeHtml(t('选择 ') + name) + '"' + checked + '><button class="file-tag-quick-btn local-file-tag-btn" type="button" data-local-tag-file="' + encodedPath + '" title="' + escapeHtml(t('加入标签')) + '" aria-label="' + escapeHtml(t('加入标签')) + '">🏷</button></span>';
-          const renameInput = !isDir && activeLocalDiskRenamePath === path
-            ? '<input class="file-rename-input local-disk-rename-input" type="text" value="' + escapeHtml(name) + '" data-local-disk-rename-path="' + encodedPath + '" aria-label="' + escapeHtml(t('改名文件')) + '">'
+          const isRenamingLocalDiskItem = !isDir && activeLocalDiskRenamePath === path;
+          const renameInput = isRenamingLocalDiskItem
+            ? '<input class="file-rename-input local-disk-rename-input" type="text" draggable="false" value="' + escapeHtml(name) + '" data-local-disk-rename-path="' + encodedPath + '" aria-label="' + escapeHtml(t('改名文件')) + '">'
             : '';
           const nameHtml = isDir
             ? '<button type="button" class="local-folder-link" data-local-folder="' + encodedPath + '" title="' + escapeHtml(path) + '"><span class="local-folder-icon">📁</span><span>' + escapeHtml(name) + '</span></button>' + dirLockIcon
@@ -348,7 +349,7 @@ function appendFilePassword(url, path, local) {
               : '')
             : '<button class="local-delete-btn delete-btn" data-local-delete="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '" title="移至回收站" aria-label="移至回收站">移除</button>';
           return (
-            '<tr class="local-disk-draggable' + selectedClass + '"' + (!isDir ? (' draggable="true" data-local-drag="' + encodedPath + '"') : '') + (!isDir ? (' data-local-file-context="' + encodedPath + '" data-file-locked="' + (fileLocked ? '1' : '0') + '" data-file-video="' + (isVideoName(name) ? '1' : '0') + '"') : (isDriveRoot ? '' : (' data-local-dir-context="' + encodedPath + '" data-local-dir-locked="' + (dirLocked ? '1' : '0') + '"'))) + '>' +
+            '<tr class="local-disk-draggable' + selectedClass + '"' + (!isDir ? (' draggable="' + (isRenamingLocalDiskItem ? 'false' : 'true') + '" data-local-drag="' + encodedPath + '"') : '') + (!isDir ? (' data-local-file-context="' + encodedPath + '" data-file-locked="' + (fileLocked ? '1' : '0') + '" data-file-video="' + (isVideoName(name) ? '1' : '0') + '"') : (isDriveRoot ? '' : (' data-local-dir-context="' + encodedPath + '" data-local-dir-locked="' + (dirLocked ? '1' : '0') + '"'))) + '>' +
               '<td>' + displayName + '</td>' +
               '<td>' + (isDir ? '文件夹' : '文件') + '</td>' +
               '<td>' + (isDir ? '-' : (formatNumber(Number(item.size || 0)) + ' 字节')) + '</td>' +

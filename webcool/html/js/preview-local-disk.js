@@ -570,8 +570,9 @@ function saveUnlockedFolderPasswords() {
           const permanentDeleteBtn = isRecycleMode
             ? '<button class="delete-btn" data-file="' + encodedPath + '" data-name="' + escapeHtml(rawName) + '">' + t('彻底删除') + '</button>'
             : '';
-          const renameInput = !isDir && activeFileRenamePath === rawName
-            ? '<input class="file-rename-input" type="text" value="' + escapeHtml(file.name || '') + '" data-file-rename-path="' + encodedPath + '" aria-label="' + escapeHtml(t('改名文件')) + '">'
+          const isRenamingFile = !isDir && activeFileRenamePath === rawName;
+          const renameInput = isRenamingFile
+            ? '<input class="file-rename-input" type="text" draggable="false" value="' + escapeHtml(file.name || '') + '" data-file-rename-path="' + encodedPath + '" aria-label="' + escapeHtml(t('改名文件')) + '">'
             : '';
           const nameContent = isDir
             ? '<span class="file-name local-folder-link"><span class="local-folder-icon">📁</span>' + name + '</span>'
@@ -580,7 +581,7 @@ function saveUnlockedFolderPasswords() {
             ? ''
             : '<button class="file-tag-quick-btn" type="button" data-tag-file="' + encodedPath + '" title="' + escapeHtml(t('加入标签')) + '" aria-label="' + escapeHtml(t('加入标签')) + '">🏷</button>';
           return (
-            '<tr class="draggable-file-row' + selectedClass + '" draggable="' + (isDir ? 'false' : 'true') + '" data-drag-file="' + encodedPath + '"' + (isDir ? '' : ' data-file-context="' + encodedPath + '"') + ' data-file-local="' + (isLocalTaggedFile ? '1' : '0') + '" data-file-locked="' + (fileLocked ? '1' : '0') + '" data-file-video="' + (!isDir && isVideoName(file.name) ? '1' : '0') + '">' +
+            '<tr class="draggable-file-row' + selectedClass + '" draggable="' + ((isDir || isRenamingFile) ? 'false' : 'true') + '" data-drag-file="' + encodedPath + '"' + (isDir ? '' : ' data-file-context="' + encodedPath + '"') + ' data-file-local="' + (isLocalTaggedFile ? '1' : '0') + '" data-file-locked="' + (fileLocked ? '1' : '0') + '" data-file-video="' + (!isDir && isVideoName(file.name) ? '1' : '0') + '">' +
               '<td class="file-select-cell"><div class="file-select-tools"><input class="file-select-input" type="checkbox" data-select-file="' + encodedPath + '" aria-label="' + escapeHtml(t('选择') + (isDir ? t('目录 ') : t('文件 ')) + rawName) + '"' + checked + '>' + tagQuickBtn + '</div></td>' +
               '<td' + (isDir ? '' : ' data-file-context="' + encodedPath + '"') + ' data-file-local="' + (isLocalTaggedFile ? '1' : '0') + '" data-file-locked="' + (fileLocked ? '1' : '0') + '" data-file-video="' + (!isDir && isVideoName(file.name) ? '1' : '0') + '">' + nameContent + lockIcon + pathMeta + '</td>' +
               '<td>' + (isDir ? t('文件夹') : (formatNumber(size) + t(' 字节'))) + '</td>' +

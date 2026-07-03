@@ -911,7 +911,7 @@ function getLocalDirPassword(path) {
         if (!inExplorer && !inTable) {
           return;
         }
-        if (e.target.closest('.local-disk-select, .local-mkdir-btn, .local-delete-btn, .local-preview-btn, .local-file-tag-btn')) {
+        if (e.target.closest('.local-disk-select, .local-mkdir-btn, .local-delete-btn, .local-preview-btn, .local-file-tag-btn, .file-rename-input')) {
           e.preventDefault();
           return;
         }

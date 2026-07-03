@@ -1199,6 +1199,8 @@
       font-weight: 700;
       outline: none;
       box-shadow: 0 0 0 3px rgba(30, 111, 217, 0.12);
+      cursor: text;
+      user-select: text;
     }
 
     .folder-tree-count {
@@ -3238,6 +3240,8 @@
       font-weight: 700;
       outline: none;
       box-shadow: 0 0 0 4px rgba(30, 111, 217, 0.12);
+      cursor: text;
+      user-select: text;
     }
 
     .file-summary-card {

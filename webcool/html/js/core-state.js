@@ -8,33 +8,10 @@ function t(text) {
       }
 
 function selectRenameInputText(input) {
-        if (!input || typeof input.select !== 'function') {
+        if (!input || typeof input.focus !== 'function') {
           return;
         }
         input.focus();
-        input.select();
-        input.setAttribute('data-rename-auto-selected', '1');
-        const clearAutoSelection = function () {
-          if (!input || input.getAttribute('data-rename-auto-selected') !== '1') {
-            return;
-          }
-          window.setTimeout(function () {
-            if (!input || input.getAttribute('data-rename-auto-selected') !== '1') {
-              return;
-            }
-            if (document.activeElement === input && typeof input.setSelectionRange === 'function') {
-              const value = String(input.value || '');
-              if (input.selectionStart === 0 && input.selectionEnd === value.length) {
-                input.setSelectionRange(value.length, value.length);
-              }
-            }
-            input.removeAttribute('data-rename-auto-selected');
-          }, 0);
-        };
-        input.addEventListener('pointerdown', clearAutoSelection, { once: true });
-        input.addEventListener('keydown', function () {
-          input.removeAttribute('data-rename-auto-selected');
-        }, { once: true });
       }
 
       var api = {

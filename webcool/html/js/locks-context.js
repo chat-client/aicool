@@ -728,8 +728,9 @@ function loadUnlockedFilePasswords() {
           ? '<span class="folder-lock-icon file-lock-inline' + (getFilePassword(path, true) ? ' unlocked' : '') + '" title="' + (getFilePassword(path, true) ? '点击重新加锁' : '点击解锁') + '" aria-label="' + (getFilePassword(path, true) ? '点击重新加锁' : '点击解锁') + '"><span class="folder-lock-shackle"></span><span class="folder-lock-body"></span></span>'
           : '';
         const selectBox = '<span class="file-select-tools"><input class="local-disk-select" type="checkbox" data-local-select="' + encodedPath + '" aria-label="' + escapeHtml(t('选择 ') + name) + '"' + checked + '><button class="file-tag-quick-btn local-file-tag-btn" type="button" data-local-tag-file="' + encodedPath + '" title="' + escapeHtml(t('加入标签')) + '" aria-label="' + escapeHtml(t('加入标签')) + '">🏷</button></span>';
-        const renameInput = activeLocalDiskRenamePath === path
-          ? '<input class="file-rename-input local-disk-rename-input" type="text" value="' + escapeHtml(name) + '" data-local-disk-rename-path="' + encodedPath + '" aria-label="' + escapeHtml(t('改名文件')) + '">'
+        const isRenamingLocalDiskItem = activeLocalDiskRenamePath === path;
+        const renameInput = isRenamingLocalDiskItem
+          ? '<input class="file-rename-input local-disk-rename-input" type="text" draggable="false" value="' + escapeHtml(name) + '" data-local-disk-rename-path="' + encodedPath + '" aria-label="' + escapeHtml(t('改名文件')) + '">'
           : '';
         const displayName = selectBox + (renameInput || '<button type="button" class="file-name file-name-action local-disk-file-name-action local-disk-draggable-name" draggable="false" data-local-disk-file-name-click="' + encodedPath + '">' + escapeHtml(name) + '</button>') + lockIcon;
         const previewBtn = isImageName(name)
@@ -749,7 +750,7 @@ function loadUnlockedFilePasswords() {
           : '';
         const deleteBtn = '<button class="local-delete-btn delete-btn" data-local-delete="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '" title="移至回收站" aria-label="移至回收站">移除</button>';
         return (
-          '<tr class="local-disk-draggable' + selectedClass + '" draggable="true" data-local-drag="' + encodedPath + '" data-local-file-context="' + encodedPath + '" data-file-locked="' + (fileLocked ? '1' : '0') + '" data-file-video="' + (isVideoName(name) ? '1' : '0') + '">' +
+          '<tr class="local-disk-draggable' + selectedClass + '" draggable="' + (isRenamingLocalDiskItem ? 'false' : 'true') + '" data-local-drag="' + encodedPath + '" data-local-file-context="' + encodedPath + '" data-file-locked="' + (fileLocked ? '1' : '0') + '" data-file-video="' + (isVideoName(name) ? '1' : '0') + '">' +
             '<td>' + displayName + '</td>' +
             '<td>' + (formatNumber(Number(item.size || 0)) + ' 字节') + '</td>' +
             '<td>' + escapeHtml((item && item.modified_time) || '-') + '</td>' +
