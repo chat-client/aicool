@@ -71,9 +71,32 @@
     '/webcool/html/js/remote-files.js',
     '/webcool/html/js/preview-local-disk.js',
     '/webcool/html/js/admin-storage.js',
-    '/webcool/html/js/events-bootstrap.js',
-    '/webcool/html/js/vendor/view-heic.js'
+    '/webcool/html/js/events-bootstrap.js'
   ];
+
+  let heicRuntimePromise = null;
+  window.loadWebCoolHeicPreviewRuntime = function () {
+    if (window.ViewHEIC) {
+      return Promise.resolve(window.ViewHEIC);
+    }
+    if (heicRuntimePromise) {
+      return heicRuntimePromise;
+    }
+    heicRuntimePromise = new Promise(function (resolve, reject) {
+      const script = document.createElement('script');
+      script.src = '/webcool/html/js/vendor/view-heic.js?v=' + encodeURIComponent(assetVersion);
+      script.async = true;
+      script.onload = function () {
+        resolve(window.ViewHEIC || null);
+      };
+      script.onerror = function () {
+        heicRuntimePromise = null;
+        reject(new Error('view-heic.js load failed'));
+      };
+      document.head.appendChild(script);
+    });
+    return heicRuntimePromise;
+  };
 
   function showLoadError(err) {
     console.error('Failed to load WebCool modules:', err);

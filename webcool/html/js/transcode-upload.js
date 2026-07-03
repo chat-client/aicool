@@ -1342,6 +1342,23 @@ function deleteUnlockedFolderPassword(path) {
           : t('正在将虚拟磁盘文件或目录粘贴到目标目录。');
       }
 
+      function isHeicImageName(name) {
+        return /\.(heic|heif)$/i.test(String(name || ''));
+      }
+
+      function maybeLoadHeicPreviewRuntime(item) {
+        const fileName = String((item && (item.name || item.file)) || '');
+        if (!isHeicImageName(fileName)) {
+          return;
+        }
+        if (typeof window.loadWebCoolHeicPreviewRuntime !== 'function') {
+          return;
+        }
+        window.loadWebCoolHeicPreviewRuntime().catch(function (err) {
+          showStatus(t('HEIC图片预览组件加载失败：') + (err && err.message ? err.message : err), 'err');
+        });
+      }
+
       function updateImagePreviewWindow(win, gallery, index) {
         if (!win || !Array.isArray(gallery) || !gallery.length) {
           return;
@@ -1373,6 +1390,7 @@ function deleteUnlockedFolderPassword(path) {
           imageEl.alt = String(item.name || '图片预览');
           imageEl.src = imagePreviewUrlForItem(item);
         }
+        maybeLoadHeicPreviewRuntime(item);
         if (prevBtn) {
           prevBtn.disabled = nextIndex <= 0;
           prevBtn.hidden = gallery.length <= 1;

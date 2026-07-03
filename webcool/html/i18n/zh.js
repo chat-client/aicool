@@ -152,6 +152,7 @@
     '主备目录已切换：': '主备目录已切换：',
     '切换主备目录失败：': '切换主备目录失败：',
     '文档': '文档',
+    'HEIC图片预览组件加载失败：': 'HEIC图片预览组件加载失败：',
     '视频标签及其子标签只能引用视频文件（mp4/avi/mkv/rm/rmvb/mov/wmv/mpg/mpeg）': '视频标签及其子标签只能引用视频文件（mp4/avi/mkv/rm/rmvb/mov/wmv/mpg/mpeg）',
     '文档标签及其子标签只能引用文档文件（pdf/office/markdown/txt/code）': '文档标签及其子标签只能引用文档文件（PDF/Office/Markdown/TXT/代码）',
     '仅文档': '仅文档',
