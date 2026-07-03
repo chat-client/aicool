@@ -666,6 +666,10 @@ function loadUnlockedFilePasswords() {
         });
       }
 
+      function isDocumentName(name) {
+        return /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp|rtf|txt|md|markdown|mdown|mkdn|log|csv|tsv|json|xml|yaml|yml|ini|conf|html|htm|css|js|ts|c|h|cc|cpp|cxx|hpp|java|py|go|sh|sql|proto)$/i.test(String(name || ''));
+      }
+
       function canBindFileToTagOnClient(tagId, fileName) {
         const constraint = getTagFileTypeConstraint(tagId);
         if (!constraint) {
@@ -679,6 +683,9 @@ function loadUnlockedFilePasswords() {
         }
         if (constraint === 'image' && !isImageName(fileName)) {
           return { ok: false, message: t('图片标签及其子标签只能引用图片文件（png/jpg/jpeg/gif/heic/heif）') };
+        }
+        if (constraint === 'document' && !isDocumentName(fileName)) {
+          return { ok: false, message: t('文档标签及其子标签只能引用文档文件（pdf/office/markdown/txt/code）') };
         }
         return { ok: true, message: '' };
       }

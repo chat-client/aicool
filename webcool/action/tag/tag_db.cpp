@@ -38,9 +38,11 @@ const char* g_tag_file_rel_index_sql =
 const char* g_default_video_tag_id = "builtin_video";
 const char* g_default_audio_tag_id = "builtin_audio";
 const char* g_default_image_tag_id = "builtin_image";
+const char* g_default_document_tag_id = "builtin_document";
 const char* g_default_video_tag_name = "视频";
 const char* g_default_audio_tag_name = "音频";
 const char* g_default_image_tag_name = "图片";
+const char* g_default_document_tag_name = "文档";
 bool ensure_tag_dir(const std::string& upload_dir, std::string& err) {
 	err.clear();
 	if (!make_dir(upload_dir.c_str())) {
@@ -114,6 +116,7 @@ bool ensure_default_root_tags_locked(acl::db_sqlite& db, std::string& err) {
 	bool has_video = false;
 	bool has_audio = false;
 	bool has_image = false;
+	bool has_document = false;
 	for (size_t i = 0; i < db.length(); ++i) {
 		const acl::db_row* row = db[i];
 		if (row == NULL) {
@@ -132,6 +135,9 @@ bool ensure_default_root_tags_locked(acl::db_sqlite& db, std::string& err) {
 		if (id_text == g_default_image_tag_id || name_text == g_default_image_tag_name) {
 			has_image = true;
 		}
+		if (id_text == g_default_document_tag_id || name_text == g_default_document_tag_name) {
+			has_document = true;
+		}
 	}
 	db.free_result();
 
@@ -143,7 +149,8 @@ bool ensure_default_root_tags_locked(acl::db_sqlite& db, std::string& err) {
 	DefaultTagSpec specs[] = {
 		{ g_default_video_tag_id, g_default_video_tag_name, has_video },
 		{ g_default_audio_tag_id, g_default_audio_tag_name, has_audio },
-		{ g_default_image_tag_id, g_default_image_tag_name, has_image }
+		{ g_default_image_tag_id, g_default_image_tag_name, has_image },
+		{ g_default_document_tag_id, g_default_document_tag_name, has_document }
 	};
 
 	for (size_t i = 0; i < sizeof(specs) / sizeof(specs[0]); ++i) {
@@ -395,7 +402,10 @@ int root_tag_priority(const TagRow& row) {
 	if (row.id == g_default_image_tag_id || row.name == g_default_image_tag_name) {
 		return 2;
 	}
-	return 3;
+	if (row.id == g_default_document_tag_id || row.name == g_default_document_tag_name) {
+		return 3;
+	}
+	return 4;
 }
 
 bool is_protected_root_tag(const TagRow& row) {
@@ -405,9 +415,11 @@ bool is_protected_root_tag(const TagRow& row) {
 	return row.id == g_default_video_tag_id
 		|| row.id == g_default_audio_tag_id
 		|| row.id == g_default_image_tag_id
+		|| row.id == g_default_document_tag_id
 		|| row.name == g_default_video_tag_name
 		|| row.name == g_default_audio_tag_name
-		|| row.name == g_default_image_tag_name;
+		|| row.name == g_default_image_tag_name
+		|| row.name == g_default_document_tag_name;
 }
 bool init_tag_db(const std::string& upload_dir, std::string& err) {
 	err.clear();

@@ -183,6 +183,9 @@ function appendFilePassword(url, path, local) {
         if (rootName === '图片') {
           return 'image';
         }
+        if (rootName === '文档') {
+          return 'document';
+        }
         return '';
       }
 
@@ -1455,16 +1458,31 @@ function deleteUnlockedFolderPassword(path) {
         return { movedCount: movedCount, ignoredCount: ignoredCount };
       }
 
+      function buildRestrictedRootIconHtml(type) {
+        const cls = 'tag-root-icon ' + escapeHtml(type);
+        if (type === 'video') {
+          return '<span class="' + cls + '" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><rect x="2.25" y="3" width="11.5" height="10" rx="2"></rect><path d="M7 6l4 2-4 2V6z"></path></svg></span>';
+        }
+        if (type === 'audio') {
+          return '<span class="' + cls + '" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d="M10 3.1v7.2a2.25 2.25 0 1 1-1.35-2.06V4.2l4.1-.82v1.82L10 5.75"></path></svg></span>';
+        }
+        if (type === 'image') {
+          return '<span class="' + cls + '" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><rect x="2.25" y="3" width="11.5" height="10" rx="2"></rect><circle cx="6" cy="6.25" r="1.1"></circle><path d="M3.8 11.25l2.8-2.75 1.85 1.7 1.35-1.35 2.45 2.4"></path></svg></span>';
+        }
+        return '<span class="' + cls + '" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d="M4 2.5h5.5L12 5v8.5H4z"></path><path d="M9.5 2.5V5H12"></path><path d="M6 7.4h4M6 9.7h4M6 12h2.7"></path></svg></span>';
+      }
+
       function buildTagNodeHtml(node, level) {
         const safeLevel = Math.max(1, Math.min(TAG_MAX_LEVEL, level || 1));
+        const rawTagName = String((node && node.name) || '');
         const indent = (safeLevel - 1) * 5;
         const canExpand = safeLevel < TAG_MAX_LEVEL;
         const hasChildren = hasTagChildren(node);
         const expanded = expandedTagNodeIds.has(node.id);
         const toggleSymbol = getTagNodeToggleSymbol(node, safeLevel);
         const restrictedRootType = getRestrictedRootTagType(node, safeLevel);
-        const restrictedBadgeHtml = restrictedRootType
-          ? '<span class="tag-limit-badge ' + restrictedRootType + '">' + (restrictedRootType === 'video' ? t('仅视频') : (restrictedRootType === 'audio' ? t('仅音频') : t('仅图片'))) + '</span>'
+        const restrictedIconHtml = restrictedRootType
+          ? buildRestrictedRootIconHtml(restrictedRootType)
           : '';
 
         let childHtml = '';
@@ -1483,9 +1501,10 @@ function deleteUnlockedFolderPassword(path) {
         const canDeleteTag = !isProtectedRestrictedRootTag(node, safeLevel);
         const canLockTag = canDeleteTag;
         const isRenaming = activeTagRenameId === node.id && canRenameTagNode(node, safeLevel);
+        const displayTagName = restrictedRootType ? t(rawTagName) : rawTagName;
         const tagNameHtml = isRenaming
-          ? '<input class="tag-rename-input" data-tag-rename-input="' + escapeHtml(node.id) + '" value="' + escapeHtml(node.name) + '" maxlength="60">'
-          : '<span class="tag-node-name" data-tag-id="' + node.id + '">' + escapeHtml(node.name) + '</span>';
+          ? '<input class="tag-rename-input" data-tag-rename-input="' + escapeHtml(node.id) + '" value="' + escapeHtml(rawTagName) + '" maxlength="60">'
+          : '<span class="tag-node-name" data-tag-id="' + node.id + '">' + escapeHtml(displayTagName) + '</span>';
         const tagUnlocked = !!getTagPassword(node.id);
         const tagLockHtml = (canLockTag && node.locked)
           ? '<span class="folder-lock-icon file-lock-inline tag-lock-inline' + (tagUnlocked ? ' unlocked' : '') + '" data-tag-lock-toggle="' + escapeHtml(node.id) + '" title="' + escapeHtml(t(tagUnlocked ? '点击重新加锁' : '点击解锁')) + '" aria-label="' + escapeHtml(t(tagUnlocked ? '点击重新加锁' : '点击解锁')) + '"><span class="folder-lock-shackle"></span><span class="folder-lock-body"></span></span>'
@@ -1506,8 +1525,8 @@ function deleteUnlockedFolderPassword(path) {
               '<div class="tag-line-main" style="padding-left:' + indent + 'px;">' +
                 toggleBtn +
                 '<span class="tag-node-name-wrap" style="' + nameInlineStyle + '">' +
+                  restrictedIconHtml +
                   tagNameHtml +
-                  restrictedBadgeHtml +
                   tagLockHtml +
                 '</span>' +
               '</div>' +

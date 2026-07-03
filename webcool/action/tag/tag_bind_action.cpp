@@ -92,6 +92,14 @@ bool TagBindAction::run(request_t& req, response_t& res,
 				req.isKeepAlive());
 			return true;
 		}
+		if (root_row.name == g_default_document_tag_name
+			&& !is_document_file_name(file_path))
+		{
+			json_error(res, 400,
+				"document tag can only bind document files",
+				req.isKeepAlive());
+			return true;
+		}
 
 		acl::query query;
 		query.create("INSERT OR REPLACE INTO file_tag_rel(tag_id, file_name, updated_at)"

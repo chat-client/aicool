@@ -281,9 +281,11 @@
     '视频': 'Video',
     '音频': 'Audio',
     '图片': 'Images',
-    '仅视频': 'Video only',
-    '仅音频': 'Audio only',
-    '仅图片': 'Images only',
+    '文档': 'Documents',
+    '仅视频': 'Video',
+    '仅音频': 'Audio',
+    '仅图片': 'Images',
+    '仅文档': 'Docs',
     '观影': 'Play',
     '听音': 'Listen',
     '查看': 'View',
@@ -423,6 +425,7 @@
     ,'视频标签及其子标签只能引用视频文件（mp4/avi/mkv/rm/rmvb/mov/wmv/mpg/mpeg）': 'Video tags and their subtags can only reference video files (mp4/avi/mkv/rm/rmvb/mov/wmv/mpg/mpeg)'
     ,'音频标签及其子标签只能引用音频文件（mp3/m4a/aac/wav/ogg/flac）': 'Audio tags and their subtags can only reference audio files (mp3/m4a/aac/wav/ogg/flac)'
     ,'图片标签及其子标签只能引用图片文件（png/jpg/jpeg/gif/heic/heif）': 'Image tags and their subtags can only reference image files (png/jpg/jpeg/gif/heic/heif)'
+    ,'文档标签及其子标签只能引用文档文件（pdf/office/markdown/txt/code）': 'Document tags and their subtags can only reference document files (PDF/Office/Markdown/TXT/code)'
     ,'创建标签失败': 'Failed to create tag'
     ,'请选择要引用的文件': 'Please select a file to reference'
     ,'检测到以下视频建议转码（需你确认后才会开始）：': 'The following videos are recommended for transcoding and will start only after your confirmation:'

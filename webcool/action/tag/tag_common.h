@@ -30,9 +30,11 @@ extern const char* g_tag_file_rel_index_sql;
 extern const char* g_default_video_tag_id;
 extern const char* g_default_audio_tag_id;
 extern const char* g_default_image_tag_id;
+extern const char* g_default_document_tag_id;
 extern const char* g_default_video_tag_name;
 extern const char* g_default_audio_tag_name;
 extern const char* g_default_image_tag_name;
+extern const char* g_default_document_tag_name;
 
 bool is_local_tag_file_name(const std::string& file_name);
 std::string local_tag_storage_name(const std::string& path);
@@ -49,6 +51,7 @@ bool ends_with_ignore_case(const std::string& text, const char* suffix);
 bool is_video_file_name(const std::string& name);
 bool is_audio_file_name(const std::string& name);
 bool is_image_file_name(const std::string& name);
+bool is_document_file_name(const std::string& name);
 bool file_exists_in_upload_dir(const std::string& upload_dir,
 	const char* relative_path);
 

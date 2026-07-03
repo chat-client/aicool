@@ -206,6 +206,23 @@ bool is_image_file_name(const std::string& name) {
 	}
 	return false;
 }
+
+bool is_document_file_name(const std::string& name) {
+	static const char* kDocumentSuffixes[] = {
+		".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+		".odt", ".ods", ".odp", ".rtf", ".txt", ".md", ".markdown",
+		".mdown", ".mkdn", ".log", ".csv", ".tsv", ".json", ".xml",
+		".yaml", ".yml", ".ini", ".conf", ".html", ".htm", ".css",
+		".js", ".ts", ".c", ".h", ".cc", ".cpp", ".cxx", ".hpp",
+		".java", ".py", ".go", ".sh", ".sql", ".proto"
+	};
+	for (size_t i = 0; i < sizeof(kDocumentSuffixes) / sizeof(kDocumentSuffixes[0]); ++i) {
+		if (ends_with_ignore_case(name, kDocumentSuffixes[i])) {
+			return true;
+		}
+	}
+	return false;
+}
 bool file_exists_in_upload_dir(const std::string& upload_dir,
 	const char* relative_path)
 {

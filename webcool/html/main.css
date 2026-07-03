@@ -1772,12 +1772,14 @@
       flex-wrap: nowrap;
       position: relative;
       min-height: 28px;
+      min-width: 0;
     }
 
     .tag-line-main {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      flex: 1 1 auto;
       min-width: 0;
     }
 
@@ -1808,13 +1810,19 @@
       font-size: calc(13px * var(--font-scale));
       font-weight: 700;
       color: #204766;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .tag-node-name-wrap {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      flex: 1 1 auto;
       min-width: 0;
+      max-width: 100%;
     }
 
     .tag-rename-input {
@@ -1833,34 +1841,60 @@
       box-shadow: 0 0 0 3px rgba(30, 111, 217, 0.12);
     }
 
-    .tag-limit-badge {
+    .tag-root-icon {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      width: 18px;
       height: 18px;
-      border-radius: 999px;
-      padding: 0 7px;
-      font-size: calc(10px * var(--font-scale));
-      font-weight: 700;
-      letter-spacing: 0.2px;
-      white-space: nowrap;
+      border-radius: 6px;
+      box-sizing: border-box;
     }
 
-    .tag-limit-badge.video {
+    .tag-root-icon svg {
+      width: 13px;
+      height: 13px;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.55;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .tag-root-icon.video {
       color: #567585;
       background: #f1f7fa;
       border: 1px solid #d7e5ec;
     }
 
-    .tag-limit-badge.audio {
+    .tag-root-icon.video svg path {
+      fill: currentColor;
+      stroke: none;
+    }
+
+    .tag-root-icon.audio {
       color: #7b6a52;
       background: #faf6ef;
       border: 1px solid #e7ddd0;
     }
 
-    .tag-limit-badge.image {
+    .tag-root-icon.image {
       color: #6d6a7f;
       background: #f5f3f8;
       border: 1px solid #e0dbe8;
+    }
+
+    .tag-root-icon.image svg circle {
+      fill: currentColor;
+      stroke: none;
+    }
+
+    .tag-root-icon.document {
+      color: #4f7068;
+      background: #eff8f5;
+      border: 1px solid #d4e8e1;
     }
 
     .tag-node-meta {

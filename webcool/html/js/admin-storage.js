@@ -809,20 +809,21 @@ function localDirLockIconHtml(path, locked) {
         return list.map(function (node) {
           const tagId = String((node && node.id) || '');
           const name = String((node && node.name) || '');
+          const displayName = getRestrictedRootTagType(node, safeLevel) ? t(name) : name;
           const check = canBindFilesToTagOnClient(tagId, names);
           const children = Array.isArray(node && node.children) ? node.children : [];
           const childHtml = children.length
             ? '<div class="quick-tag-children">' + buildQuickTagTreeHtml(children, names, safeLevel + 1) + '</div>'
             : '';
           const createChildHtml = safeLevel < TAG_MAX_LEVEL
-            ? '<button type="button" class="quick-tag-create-child" data-quick-tag-create-child="' + escapeHtml(tagId) + '" data-quick-tag-name="' + escapeHtml(name) + '" title="' + escapeHtml(t('新建子标签并加入')) + '" aria-label="' + escapeHtml(t('新建子标签并加入')) + '">+</button>'
+            ? '<button type="button" class="quick-tag-create-child" data-quick-tag-create-child="' + escapeHtml(tagId) + '" data-quick-tag-name="' + escapeHtml(displayName) + '" title="' + escapeHtml(t('新建子标签并加入')) + '" aria-label="' + escapeHtml(t('新建子标签并加入')) + '">+</button>'
             : '<span class="quick-tag-create-placeholder"></span>';
           return (
             '<div class="quick-tag-node">' +
               '<div class="quick-tag-row">' +
                 '<button type="button" class="quick-tag-item' + (check.ok ? '' : ' disabled') + '" data-quick-tag-id="' + escapeHtml(tagId) + '"' + (check.ok ? '' : ' disabled title="' + escapeHtml(check.message) + '"') + ' style="padding-left:' + (8 + ((safeLevel - 1) * 14)) + 'px;">' +
                   '<span class="quick-tag-mark">#</span>' +
-                  '<span class="quick-tag-name">' + escapeHtml(name) + '</span>' +
+                  '<span class="quick-tag-name">' + escapeHtml(displayName) + '</span>' +
                 '</button>' +
                 createChildHtml +
               '</div>' +

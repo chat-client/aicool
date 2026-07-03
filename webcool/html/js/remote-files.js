@@ -1620,7 +1620,7 @@ function loadUnlockedFolderPasswords() {
         if (activeFilterTagId) {
           const meta = findTagMetaById(activeFilterTagId);
           const tagName = meta && meta.node && meta.node.name
-            ? String(meta.node.name)
+            ? (getRestrictedRootTagType(meta.node, meta.level) ? t(String(meta.node.name)) : String(meta.node.name))
             : t('当前标签');
           fileViewContext.textContent = t('当前视图：标签：') + tagName + t(' / 范围：标签内全部文件');
         } else {
