@@ -1620,6 +1620,16 @@ function loadUnlockedFolderPasswords() {
         });
       }
 
+      function ensureFolderParentPathExpanded(path) {
+        const text = String(path || '');
+        expandedFolderPaths.add('');
+        const index = text.lastIndexOf('/');
+        if (index <= 0) {
+          return;
+        }
+        ensureFolderPathExpanded(text.slice(0, index));
+      }
+
       function updateFileViewContext() {
         if (!fileViewContext) {
           return;

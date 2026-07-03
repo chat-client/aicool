@@ -89,7 +89,7 @@ function downloadUrlForFile(filePath, preview) {
           const newPath = String((result && result.path) || '');
           activeFolderRenamePath = '';
           activeFolderPath = relocatePathAfterFolderMove(activeFolderPath, oldPath, newPath);
-          ensureFolderPathExpanded(activeFolderPath);
+          ensureFolderParentPathExpanded(activeFolderPath);
           await loadFiles();
           showStatus(t('文件夹已改名：') + nextName, 'ok');
         } catch (err) {
@@ -1245,7 +1245,7 @@ function saveUnlockedFolderPasswords() {
           } else {
             folderTreeData = folderRows.map(normalizeFolderNode);
           }
-          ensureFolderPathExpanded(activeFolderPath);
+          ensureFolderParentPathExpanded(activeFolderPath);
           await loadTagTreeState();
           renderFolderTree();
           renderTagTree();
