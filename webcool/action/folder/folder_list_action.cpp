@@ -7,6 +7,60 @@
 
 namespace action {
 
+static std::string folder_display_name(const std::string& folder)
+{
+	if (folder.empty()) {
+		return "根目录";
+	}
+	size_t pos = folder.find_last_of('/');
+	return pos == std::string::npos ? folder : folder.substr(pos + 1);
+}
+
+static bool folder_access_allowed(const std::string& folder,
+	const std::map<std::string, std::string>& locks,
+	const std::map<std::string, std::string>& unlocked_locks)
+{
+	if (folder.empty()) {
+		return true;
+	}
+	std::string locked_path;
+	if (!find_locked_ancestor_locked(locks, folder, locked_path)) {
+		return true;
+	}
+	return folder_lock_unlocked(locked_path, locks, unlocked_locks);
+}
+
+static bool ensure_shared_folder_in_upload_dir(const std::string& upload_dir,
+	std::string& err)
+{
+	const std::string path = join_upload_path(upload_dir, shared_folder_name());
+	if (!make_dir_recursive(path.c_str())) {
+		err = "cannot create shared folder";
+		return false;
+	}
+	const std::vector<std::string>& names = shared_fixed_subfolder_names();
+	for (std::vector<std::string>::const_iterator it = names.begin();
+		it != names.end(); ++it)
+	{
+		const std::string child_path = path + "/" + *it;
+		if (!make_dir_recursive(child_path.c_str())) {
+			err = "cannot create shared fixed folder";
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool root_has_shared_folder(const folder_node_t& root_node)
+{
+	for (size_t i = 0; i < root_node.children.size(); ++i) {
+		if (root_node.children[i].path == shared_folder_name()) {
+			return true;
+		}
+	}
+	return false;
+}
+
 bool FolderListAction::run(request_t& req, response_t& res,
 	const std::string& upload_dir)
 {
@@ -20,38 +74,18 @@ bool FolderListAction::run(request_t& req, response_t& res,
 		json_error(res, 500, err.c_str(), req.isKeepAlive());
 		return true;
 	}
-	const bool show_hidden = request_bool_param(req, "show_hidden");
-	folder_node_t root_node;
-	root_node.name = "根目录";
-	root_node.path.clear();
-	long long folder_count = 0;
-	if (!list_folder_tree(upload_dir, std::string(), root_node, err, folder_count, show_hidden)) {
+	if (!ensure_shared_folder_in_upload_dir(upload_dir, err)) {
 		json_error(res, 500, err.c_str(), req.isKeepAlive());
 		return true;
 	}
-	bool has_shared_folder = false;
-	for (size_t i = 0; i < root_node.children.size(); ++i) {
-		if (root_node.children[i].path == shared_folder_name()) {
-			has_shared_folder = true;
-			break;
-		}
-	}
-	if (!has_shared_folder) {
-		folder_node_t shared_node;
-		shared_node.name = shared_folder_name();
-		shared_node.path = shared_folder_name();
-		folder_count++;
-		if (!list_folder_tree(upload_dir, shared_folder_name(), shared_node,
-			err, folder_count, show_hidden))
-		{
-			json_error(res, 500, err.c_str(), req.isKeepAlive());
+	const bool show_hidden = request_bool_param(req, "show_hidden");
+	std::string folder;
+	const char* folder_text = req.getParameter("folder");
+	if (folder_text != NULL && *folder_text != '\0') {
+		if (!normalize_relative_path(folder_text, folder, err, false)) {
+			json_error(res, 400, err.c_str(), req.isKeepAlive());
 			return true;
 		}
-		root_node.children.push_back(shared_node);
-		std::sort(root_node.children.begin(), root_node.children.end(),
-			[](const folder_node_t& a, const folder_node_t& b) {
-				return a.name < b.name;
-			});
 	}
 
 	std::map<std::string, std::string> locks;
@@ -90,13 +124,42 @@ bool FolderListAction::run(request_t& req, response_t& res,
 		unlocked_locks[unlock_path] = password_text;
 	}
 
+	folder_node_t root_node;
+	root_node.name = folder_display_name(folder);
+	root_node.path = folder;
+	root_node.direct_file_count = 0;
+	root_node.direct_folder_count = 0;
+	if (folder_access_allowed(folder, locks, unlocked_locks)) {
+		if (!list_folder_children(upload_dir, folder, root_node, err, show_hidden)) {
+			json_error(res, 500, err.c_str(), req.isKeepAlive());
+			return true;
+		}
+	}
+	if (folder.empty() && !root_has_shared_folder(root_node)) {
+		folder_node_t shared_node;
+		shared_node.name = shared_folder_name();
+		shared_node.path = shared_folder_name();
+		shared_node.direct_file_count = 0;
+		shared_node.direct_folder_count = 0;
+		if (!list_folder_children(upload_dir, shared_folder_name(), shared_node, err, show_hidden)) {
+			json_error(res, 500, err.c_str(), req.isKeepAlive());
+			return true;
+		}
+		root_node.children.push_back(shared_node);
+		std::sort(root_node.children.begin(), root_node.children.end(),
+			[](const folder_node_t& a, const folder_node_t& b) {
+				return a.name < b.name;
+			});
+		root_node.direct_folder_count = (long long) root_node.children.size();
+	}
+
 	acl::json json;
 	acl::json_node& root = json.create_node();
 	root.add_bool("ok", true);
 	root.add_text("root_name", root_node.name.c_str());
-	root.add_text("root_path", "");
+	root.add_text("root_path", root_node.path.c_str());
 	root.add_number("file_count", root_node.direct_file_count);
-	root.add_number("count", folder_count);
+	root.add_number("count", root_node.direct_folder_count);
 	acl::json_node& folders = json.create_array();
 	root.add_child("folders", folders);
 	for (size_t i = 0; i < root_node.children.size(); ++i) {

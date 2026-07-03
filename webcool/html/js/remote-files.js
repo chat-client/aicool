@@ -822,6 +822,14 @@ function folderNameFromPath(path) {
       async function loadFolderTreeState() {
         const data = await fetchFolderList();
         folderTreeData = Array.isArray(data.folders) ? data.folders.map(normalizeFolderNode) : [];
+        if (activeFolderPath) {
+          const parts = String(activeFolderPath || '').split('/').filter(Boolean);
+          let current = '';
+          for (let i = 0; i < parts.length; i += 1) {
+            current = current ? (current + '/' + parts[i]) : parts[i];
+            await loadFolderChildren(current);
+          }
+        }
         ensureFolderPathExpanded(activeFolderPath);
         renderFolderTree();
       }

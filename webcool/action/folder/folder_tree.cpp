@@ -5,12 +5,50 @@
 
 namespace action {
 
+static bool count_direct_children(const std::string& upload_dir,
+	const std::string& relative_path, long long& file_count,
+	long long& folder_count, std::string& err, bool show_hidden)
+{
+	file_count = 0;
+	folder_count = 0;
+	std::string full = join_upload_path(upload_dir, relative_path);
+	DIR* dir = opendir(full.c_str());
+	if (dir == NULL) {
+		err = strerror(errno);
+		return false;
+	}
+
+	struct dirent* entry = NULL;
+	while ((entry = readdir(dir)) != NULL) {
+		if (should_skip_entry(entry->d_name, show_hidden)) {
+			continue;
+		}
+		std::string child_name(entry->d_name);
+		std::string child_rel = relative_path.empty()
+			? child_name
+			: (relative_path + "/" + child_name);
+		std::string child_full = join_upload_path(upload_dir, child_rel);
+		struct stat st;
+		if (stat(child_full.c_str(), &st) != 0) {
+			continue;
+		}
+		if (S_ISDIR(st.st_mode)) {
+			folder_count++;
+		} else if (S_ISREG(st.st_mode) && !is_protected_virtual_path(child_rel)) {
+			file_count++;
+		}
+	}
+	closedir(dir);
+	return true;
+}
+
 bool list_folder_tree(const std::string& upload_dir,
 	const std::string& relative_path, folder_node_t& node, std::string& err,
 	long long& folder_count, bool show_hidden)
 {
 	err.clear();
 	node.direct_file_count = 0;
+	node.direct_folder_count = 0;
 	node.children.clear();
 
 	std::string full = join_upload_path(upload_dir, relative_path);
@@ -41,6 +79,8 @@ bool list_folder_tree(const std::string& upload_dir,
 			folder_node_t child;
 			child.name = child_name;
 			child.path = child_rel;
+			child.direct_file_count = 0;
+			child.direct_folder_count = 0;
 			folder_count++;
 			if (!list_folder_tree(upload_dir, child_rel, child, err, folder_count, show_hidden)) {
 				closedir(dir);
@@ -58,8 +98,72 @@ bool list_folder_tree(const std::string& upload_dir,
 	std::sort(children.begin(), children.end(),
 		[](const folder_node_t& a, const folder_node_t& b) {
 			return a.name < b.name;
+	});
+	node.children.swap(children);
+	node.direct_folder_count = (long long) node.children.size();
+	return true;
+}
+
+bool list_folder_children(const std::string& upload_dir,
+	const std::string& relative_path, folder_node_t& node, std::string& err,
+	bool show_hidden)
+{
+	err.clear();
+	node.direct_file_count = 0;
+	node.direct_folder_count = 0;
+	node.children.clear();
+
+	std::string full = join_upload_path(upload_dir, relative_path);
+	DIR* dir = opendir(full.c_str());
+	if (dir == NULL) {
+		err = strerror(errno);
+		return false;
+	}
+
+	std::vector<folder_node_t> children;
+	struct dirent* entry = NULL;
+	while ((entry = readdir(dir)) != NULL) {
+		if (should_skip_entry(entry->d_name, show_hidden)) {
+			continue;
+		}
+
+		std::string child_name(entry->d_name);
+		std::string child_rel = relative_path.empty()
+			? child_name
+			: (relative_path + "/" + child_name);
+		std::string child_full = join_upload_path(upload_dir, child_rel);
+
+		struct stat st;
+		if (stat(child_full.c_str(), &st) != 0) {
+			continue;
+		}
+		if (S_ISDIR(st.st_mode)) {
+			folder_node_t child;
+			child.name = child_name;
+			child.path = child_rel;
+			child.direct_file_count = 0;
+			child.direct_folder_count = 0;
+			if (!count_direct_children(upload_dir, child_rel, child.direct_file_count,
+				child.direct_folder_count, err, show_hidden))
+			{
+				closedir(dir);
+				return false;
+			}
+			children.push_back(child);
+		} else if (S_ISREG(st.st_mode)) {
+			if (!is_protected_virtual_path(child_rel)) {
+				node.direct_file_count++;
+			}
+		}
+	}
+
+	closedir(dir);
+	std::sort(children.begin(), children.end(),
+		[](const folder_node_t& a, const folder_node_t& b) {
+			return a.name < b.name;
 		});
 	node.children.swap(children);
+	node.direct_folder_count = (long long) node.children.size();
 	return true;
 }
 
@@ -95,7 +199,7 @@ void append_folder_json(acl::json& json, acl::json_node& arr,
 			append_folder_json(json, children, node.children[i], locks, unlocked_locks);
 		}
 	}
-	item.add_number("folder_count", locked && !unlocked ? 0 : (long long) node.children.size());
+	item.add_number("folder_count", locked && !unlocked ? 0 : node.direct_folder_count);
 }
 
 } // namespace action

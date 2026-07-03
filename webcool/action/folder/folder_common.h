@@ -14,6 +14,7 @@ struct folder_node_t {
 	std::string name;
 	std::string path;
 	long long direct_file_count;
+	long long direct_folder_count;
 	std::vector<folder_node_t> children;
 };
 
@@ -30,6 +31,9 @@ bool is_same_or_child_path(const std::string& base_path,
 bool list_folder_tree(const std::string& upload_dir,
 	const std::string& relative_path, folder_node_t& node, std::string& err,
 	long long& folder_count, bool show_hidden);
+bool list_folder_children(const std::string& upload_dir,
+	const std::string& relative_path, folder_node_t& node, std::string& err,
+	bool show_hidden);
 bool folder_lock_unlocked(const std::string& path,
 	const std::map<std::string, std::string>& locks,
 	const std::map<std::string, std::string>& unlocked_locks);

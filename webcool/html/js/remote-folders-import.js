@@ -37,6 +37,28 @@ function isRecycleFolderPath(path) {
         return null;
       }
 
+      function replaceFolderChildren(path, children) {
+        const target = String(path || '');
+        const normalizedChildren = Array.isArray(children) ? children.map(normalizeFolderNode) : [];
+        if (!target) {
+          folderTreeData = normalizedChildren;
+          return true;
+        }
+        const node = findFolderNodeByPath(target);
+        if (!node) {
+          return false;
+        }
+        node.children = normalizedChildren;
+        node.folder_count = normalizedChildren.length;
+        return true;
+      }
+
+      async function loadFolderChildren(path) {
+        const target = String(path || '');
+        const data = await fetchFolderList(target);
+        replaceFolderChildren(target, Array.isArray(data.folders) ? data.folders : []);
+      }
+
       function updateExplorerLayout() {
         const isTagFilterMode = !!activeFilterTagId;
         const isPreviewEnabledTag = isTagFilterMode && isActiveTagPreviewEnabled();
@@ -123,7 +145,7 @@ function isRecycleFolderPath(path) {
         return list.map(function (node) {
           const path = String(node.path || '');
           const expanded = expandedFolderPaths.has(path);
-          const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+          const hasChildren = (Array.isArray(node.children) && node.children.length > 0) || Number(node.folder_count || 0) > 0;
           const isActive = activeFolderPath === path;
           const isSelected = selectedFolderPaths.has(path);
           const isRenaming = activeFolderRenamePath === path && canRenameFolderPath(path);
@@ -138,7 +160,7 @@ function isRecycleFolderPath(path) {
           } else if (!path) {
             folderIconHtml = '<span class="folder-tree-icon root" aria-hidden="true">⌂</span>';
           }
-          const childHtml = hasChildren && expanded
+          const childHtml = Array.isArray(node.children) && node.children.length > 0 && expanded
             ? '<div class="folder-tree-children">' + buildFolderTreeHtml(node.children, (level || 0) + 1) + '</div>'
             : '';
           const displayName = getSharedFolderDisplayName(path, node.name || '');

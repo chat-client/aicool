@@ -1978,6 +1978,12 @@
               expandedFolderPaths.delete(path);
             } else {
               expandedFolderPaths.add(path);
+              try {
+                await loadFolderChildren(path);
+              } catch (err) {
+                expandedFolderPaths.delete(path);
+                showStatus(t('加载文件夹失败：') + err.message, 'err');
+              }
             }
             renderFolderTree();
             return;
@@ -2009,6 +2015,11 @@
           activeFolderPath = path;
           selectFolderPath(path, e.shiftKey);
           ensureFolderPathExpanded(activeFolderPath);
+          try {
+            await loadFolderChildren(path);
+          } catch (err) {
+            showStatus(t('加载文件夹失败：') + err.message, 'err');
+          }
           await loadFiles();
         });
 

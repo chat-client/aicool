@@ -1182,6 +1182,7 @@ function saveUnlockedFolderPasswords() {
           path: String(item.path || ''),
           parent_path: String(item.parent_path || ''),
           file_count: Number(item.file_count || 0),
+          folder_count: Number(item.folder_count || 0),
           locked: !!item.locked,
           children: children
         };
@@ -1233,10 +1234,17 @@ function saveUnlockedFolderPasswords() {
           }
           const results = await Promise.all([
             fetchJson(filesUrl),
-            fetchFolderList()
+            fetchFolderList(activeFolderPath)
           ]);
           allFiles = Array.isArray(results[0].files) ? results[0].files.map(normalizeFileRecord) : [];
-          folderTreeData = Array.isArray(results[1].folders) ? results[1].folders.map(normalizeFolderNode) : [];
+          const folderRows = Array.isArray(results[1].folders) ? results[1].folders : [];
+          if (activeFolderPath) {
+            if (!replaceFolderChildren(activeFolderPath, folderRows)) {
+              await loadFolderTreeState();
+            }
+          } else {
+            folderTreeData = folderRows.map(normalizeFolderNode);
+          }
           ensureFolderPathExpanded(activeFolderPath);
           await loadTagTreeState();
           renderFolderTree();

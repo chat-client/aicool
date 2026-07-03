@@ -1286,8 +1286,12 @@ function localDirLockIconHtml(path, locked) {
         return api.folders + (query ? ('?' + query) : '');
       }
 
-      function fetchFolderList() {
+      function fetchFolderList(folderPath) {
         const params = buildFolderListParams();
+        const folder = String(folderPath || '');
+        if (folder) {
+          params.set('folder', folder);
+        }
         const query = params.toString();
         const hasUnlockPayload = params.has('unlock_count');
         if (hasUnlockPayload) {
