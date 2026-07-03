@@ -313,6 +313,7 @@ void http_router::setup() const {
 		.Get("/api/v1/image/save", &http_router::routeImageSave)
 		.Get("/api/v1/local-disk/list", &http_router::routeLocalDiskList)
 		.Get("/api/v1/local-disk/download", &http_router::routeLocalDiskDownload)
+		.Get("/api/v1/local-disk/office/preview", &http_router::routeLocalDiskOfficePreview)
 		.Get("/api/v1/local-disk/delete", &http_router::routeLocalDiskDelete)
 		.Get("/api/v1/local-disk/mkdir", &http_router::routeLocalDiskCreateDir)
 		.Get("/api/v1/local-disk/move", &http_router::routeLocalDiskMove)
@@ -701,6 +702,10 @@ bool http_router::routeLocalDiskList(request_t& req, response_t& res) {
 
 bool http_router::routeLocalDiskDownload(request_t& req, response_t& res) {
 	return action::LocalDiskDownloadAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_router::routeLocalDiskOfficePreview(request_t& req, response_t& res) {
+	return action::LocalDiskOfficePreviewAction::run(req, res, action::runtime_upload_dir_get());
 }
 
 bool http_router::routeLocalDiskDelete(request_t& req, response_t& res) {

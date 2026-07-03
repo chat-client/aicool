@@ -748,13 +748,16 @@ function loadUnlockedFilePasswords() {
         const pdfBtn = isPdfName(name)
           ? '<button class="local-preview-btn preview-btn" data-kind="pdf" data-local-file="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '">预览</button>'
           : '';
+        const officeBtn = isOfficeName(name)
+          ? '<button class="local-preview-btn preview-btn" data-kind="office" data-local-file="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '">预览</button>'
+          : '';
         const deleteBtn = '<button class="local-delete-btn delete-btn" data-local-delete="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '" title="移至回收站" aria-label="移至回收站">移除</button>';
         return (
           '<tr class="local-disk-draggable' + selectedClass + '" draggable="' + (isRenamingLocalDiskItem ? 'false' : 'true') + '" data-local-drag="' + encodedPath + '" data-local-file-context="' + encodedPath + '" data-file-locked="' + (fileLocked ? '1' : '0') + '" data-file-video="' + (isVideoName(name) ? '1' : '0') + '">' +
             '<td>' + displayName + '</td>' +
             '<td>' + (formatNumber(Number(item.size || 0)) + ' 字节') + '</td>' +
             '<td>' + escapeHtml((item && item.modified_time) || '-') + '</td>' +
-            '<td class="actions-cell"><div class="actions">' + previewBtn + videoBtn + audioBtn + textBtn + pdfBtn + '</div></td>' +
+            '<td class="actions-cell"><div class="actions">' + previewBtn + videoBtn + audioBtn + textBtn + pdfBtn + officeBtn + '</div></td>' +
             '<td class="row-danger-action"><div class="danger-actions">' + deleteBtn + '</div></td>' +
           '</tr>'
         );

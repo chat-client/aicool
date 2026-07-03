@@ -70,6 +70,7 @@ private:
 	static bool routeImageSave(request_t& req, response_t& res);
 	static bool routeLocalDiskList(request_t& req, response_t& res);
 	static bool routeLocalDiskDownload(request_t& req, response_t& res);
+	static bool routeLocalDiskOfficePreview(request_t& req, response_t& res);
 	static bool routeLocalDiskDelete(request_t& req, response_t& res);
 	static bool routeLocalDiskCreateDir(request_t& req, response_t& res);
 	static bool routeLocalDiskMove(request_t& req, response_t& res);

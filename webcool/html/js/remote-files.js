@@ -114,10 +114,16 @@ function folderNameFromPath(path) {
         const cacheBust = function (value) {
           return value + (value.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now();
         };
-        const officePdfUrl = kind === 'office' ? cacheBust(officePreviewUrlForFile(rawFileForUrl)) : '';
-        const url = cacheBust(opts.url || (kind === 'office'
-          ? (isFrontendOffice ? downloadUrlForFile(rawFileForUrl, false) : officePreviewUrlForFile(rawFileForUrl))
-          : downloadUrlForFile(rawFileForUrl, true)));
+        const officePdfBaseUrl = kind === 'office'
+          ? (opts.local ? localDiskOfficePreviewUrl(rawFileForUrl) : officePreviewUrlForFile(rawFileForUrl))
+          : '';
+        const officePdfUrl = kind === 'office' ? cacheBust(officePdfBaseUrl) : '';
+        const officeSourceUrl = kind === 'office'
+          ? (isFrontendOffice ? (opts.url || (opts.local ? localDiskDownloadUrl(rawFileForUrl) : downloadUrlForFile(rawFileForUrl, false))) : officePdfBaseUrl)
+          : '';
+        const url = cacheBust(kind === 'office'
+          ? officeSourceUrl
+          : (opts.url || downloadUrlForFile(rawFileForUrl, true)));
         const win = document.createElement('div');
         win.className = 'floating-preview';
         win.classList.add('preview-kind-' + kind);
@@ -782,6 +788,14 @@ function folderNameFromPath(path) {
         const filePath = String(path || '/');
         return appendLocalDirPassword(
           appendFilePassword(api.localDiskDownload + '?path=' + encodeURIComponent(filePath), filePath, true),
+          localDiskParentPath(filePath)
+        );
+      }
+
+      function localDiskOfficePreviewUrl(path) {
+        const filePath = String(path || '/');
+        return appendLocalDirPassword(
+          appendFilePassword(api.localDiskOfficePreview + '?path=' + encodeURIComponent(filePath), filePath, true),
           localDiskParentPath(filePath)
         );
       }

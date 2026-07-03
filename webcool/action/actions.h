@@ -349,6 +349,12 @@ public:
 		const std::string& upload_dir);
 };
 
+class LocalDiskOfficePreviewAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
 class LocalDiskDeleteAction {
 public:
 	static bool run(request_t& req, response_t& res,

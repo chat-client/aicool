@@ -343,6 +343,9 @@ function appendFilePassword(url, path, local) {
           const pdfBtn = !isDir && isPdfName(name)
             ? '<button class="local-preview-btn preview-btn" data-kind="pdf" data-local-file="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '">预览</button>'
             : '';
+          const officeBtn = !isDir && isOfficeName(name)
+            ? '<button class="local-preview-btn preview-btn" data-kind="office" data-local-file="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '">预览</button>'
+            : '';
           const deleteBtn = isDir
             ? (!isDriveRoot && item.empty_directory
               ? '<button class="local-delete-btn delete-btn" data-local-delete="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '">删除</button>'
@@ -354,7 +357,7 @@ function appendFilePassword(url, path, local) {
               '<td>' + (isDir ? '文件夹' : '文件') + '</td>' +
               '<td>' + (isDir ? '-' : (formatNumber(Number(item.size || 0)) + ' 字节')) + '</td>' +
               '<td>' + escapeHtml((item && item.modified_time) || '-') + '</td>' +
-              '<td class="actions-cell"><div class="actions">' + previewBtn + videoBtn + audioBtn + textBtn + pdfBtn + '</div></td>' +
+              '<td class="actions-cell"><div class="actions">' + previewBtn + videoBtn + audioBtn + textBtn + pdfBtn + officeBtn + '</div></td>' +
               '<td class="row-danger-action"><div class="danger-actions">' + deleteBtn + '</div></td>' +
             '</tr>'
           );

@@ -51,6 +51,7 @@ function selectRenameInputText(input) {
         imageSave: '/api/v1/image/save',
         localDiskList: '/api/v1/local-disk/list',
         localDiskDownload: '/api/v1/local-disk/download',
+        localDiskOfficePreview: '/api/v1/local-disk/office/preview',
         localDiskDelete: '/api/v1/local-disk/delete',
         localDiskMkdir: '/api/v1/local-disk/mkdir',
         localDiskMove: '/api/v1/local-disk/move',
