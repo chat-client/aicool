@@ -107,7 +107,10 @@ function folderNameFromPath(path) {
         const isSpreadsheetOffice = kind === 'office'
           && window.WebCoolSpreadsheetPreview
           && window.WebCoolSpreadsheetPreview.isSpreadsheetName(previewName);
-        const isFrontendOffice = isDocxOffice || isSpreadsheetOffice;
+        const isPptxOffice = kind === 'office'
+          && window.WebCoolPptxPreview
+          && window.WebCoolPptxPreview.isPptxName(previewName);
+        const isFrontendOffice = isDocxOffice || isSpreadsheetOffice || isPptxOffice;
         const cacheBust = function (value) {
           return value + (value.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now();
         };
@@ -172,9 +175,12 @@ function folderNameFromPath(path) {
           mediaHtml = '<audio class="preview-audio" controls preload="metadata" src="' + url + '"></audio>';
         } else if (kind === 'office' && isFrontendOffice) {
           bodyClass += ' preview-body-text';
+          const officePreviewKind = isSpreadsheetOffice ? 'spreadsheet' : (isPptxOffice ? 'pptx' : 'docx');
+          const officeLoadingText = isSpreadsheetOffice ? t('正在加载表格预览...')
+            : (isPptxOffice ? t('正在加载 PPTX 预览...') : t('正在加载 DOCX 预览...'));
           mediaHtml = '<div class="office-preview-shell">' +
-              '<div class="office-preview-status" data-office-preview-status>' + escapeHtml(isSpreadsheetOffice ? t('正在加载表格预览...') : t('正在加载 DOCX 预览...')) + '</div>' +
-              '<div class="office-render" data-office-render data-office-preview-kind="' + (isSpreadsheetOffice ? 'spreadsheet' : 'docx') + '"></div>' +
+              '<div class="office-preview-status" data-office-preview-status>' + escapeHtml(officeLoadingText) + '</div>' +
+              '<div class="office-render" data-office-render data-office-preview-kind="' + officePreviewKind + '"></div>' +
               '<iframe class="preview-pdf office-pdf-fallback" data-office-pdf-fallback hidden data-office-pdf-src="' + escapeHtml(officePdfUrl) + '" title="' + escapedTitle + '"></iframe>' +
             '</div>';
         } else if (kind === 'pdf' || kind === 'office') {
@@ -474,9 +480,11 @@ function folderNameFromPath(path) {
           const officeStatus = win.querySelector('[data-office-preview-status]');
           const officeFallback = win.querySelector('[data-office-pdf-fallback]');
           const officeKind = officeRender.getAttribute('data-office-preview-kind') || 'docx';
-          const renderer = officeKind === 'spreadsheet'
+          const renderer = officeKind === 'pptx'
+            ? (window.WebCoolPptxPreview && window.WebCoolPptxPreview.renderPreview)
+            : (officeKind === 'spreadsheet'
             ? (window.WebCoolSpreadsheetPreview && window.WebCoolSpreadsheetPreview.renderPreview)
-            : (window.WebCoolDocxPreview && window.WebCoolDocxPreview.renderPreview);
+            : (window.WebCoolDocxPreview && window.WebCoolDocxPreview.renderPreview));
           if (!renderer) {
             if (officeStatus) {
               officeStatus.textContent = t('前端 Office 预览组件未加载，正在尝试转换为 PDF。');
@@ -492,17 +500,21 @@ function folderNameFromPath(path) {
           } else {
             renderer(officeRender, url, {
             token: authState.token,
-            loadingText: officeKind === 'spreadsheet' ? t('正在加载表格预览...') : t('正在加载 DOCX 预览...')
+            loadingText: officeKind === 'spreadsheet' ? t('正在加载表格预览...')
+              : (officeKind === 'pptx' ? t('正在加载 PPTX 预览...') : t('正在加载 DOCX 预览...'))
             }).then(function () {
               if (officeStatus) {
                 officeStatus.hidden = true;
               }
             }).catch(function (err) {
               if (officeStatus) {
-                officeStatus.hidden = false;
-                officeStatus.textContent = (officeKind === 'spreadsheet'
+                const fallbackPrefix = officeKind === 'spreadsheet'
                   ? t('表格前端预览失败，正在尝试转换为 PDF：')
-                  : t('DOCX 前端预览失败，正在尝试转换为 PDF：')) + (err && err.message ? err.message : err);
+                  : (officeKind === 'pptx'
+                    ? t('PPTX 前端预览失败，正在尝试转换为 PDF：')
+                    : t('DOCX 前端预览失败，正在尝试转换为 PDF：'));
+                officeStatus.hidden = false;
+                officeStatus.textContent = fallbackPrefix + (err && err.message ? err.message : err);
               }
               officeRender.hidden = true;
               if (officeFallback) {

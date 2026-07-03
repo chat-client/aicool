@@ -4133,6 +4133,16 @@
       box-shadow: 0 4px 16px rgba(25, 42, 62, 0.16);
     }
 
+    .pptx-preview-render {
+      width: 100%;
+      min-height: 360px;
+    }
+
+    .pptx-preview-render > * {
+      margin-left: auto;
+      margin-right: auto;
+    }
+
     .spreadsheet-tabs {
       display: flex;
       gap: 6px;
