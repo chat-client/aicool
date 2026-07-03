@@ -175,7 +175,7 @@ function folderNameFromPath(path) {
           mediaHtml = '<div class="office-preview-shell">' +
               '<div class="office-preview-status" data-office-preview-status>' + escapeHtml(isSpreadsheetOffice ? t('正在加载表格预览...') : t('正在加载 DOCX 预览...')) + '</div>' +
               '<div class="office-render" data-office-render data-office-preview-kind="' + (isSpreadsheetOffice ? 'spreadsheet' : 'docx') + '"></div>' +
-              '<iframe class="preview-pdf office-pdf-fallback" data-office-pdf-fallback hidden src="' + escapeHtml(officePdfUrl) + '" title="' + escapedTitle + '"></iframe>' +
+              '<iframe class="preview-pdf office-pdf-fallback" data-office-pdf-fallback hidden data-office-pdf-src="' + escapeHtml(officePdfUrl) + '" title="' + escapedTitle + '"></iframe>' +
             '</div>';
         } else if (kind === 'pdf' || kind === 'office') {
           mediaHtml = '<iframe class="preview-pdf" src="' + escapeHtml(url) + '" title="' + escapedTitle + '"></iframe>';
@@ -483,6 +483,10 @@ function folderNameFromPath(path) {
             }
             officeRender.hidden = true;
             if (officeFallback) {
+              const fallbackSrc = officeFallback.getAttribute('data-office-pdf-src') || '';
+              if (fallbackSrc && !officeFallback.getAttribute('src')) {
+                officeFallback.setAttribute('src', fallbackSrc);
+              }
               officeFallback.hidden = false;
             }
           } else {
@@ -502,6 +506,10 @@ function folderNameFromPath(path) {
               }
               officeRender.hidden = true;
               if (officeFallback) {
+                const fallbackSrc = officeFallback.getAttribute('data-office-pdf-src') || '';
+                if (fallbackSrc && !officeFallback.getAttribute('src')) {
+                  officeFallback.setAttribute('src', fallbackSrc);
+                }
                 officeFallback.hidden = false;
               }
             });
