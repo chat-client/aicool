@@ -183,6 +183,74 @@
     return { html: html, nextIndex: rowIndex };
   }
 
+  const allowedHTMLTags = new Set([
+    'a', 'br', 'caption', 'code', 'del', 'details', 'div', 'em', 'img', 'kbd',
+    'li', 'ol', 'p', 'pre', 'span', 'strong', 'sub', 'summary', 'sup', 'table',
+    'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul'
+  ]);
+
+  const htmlBlockTags = new Set([
+    'div', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'details', 'summary'
+  ]);
+
+  function htmlTagName(line) {
+    const match = String(line || '').trim().match(/^<\/?\s*([A-Za-z][A-Za-z0-9-]*)\b/);
+    return match ? match[1].toLowerCase() : '';
+  }
+
+  function isHTMLBlockStart(line) {
+    const tag = htmlTagName(line);
+    return tag && allowedHTMLTags.has(tag);
+  }
+
+  function matchesClosingTag(line, tag) {
+    return new RegExp('<\\/\\s*' + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*>', 'i')
+      .test(String(line || ''));
+  }
+
+  function sanitizeRawHTML(html) {
+    return String(html || '')
+      .replace(/<\s*(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+      .replace(/<\s*\/?\s*(script|style|iframe|object|embed)\b[^>]*>/gi, '')
+      .replace(/\s+on[A-Za-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/\s+(href|src)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, ' $1="#"')
+      .replace(/\s+(href|src)\s*=\s*javascript:[^\s>]+/gi, ' $1="#"');
+  }
+
+  function parseHTMLBlock(lines, index) {
+    if (index >= lines.length || !isHTMLBlockStart(lines[index])) {
+      return null;
+    }
+    const rootTag = htmlTagName(lines[index]);
+    const body = [];
+    let rowIndex = index;
+
+    if (rootTag && htmlBlockTags.has(rootTag)) {
+      while (rowIndex < lines.length) {
+        const line = lines[rowIndex];
+        body.push(line);
+        rowIndex += 1;
+        if (matchesClosingTag(line, rootTag)) {
+          break;
+        }
+      }
+    } else {
+      while (rowIndex < lines.length) {
+        const line = lines[rowIndex];
+        if (!isHTMLBlockStart(line) && String(line || '').trim()) {
+          break;
+        }
+        body.push(line);
+        rowIndex += 1;
+        if (!String(line || '').trim()) {
+          break;
+        }
+      }
+    }
+
+    return { html: sanitizeRawHTML(body.join('\n')), nextIndex: rowIndex };
+  }
+
   function renderMarkdown(markdown) {
     const lines = String(markdown == null ? '' : markdown).replace(/\r\n?/g, '\n').split('\n');
     const usedSlugs = {};
@@ -193,7 +261,7 @@
       const parts = [];
       const start = i;
       while (i < lines.length && String(lines[i]).trim()) {
-        if (/^\s*(```|~~~)/.test(lines[i]) || /^\s{0,3}(#{1,6})\s+/.test(lines[i]) || /^\s*[-*_]{3,}\s*$/.test(lines[i]) || /^\s*>/.test(lines[i]) || /^\s*([-+*]|\d+\.)\s+/.test(lines[i])) {
+        if (/^\s*(```|~~~)/.test(lines[i]) || /^\s{0,3}(#{1,6})\s+/.test(lines[i]) || /^\s*[-*_]{3,}\s*$/.test(lines[i]) || /^\s*>/.test(lines[i]) || isHTMLBlockStart(lines[i]) || /^\s*([-+*]|\d+\.)\s+/.test(lines[i])) {
           break;
         }
         parts.push(lines[i]);
@@ -253,6 +321,13 @@
           i += 1;
         }
         html.push('<blockquote>' + renderMarkdown(parts.join('\n')) + '</blockquote>');
+        continue;
+      }
+
+      const htmlBlock = parseHTMLBlock(lines, i);
+      if (htmlBlock) {
+        html.push(htmlBlock.html);
+        i = htmlBlock.nextIndex;
         continue;
       }
 
