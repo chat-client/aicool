@@ -70,6 +70,7 @@ function selectRenameInputText(input) {
         del: '/api/v1/delete',
         restore: '/api/v1/restore',
         download: '/api/v1/download',
+        officePreview: '/api/v1/office/preview',
         imageSave: '/api/v1/image/save',
         localDiskList: '/api/v1/local-disk/list',
         localDiskDownload: '/api/v1/local-disk/download',

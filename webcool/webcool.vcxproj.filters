@@ -81,6 +81,9 @@
     <ClCompile Include="action\file\file_move_action.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>
+    <ClCompile Include="action\file\office_preview_action.cpp">
+      <Filter>源文件\action\file</Filter>
+    </ClCompile>
     <ClCompile Include="action\file\file_open_action.cpp">
       <Filter>源文件\action\file</Filter>
     </ClCompile>

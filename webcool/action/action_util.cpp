@@ -811,7 +811,8 @@ bool is_protected_root_basename(const char* name)
 		return false;
 	}
 	if (strcmp(name, ".folder_locks.txt") == 0
-		|| strcmp(name, ".file_locks.txt") == 0)
+		|| strcmp(name, ".file_locks.txt") == 0
+		|| strcmp(name, ".office_preview_cache") == 0)
 	{
 		return true;
 	}
@@ -847,6 +848,11 @@ bool is_protected_virtual_path(const std::string& relative_path)
 {
 	if (relative_path.empty()) {
 		return false;
+	}
+	if (relative_path == ".office_preview_cache"
+		|| relative_path.find(".office_preview_cache/") == 0)
+	{
+		return true;
 	}
 	if (!parent_relative_path(relative_path).empty()) {
 		return false;

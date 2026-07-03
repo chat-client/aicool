@@ -65,6 +65,7 @@ private:
 	static bool routeRenameFile(request_t& req, response_t& res);
 	static bool routeFiles(request_t& req, response_t& res);
 	static bool routeDownload(request_t& req, response_t& res);
+	static bool routeOfficePreview(request_t& req, response_t& res);
 	static bool routeOpenFile(request_t& req, response_t& res);
 	static bool routeImageSave(request_t& req, response_t& res);
 	static bool routeLocalDiskList(request_t& req, response_t& res);

@@ -308,6 +308,7 @@ void http_router::setup() const {
 		.Get("/api/v1/files/rename", &http_router::routeRenameFile)
 		.Get("/api/v1/files", &http_router::routeFiles)
 		.Get("/api/v1/download", &http_router::routeDownload)
+		.Get("/api/v1/office/preview", &http_router::routeOfficePreview)
 		.Get("/api/v1/open-file", &http_router::routeOpenFile)
 		.Get("/api/v1/image/save", &http_router::routeImageSave)
 		.Get("/api/v1/local-disk/list", &http_router::routeLocalDiskList)
@@ -674,6 +675,11 @@ bool http_router::routeFiles(request_t& req, response_t& res) {
 bool http_router::routeDownload(request_t& req, response_t& res) {
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::DownloadAction::run(req, res, dir);
+}
+
+bool http_router::routeOfficePreview(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::OfficePreviewAction::run(req, res, dir);
 }
 
 bool http_router::routeImageSave(request_t& req, response_t& res) {

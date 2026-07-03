@@ -730,6 +730,7 @@
     <ClCompile Include="action\file\file_util.cpp" />
     <ClCompile Include="action\file\file_list_action.cpp" />
     <ClCompile Include="action\file\file_move_action.cpp" />
+    <ClCompile Include="action\file\office_preview_action.cpp" />
     <ClCompile Include="action\file\file_open_action.cpp" />
     <ClCompile Include="action\file\file_recycle_bin.cpp" />
     <ClCompile Include="action\file\file_rename_action.cpp" />

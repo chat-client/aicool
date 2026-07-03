@@ -1550,6 +1550,16 @@
           return;
         }
 
+        const office = e.target.closest('.office-btn');
+        if (office) {
+          const ofile = office.getAttribute('data-office-file');
+          const oname = office.getAttribute('data-office-name') || '';
+          if (ofile) {
+            openPreview('office', ofile, oname);
+          }
+          return;
+        }
+
         const preview = e.target.closest('.preview-btn');
         if (preview) {
           const pfile = preview.getAttribute('data-preview-file');

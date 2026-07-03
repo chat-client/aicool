@@ -100,14 +100,23 @@ function folderNameFromPath(path) {
         }
 
         const rawFileForUrl = decodeURIComponent(String(file || ''));
-        const url = (opts.url || downloadUrlForFile(rawFileForUrl, true)) + '&v=' + Date.now();
+        const previewName = name || rawFileForUrl;
+        const isDocxOffice = kind === 'office'
+          && window.WebCoolDocxPreview
+          && window.WebCoolDocxPreview.isDocxName(previewName);
+        const cacheBust = function (value) {
+          return value + (value.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now();
+        };
+        const officePdfUrl = kind === 'office' ? cacheBust(officePreviewUrlForFile(rawFileForUrl)) : '';
+        const url = cacheBust(opts.url || (kind === 'office'
+          ? (isDocxOffice ? downloadUrlForFile(rawFileForUrl, false) : officePreviewUrlForFile(rawFileForUrl))
+          : downloadUrlForFile(rawFileForUrl, true)));
         const win = document.createElement('div');
         win.className = 'floating-preview';
         win.classList.add('preview-kind-' + kind);
         previewZ += 1;
         win.style.zIndex = String(previewZ);
 
-        const previewName = name || rawFileForUrl;
         const isHtmlText = kind === 'text' && window.WebCoolHtml && window.WebCoolHtml.isHtmlName(previewName);
         const isMarkdownText = kind === 'text' && !isHtmlText && window.WebCoolMarkdown
           && window.WebCoolMarkdown.isMarkdownName(previewName);
@@ -115,15 +124,18 @@ function folderNameFromPath(path) {
         const isCodeText = kind === 'text' && !isRichTextPreview && !!detectCodeLang(previewName);
         if (isRichTextPreview) {
           win.classList.add('preview-kind-rich-text');
+        } else if (isDocxOffice) {
+          win.classList.add('preview-kind-rich-text', 'preview-kind-office');
         } else if (isCodeText) {
           win.classList.add('preview-kind-code');
         }
         const titleText = kind === 'video' ? '视频播放：'
           : (kind === 'audio' ? '音频播放：'
-            : (kind === 'pdf' ? 'PDF预览：'
+            : (kind === 'office' ? t('Office预览：')
+              : (kind === 'pdf' ? 'PDF预览：'
               : (kind === 'text'
                 ? (isMarkdownText ? t('Markdown预览：') : (isHtmlText ? t('HTML预览：') : '文本查看：'))
-                : '图片预览：')));
+                : '图片预览：'))));
         const escapedTitle = escapeHtml(name || '');
 
         let mediaHtml = '';
@@ -154,7 +166,14 @@ function folderNameFromPath(path) {
             '</div>';
         } else if (kind === 'audio') {
           mediaHtml = '<audio class="preview-audio" controls preload="metadata" src="' + url + '"></audio>';
-        } else if (kind === 'pdf') {
+        } else if (kind === 'office' && isDocxOffice) {
+          bodyClass += ' preview-body-text';
+          mediaHtml = '<div class="office-preview-shell">' +
+              '<div class="office-preview-status" data-office-preview-status>' + t('正在加载 DOCX 预览...') + '</div>' +
+              '<div class="office-render" data-office-docx-render></div>' +
+              '<iframe class="preview-pdf office-pdf-fallback" data-office-pdf-fallback hidden src="' + escapeHtml(officePdfUrl) + '" title="' + escapedTitle + '"></iframe>' +
+            '</div>';
+        } else if (kind === 'pdf' || kind === 'office') {
           mediaHtml = '<iframe class="preview-pdf" src="' + escapeHtml(url) + '" title="' + escapedTitle + '"></iframe>';
         } else if (kind === 'text') {
           bodyClass += ' preview-body-text';
@@ -446,6 +465,29 @@ function folderNameFromPath(path) {
           });
         }
 
+        const officeDocxRender = win.querySelector('[data-office-docx-render]');
+        if (officeDocxRender && window.WebCoolDocxPreview) {
+          const officeStatus = win.querySelector('[data-office-preview-status]');
+          const officeFallback = win.querySelector('[data-office-pdf-fallback]');
+          window.WebCoolDocxPreview.renderPreview(officeDocxRender, url, {
+            token: authState.token,
+            loadingText: t('正在加载 DOCX 预览...')
+          }).then(function () {
+            if (officeStatus) {
+              officeStatus.hidden = true;
+            }
+          }).catch(function (err) {
+            if (officeStatus) {
+              officeStatus.hidden = false;
+              officeStatus.textContent = t('DOCX 前端预览失败，正在尝试转换为 PDF：') + (err && err.message ? err.message : err);
+            }
+            officeDocxRender.hidden = true;
+            if (officeFallback) {
+              officeFallback.hidden = false;
+            }
+          });
+        }
+
         const closeBtn = win.querySelector('.preview-close');
         const head = win.querySelector('.preview-head');
         const minimizeBtn = win.querySelector('[data-preview-window-action="minimize"]');
@@ -701,6 +743,15 @@ function folderNameFromPath(path) {
         return appendLocalDirPassword(
           appendFilePassword(api.localDiskDownload + '?path=' + encodeURIComponent(filePath), filePath, true),
           localDiskParentPath(filePath)
+        );
+      }
+
+      function officePreviewUrlForFile(filePath) {
+        const target = String(filePath || '');
+        return appendFilePassword(
+          withFolderPassword(api.officePreview + '?file=' + encodeURIComponent(target), parentFolderPathFromFilePath(target)),
+          target,
+          false
         );
       }
 
@@ -1483,6 +1534,10 @@ function loadUnlockedFolderPasswords() {
           return true;
         }
         return /\.(txt|md|markdown|mdown|mkdn|log|csv|json|xml|yaml|yml|ini|conf|c|h|cpp|hpp|cc|java|py|js|ts|sh|go|sql|proto)$/i.test(text);
+      }
+
+      function isOfficeName(name) {
+        return /\.(doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp)$/i.test(String(name || ''));
       }
 
       function findTagMetaById(tagId) {

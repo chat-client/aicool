@@ -557,6 +557,9 @@ function saveUnlockedFolderPasswords() {
               ? '<button class="local-preview-btn preview-btn" data-kind="pdf" data-local-file="' + encodedPath + '" data-local-name="' + escapeHtml(rawName) + '">' + t('预览') + '</button>'
               : '<button class="pdf-btn preview-btn" data-pdf-file="' + encodedPath + '" data-pdf-name="' + escapeHtml(rawName) + '">' + t('预览') + '</button>')
             : '';
+          const officeBtn = !isDir && !isLocalTaggedFile && isOfficeName(file.name)
+            ? '<button class="office-btn preview-btn" data-office-file="' + encodedPath + '" data-office-name="' + escapeHtml(rawName) + '">' + t('预览') + '</button>'
+            : '';
           const primaryActionBtn = isTagFilterMode
             ? '<button class="delete-btn" data-file="' + encodedPath + '" data-name="' + escapeHtml(rawName) + '"' + (isLocalTaggedFile ? ' data-local-tag-file="1"' : '') + '>' + t('移除') + '</button>'
             : (isRecycleMode
@@ -580,7 +583,7 @@ function saveUnlockedFolderPasswords() {
               '<td' + (isDir ? '' : ' data-file-context="' + encodedPath + '"') + ' data-file-local="' + (isLocalTaggedFile ? '1' : '0') + '" data-file-locked="' + (fileLocked ? '1' : '0') + '" data-file-video="' + (!isDir && isVideoName(file.name) ? '1' : '0') + '">' + nameContent + lockIcon + pathMeta + '</td>' +
               '<td>' + (isDir ? t('文件夹') : (formatNumber(size) + t(' 字节'))) + '</td>' +
               '<td>' + uploaded + '</td>' +
-              '<td class="actions-cell"><div class="actions">' + previewBtn + videoBtn + audioBtn + textBtn + pdfBtn + '</div></td>' +
+              '<td class="actions-cell"><div class="actions">' + previewBtn + videoBtn + audioBtn + textBtn + pdfBtn + officeBtn + '</div></td>' +
               '<td class="row-danger-action"><div class="danger-actions">' + primaryActionBtn + '</div></td>' +
               '<td class="row-permanent-action"><div class="permanent-actions">' + permanentDeleteBtn + '</div></td>' +
             '</tr>'

@@ -4081,6 +4081,58 @@
       min-height: 0;
     }
 
+    .office-preview-shell {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 260px;
+      flex: 1 1 auto;
+    }
+
+    .office-preview-status {
+      border: 1px solid #cfe0f0;
+      border-radius: 8px;
+      background: #eef6ff;
+      color: #456179;
+      font-size: calc(13px * var(--font-scale));
+      font-weight: 700;
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    .office-render {
+      flex: 1 1 auto;
+      min-height: 420px;
+      overflow: auto;
+      border: 1px solid #deebf7;
+      border-radius: 8px;
+      background: #eef2f7;
+      text-align: left;
+      padding: 12px;
+    }
+
+    .office-render[hidden],
+    .office-pdf-fallback[hidden] {
+      display: none;
+    }
+
+    .office-render .office-preview-loading {
+      color: #61758f;
+      font-weight: 700;
+      padding: 16px;
+    }
+
+    .office-render .docx-wrapper {
+      background: transparent;
+      padding: 0;
+    }
+
+    .office-render .docx {
+      margin: 0 auto 12px;
+      box-shadow: 0 4px 16px rgba(25, 42, 62, 0.16);
+    }
+
     .floating-preview.preview-kind-rich-text .markdown-render,
     .floating-preview.preview-kind-rich-text .html-preview-frame {
       flex: 1 1 auto;
