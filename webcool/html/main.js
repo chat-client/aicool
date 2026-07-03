@@ -71,7 +71,7 @@
     '/webcool/html/js/preview-local-disk.js',
     '/webcool/html/js/admin-storage.js',
     '/webcool/html/js/events-bootstrap.js',
-    '/webcool/html/js/view-heic.js'
+    '/webcool/html/js/vendor/view-heic.js'
   ];
 
   function showLoadError(err) {

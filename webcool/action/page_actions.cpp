@@ -8,6 +8,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <ctime>
+#include <climits>
 #include <vector>
 #include <sys/stat.h>
 
@@ -198,19 +199,104 @@ bool send_not_modified(response_t& res, const char* last_modified,
 		.setKeepAlive(keep_alive)
 		.setHeader("Cache-Control", kStaticCacheControl)
 		.setHeader("Last-Modified", last_modified)
+		.setHeader("Vary", "Accept-Encoding")
 		.setContentLength(0);
 	return res.write(nullptr, 0);
 }
 
+bool header_has_token(const char* value, const char* token) {
+	if (value == nullptr || token == nullptr || *token == '\0') {
+		return false;
+	}
+	const size_t token_len = strlen(token);
+	const char* p = value;
+	while (*p != '\0') {
+		while (*p == ' ' || *p == '\t' || *p == ',') {
+			++p;
+		}
+		const char* start = p;
+		while (*p != '\0' && *p != ',' && *p != ';') {
+			++p;
+		}
+		const size_t len = static_cast<size_t>(p - start);
+		if (len == token_len) {
+#ifdef _WIN32
+			if (_strnicmp(start, token, token_len) == 0) {
+#else
+			if (strncasecmp(start, token, token_len) == 0) {
+#endif
+				return true;
+			}
+		}
+		while (*p != '\0' && *p != ',') {
+			++p;
+		}
+	}
+	return false;
+}
+
+bool is_textual_static_type(const char* type) {
+	if (type == nullptr) {
+		return false;
+	}
+	return strncasecmp(type, "text/", 5) == 0
+		|| strncasecmp(type, "application/javascript", 22) == 0
+		|| strncasecmp(type, "application/json", 16) == 0
+		|| strncasecmp(type, "application/xml", 15) == 0;
+}
+
+bool should_deflate_static_file(const request_t& req, const acl::string& data,
+	  const char* type) {
+	return data.size() > 10240
+		&& data.size() <= static_cast<size_t>(INT_MAX)
+		&& is_textual_static_type(type)
+		&& header_has_token(req.getHeader("Accept-Encoding"), "deflate");
+}
+
+bool deflate_data(const acl::string& data, acl::string& compressed) {
+	compressed.clear();
+	acl::zlib_stream zstream;
+	if (!zstream.zip_begin(acl::zlib_best_speed, -acl::zlib_wbits_15,
+			acl::zlib_mlevel_8)) {
+		return false;
+	}
+	if (!zstream.zip_update(data.c_str(), static_cast<int>(data.size()),
+			&compressed)) {
+		zstream.zip_reset();
+		compressed.clear();
+		return false;
+	}
+	if (!zstream.zip_finish(&compressed)) {
+		zstream.zip_reset();
+		compressed.clear();
+		return false;
+	}
+	return compressed.size() > 0;
+}
+
 bool send_static_data(response_t& res, const acl::string& data,
-	  const char* type, const char* last_modified, const bool keep_alive) {
+	  const char* type, const char* last_modified, const request_t& req) {
+	const bool keep_alive = req.isKeepAlive();
+	acl::string compressed;
+	const bool deflate = should_deflate_static_file(req, data, type)
+		&& deflate_data(data, compressed)
+		&& compressed.size() < data.size();
+
 	res.setStatus(200)
 		.setContentType(type)
 		.setKeepAlive(keep_alive)
 		.setHeader("Cache-Control", kStaticCacheControl)
 		.setHeader("Last-Modified", last_modified)
-		.setContentLength(static_cast<long long>(data.size()));
-	return res.write(data) && res.write(nullptr, 0);
+		.setHeader("Vary", "Accept-Encoding");
+
+	if (deflate) {
+		res.setHeader("Content-Encoding", "deflate")
+			.setContentLength(static_cast<long long>(compressed.size()));
+		return res.write(compressed) && res.write(nullptr, 0);
+	} else {
+		res.setContentLength(static_cast<long long>(data.size()));
+		return res.write(data) && res.write(nullptr, 0);
+	}
 }
 
 const char* get_index_html_path(acl::string& buff) {
@@ -280,6 +366,7 @@ const char* get_static_file_path(const char* path, acl::string& buff,
 		{ ".jpg",  "image/jpg"                             },
 		{ ".jpeg", "image/jpeg"                            },
 		{ ".gif",  "image/gif"                             },
+		{ ".ico",  "image/vnd.microsoft.icon"               },
 		{ ".heic", "image/heic"                            },
 		{ ".heif", "image/heif"                            },
 	};
@@ -347,8 +434,7 @@ bool IndexAction::run(const request_t& req, response_t& res) {
 		return sendText(res, 500, buff.c_str(), req.isKeepAlive());
 	}
 
-	return send_static_data(res, data, ctype.c_str(), last_modified.c_str(),
-		req.isKeepAlive());
+	return send_static_data(res, data, ctype.c_str(), last_modified.c_str(), req);
 }
 
 bool TemplateReloadAction::run(const request_t& req, response_t& res) {
