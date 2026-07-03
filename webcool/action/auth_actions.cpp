@@ -11,6 +11,7 @@
 #endif
 
 #include <cerrno>
+#include <cstring>
 #include <fstream>
 #include <map>
 #include <mutex>
@@ -22,6 +23,10 @@ namespace action {
 namespace {
 
 auto kAuthCookieName = "webcool_auth";
+const char* kAuthDirName = "webcool_auth";
+const char* kLegacyAuthDirName = ".webcool_auth";
+const char* kUserStorageDirName = "webcool_users";
+const char* kLegacyUserStorageDirName = ".webcool_users";
 constexpr long long kSessionTtlSeconds = 7LL * 24 * 60 * 60;
 
 struct user_record_t {
@@ -47,7 +52,7 @@ static void json_error(response_t& res, int status, const char* msg,
 
 std::string auth_dir(const std::string& upload_dir)
 {
-	return join_upload_path(upload_dir, ".webcool_auth");
+	return join_upload_path(upload_dir, kAuthDirName);
 }
 
 std::string users_file(const std::string& upload_dir)
@@ -55,17 +60,88 @@ std::string users_file(const std::string& upload_dir)
 	return auth_dir(upload_dir) + "/users.db";
 }
 
+bool directory_exists(const std::string& path)
+{
+	struct stat st;
+	return stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+bool migrate_legacy_auth_dir(const std::string& upload_dir, std::string& err)
+{
+	err.clear();
+	const std::string target = auth_dir(upload_dir);
+	if (directory_exists(target)) {
+		return true;
+	}
+
+	const std::string legacy = join_upload_path(upload_dir, kLegacyAuthDirName);
+	if (!directory_exists(legacy)) {
+		return true;
+	}
+
+	if (rename(legacy.c_str(), target.c_str()) != 0) {
+		err = std::string("cannot migrate auth directory: ") + strerror(errno);
+		return false;
+	}
+	return true;
+}
+
+std::string user_storage_dir(const std::string& upload_dir,
+	const std::string& username)
+{
+	return join_upload_path(upload_dir,
+		std::string(kUserStorageDirName) + "/" + username);
+}
+
+std::string legacy_user_storage_dir(const std::string& upload_dir,
+	const std::string& username)
+{
+	return join_upload_path(upload_dir,
+		std::string(kLegacyUserStorageDirName) + "/" + username);
+}
+
+bool migrate_legacy_user_storage_dir(const std::string& upload_dir,
+	const std::string& username, std::string& err)
+{
+	err.clear();
+	const std::string target = user_storage_dir(upload_dir, username);
+	if (directory_exists(target)) {
+		return true;
+	}
+
+	const std::string legacy = legacy_user_storage_dir(upload_dir, username);
+	if (!directory_exists(legacy)) {
+		return true;
+	}
+
+	const std::string target_parent = join_upload_path(upload_dir,
+		kUserStorageDirName);
+	if (!make_dir_recursive(target_parent.c_str())) {
+		err = "cannot create user storage directory";
+		return false;
+	}
+	if (rename(legacy.c_str(), target.c_str()) != 0) {
+		err = std::string("cannot migrate user storage directory: ")
+			+ strerror(errno);
+		return false;
+	}
+	return true;
+}
+
 void sync_users_db_backup(const std::string& upload_dir)
 {
 	std::vector<std::string> sync_paths;
 	std::vector<std::string> delete_paths;
 	std::string err;
-	sync_paths.emplace_back(".webcool_auth/users.db");
+	sync_paths.emplace_back(std::string(kAuthDirName) + "/users.db");
 	(void) storage_backup_sync_paths(upload_dir, sync_paths, delete_paths, err);
 }
 
 bool ensure_auth_dir(const std::string& upload_dir, std::string& err)
 {
+	if (!migrate_legacy_auth_dir(upload_dir, err)) {
+		return false;
+	}
 	const std::string dir = auth_dir(upload_dir);
 	if (!make_dir_recursive(dir.c_str())) {
 		err = "cannot create auth directory";
@@ -449,8 +525,11 @@ bool authenticated_user_upload_dir(const request_t& req,
 		err = "authentication required";
 		return false;
 	}
-	user_upload_dir = join_upload_path(upload_dir,
-		std::string(".webcool_users/") + username);
+	if (!migrate_legacy_user_storage_dir(upload_dir, username, err)) {
+		user_upload_dir.clear();
+		return false;
+	}
+	user_upload_dir = user_storage_dir(upload_dir, username);
 	if (!make_dir_recursive(user_upload_dir.c_str())) {
 		err = "cannot create user upload directory";
 		user_upload_dir.clear();

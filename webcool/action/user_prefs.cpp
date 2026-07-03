@@ -17,10 +17,12 @@ namespace action {
 namespace {
 
 std::mutex g_user_prefs_mutex;
+const char* kAuthDirName = "webcool_auth";
 
 std::string auth_prefs_dir(const std::string& upload_dir)
 {
-	return join_upload_path(upload_dir, ".webcool_auth/user_prefs");
+	return join_upload_path(upload_dir,
+		std::string(kAuthDirName) + "/user_prefs");
 }
 
 std::string user_prefs_file(const std::string& upload_dir,
@@ -45,7 +47,8 @@ void sync_user_prefs_backup(const std::string& upload_dir,
 	std::vector<std::string> sync_paths;
 	std::vector<std::string> delete_paths;
 	std::string err;
-	sync_paths.emplace_back(".webcool_auth/user_prefs/" + username + ".prefs");
+	sync_paths.emplace_back(std::string(kAuthDirName) + "/user_prefs/"
+		+ username + ".prefs");
 	(void) storage_backup_sync_paths(upload_dir, sync_paths, delete_paths, err);
 }
 
@@ -171,7 +174,8 @@ bool delete_user_prefs(const std::string& upload_dir,
 	}
 	std::vector<std::string> sync_paths;
 	std::vector<std::string> delete_paths;
-	delete_paths.emplace_back(".webcool_auth/user_prefs/" + username + ".prefs");
+	delete_paths.emplace_back(std::string(kAuthDirName) + "/user_prefs/"
+		+ username + ".prefs");
 	(void) storage_backup_sync_paths(upload_dir, sync_paths, delete_paths, err);
 	return true;
 }
@@ -215,8 +219,10 @@ bool rename_user_prefs(const std::string& upload_dir,
 	}
 	std::vector<std::string> sync_paths;
 	std::vector<std::string> delete_paths;
-	sync_paths.emplace_back(".webcool_auth/user_prefs/" + new_username + ".prefs");
-	delete_paths.emplace_back(".webcool_auth/user_prefs/" + old_username + ".prefs");
+	sync_paths.emplace_back(std::string(kAuthDirName) + "/user_prefs/"
+		+ new_username + ".prefs");
+	delete_paths.emplace_back(std::string(kAuthDirName) + "/user_prefs/"
+		+ old_username + ".prefs");
 	(void) storage_backup_sync_paths(upload_dir, sync_paths, delete_paths, err);
 	return true;
 }
