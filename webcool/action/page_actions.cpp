@@ -7,13 +7,17 @@
 #endif
 #include <cerrno>
 #include <cstdio>
+#include <ctime>
 #include <vector>
+#include <sys/stat.h>
 
 namespace action {
 
 namespace {
 
 std::string html_home = "/opt/soft/webcool/html";
+
+const char* kStaticCacheControl = "public, max-age=0, must-revalidate";
 
 std::string trim_static_home(const char* path) {
 	std::string value = path;
@@ -82,6 +86,131 @@ bool load_file_utf8_path(const char* filepath, acl::string& data, std::string& e
 	}
 	data.append(&buf[0], n);
 	return true;
+}
+
+bool get_file_mtime(const char* filepath, time_t& mtime, std::string& err) {
+	struct stat st;
+	if (stat(filepath, &st) != 0) {
+		err = strerror(errno);
+		return false;
+	}
+	mtime = st.st_mtime;
+	return true;
+}
+
+bool gmt_time(time_t value, struct tm& out) {
+#ifdef _WIN32
+	return gmtime_s(&out, &value) == 0;
+#else
+	struct tm* tm = gmtime_r(&value, &out);
+	return tm != nullptr;
+#endif
+}
+
+std::string format_http_date(time_t value) {
+	struct tm tm;
+	if (!gmt_time(value, tm)) {
+		return "";
+	}
+	char buf[64];
+	if (strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", &tm) == 0) {
+		return "";
+	}
+	return buf;
+}
+
+int month_index(const char* text) {
+	static const char* months[] = {
+		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+	};
+	for (int i = 0; i < 12; ++i) {
+#ifdef _WIN32
+		if (_strnicmp(text, months[i], 3) == 0) {
+#else
+		if (strncasecmp(text, months[i], 3) == 0) {
+#endif
+			return i + 1;
+		}
+	}
+	return 0;
+}
+
+long long days_from_civil(int year, unsigned month, unsigned day) {
+	year -= month <= 2;
+	const int era = (year >= 0 ? year : year - 399) / 400;
+	const unsigned yoe = static_cast<unsigned>(year - era * 400);
+	const int shifted_month = static_cast<int>(month) + (month > 2 ? -3 : 9);
+	const unsigned doy = (153 * static_cast<unsigned>(shifted_month) + 2) / 5
+		+ day - 1;
+	const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+	return era * 146097LL + static_cast<long long>(doe) - 719468LL;
+}
+
+bool parse_http_date(const char* value, time_t& out) {
+	if (value == nullptr || *value == '\0') {
+		return false;
+	}
+
+	char month_text[4] = { 0 };
+	int day = 0;
+	int year = 0;
+	int hour = 0;
+	int minute = 0;
+	int second = 0;
+	if (sscanf(value, "%*3s, %d %3s %d %d:%d:%d GMT",
+			&day, month_text, &year, &hour, &minute, &second) != 6)
+	{
+		return false;
+	}
+
+	const int month = month_index(month_text);
+	if (month <= 0 || day < 1 || day > 31 || year < 1970
+		|| hour < 0 || hour > 23 || minute < 0 || minute > 59
+		|| second < 0 || second > 60)
+	{
+		return false;
+	}
+
+	const long long days = days_from_civil(year,
+		static_cast<unsigned>(month), static_cast<unsigned>(day));
+	if (days < 0) {
+		return false;
+	}
+
+	out = static_cast<time_t>(days * 86400LL + hour * 3600LL
+		+ minute * 60LL + second);
+	return true;
+}
+
+bool client_cache_is_fresh(const request_t& req, time_t file_mtime) {
+	const char* value = req.getHeader("If-Modified-Since");
+	time_t client_time = 0;
+	if (!parse_http_date(value, client_time)) {
+		return false;
+	}
+	return client_time >= file_mtime;
+}
+
+bool send_not_modified(response_t& res, const char* last_modified,
+	  const bool keep_alive) {
+	res.setStatus(304)
+		.setKeepAlive(keep_alive)
+		.setHeader("Cache-Control", kStaticCacheControl)
+		.setHeader("Last-Modified", last_modified)
+		.setContentLength(0);
+	return res.write(nullptr, 0);
+}
+
+bool send_static_data(response_t& res, const acl::string& data,
+	  const char* type, const char* last_modified, const bool keep_alive) {
+	res.setStatus(200)
+		.setContentType(type)
+		.setKeepAlive(keep_alive)
+		.setHeader("Cache-Control", kStaticCacheControl)
+		.setHeader("Last-Modified", last_modified)
+		.setContentLength(static_cast<long long>(data.size()));
+	return res.write(data) && res.write(nullptr, 0);
 }
 
 const char* get_index_html_path(acl::string& buff) {
@@ -196,13 +325,30 @@ bool IndexAction::run(const request_t& req, response_t& res) {
 
 	acl::string data;
 	std::string err;
-	if (filepath == nullptr || !load_file_utf8_path(filepath, data, err)) {
+	time_t file_mtime = 0;
+	if (filepath == nullptr || !get_file_mtime(filepath, file_mtime, err)) {
 		buff.format("load %s from %s failed(%s)\r\n", request_path,
 			file_for_log, err.empty() ? "bad static path" : err.c_str());
 		return sendText(res, 500, buff.c_str(), req.isKeepAlive());
 	}
 
-	return sendData(res, data, ctype.c_str(), req.isKeepAlive());
+	const std::string last_modified = format_http_date(file_mtime);
+	if (!last_modified.empty()
+		&& client_cache_is_fresh(req, file_mtime))
+	{
+		logger_debug(DEBUG_PAGE, 1, "static cache hit: path=%s,"
+			" last_modified=%s", request_path, last_modified.c_str());
+		return send_not_modified(res, last_modified.c_str(), req.isKeepAlive());
+	}
+
+	if (!load_file_utf8_path(filepath, data, err)) {
+		buff.format("load %s from %s failed(%s)\r\n", request_path,
+			file_for_log, err.empty() ? "bad static path" : err.c_str());
+		return sendText(res, 500, buff.c_str(), req.isKeepAlive());
+	}
+
+	return send_static_data(res, data, ctype.c_str(), last_modified.c_str(),
+		req.isKeepAlive());
 }
 
 bool TemplateReloadAction::run(const request_t& req, response_t& res) {

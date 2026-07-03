@@ -104,12 +104,16 @@ function folderNameFromPath(path) {
         const isDocxOffice = kind === 'office'
           && window.WebCoolDocxPreview
           && window.WebCoolDocxPreview.isDocxName(previewName);
+        const isSpreadsheetOffice = kind === 'office'
+          && window.WebCoolSpreadsheetPreview
+          && window.WebCoolSpreadsheetPreview.isSpreadsheetName(previewName);
+        const isFrontendOffice = isDocxOffice || isSpreadsheetOffice;
         const cacheBust = function (value) {
           return value + (value.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now();
         };
         const officePdfUrl = kind === 'office' ? cacheBust(officePreviewUrlForFile(rawFileForUrl)) : '';
         const url = cacheBust(opts.url || (kind === 'office'
-          ? (isDocxOffice ? downloadUrlForFile(rawFileForUrl, false) : officePreviewUrlForFile(rawFileForUrl))
+          ? (isFrontendOffice ? downloadUrlForFile(rawFileForUrl, false) : officePreviewUrlForFile(rawFileForUrl))
           : downloadUrlForFile(rawFileForUrl, true)));
         const win = document.createElement('div');
         win.className = 'floating-preview';
@@ -124,7 +128,7 @@ function folderNameFromPath(path) {
         const isCodeText = kind === 'text' && !isRichTextPreview && !!detectCodeLang(previewName);
         if (isRichTextPreview) {
           win.classList.add('preview-kind-rich-text');
-        } else if (isDocxOffice) {
+        } else if (isFrontendOffice) {
           win.classList.add('preview-kind-rich-text', 'preview-kind-office');
         } else if (isCodeText) {
           win.classList.add('preview-kind-code');
@@ -166,11 +170,11 @@ function folderNameFromPath(path) {
             '</div>';
         } else if (kind === 'audio') {
           mediaHtml = '<audio class="preview-audio" controls preload="metadata" src="' + url + '"></audio>';
-        } else if (kind === 'office' && isDocxOffice) {
+        } else if (kind === 'office' && isFrontendOffice) {
           bodyClass += ' preview-body-text';
           mediaHtml = '<div class="office-preview-shell">' +
-              '<div class="office-preview-status" data-office-preview-status>' + t('正在加载 DOCX 预览...') + '</div>' +
-              '<div class="office-render" data-office-docx-render></div>' +
+              '<div class="office-preview-status" data-office-preview-status>' + escapeHtml(isSpreadsheetOffice ? t('正在加载表格预览...') : t('正在加载 DOCX 预览...')) + '</div>' +
+              '<div class="office-render" data-office-render data-office-preview-kind="' + (isSpreadsheetOffice ? 'spreadsheet' : 'docx') + '"></div>' +
               '<iframe class="preview-pdf office-pdf-fallback" data-office-pdf-fallback hidden src="' + escapeHtml(officePdfUrl) + '" title="' + escapedTitle + '"></iframe>' +
             '</div>';
         } else if (kind === 'pdf' || kind === 'office') {
@@ -465,27 +469,43 @@ function folderNameFromPath(path) {
           });
         }
 
-        const officeDocxRender = win.querySelector('[data-office-docx-render]');
-        if (officeDocxRender && window.WebCoolDocxPreview) {
+        const officeRender = win.querySelector('[data-office-render]');
+        if (officeRender) {
           const officeStatus = win.querySelector('[data-office-preview-status]');
           const officeFallback = win.querySelector('[data-office-pdf-fallback]');
-          window.WebCoolDocxPreview.renderPreview(officeDocxRender, url, {
-            token: authState.token,
-            loadingText: t('正在加载 DOCX 预览...')
-          }).then(function () {
+          const officeKind = officeRender.getAttribute('data-office-preview-kind') || 'docx';
+          const renderer = officeKind === 'spreadsheet'
+            ? (window.WebCoolSpreadsheetPreview && window.WebCoolSpreadsheetPreview.renderPreview)
+            : (window.WebCoolDocxPreview && window.WebCoolDocxPreview.renderPreview);
+          if (!renderer) {
             if (officeStatus) {
-              officeStatus.hidden = true;
+              officeStatus.textContent = t('前端 Office 预览组件未加载，正在尝试转换为 PDF。');
             }
-          }).catch(function (err) {
-            if (officeStatus) {
-              officeStatus.hidden = false;
-              officeStatus.textContent = t('DOCX 前端预览失败，正在尝试转换为 PDF：') + (err && err.message ? err.message : err);
-            }
-            officeDocxRender.hidden = true;
+            officeRender.hidden = true;
             if (officeFallback) {
               officeFallback.hidden = false;
             }
-          });
+          } else {
+            renderer(officeRender, url, {
+            token: authState.token,
+            loadingText: officeKind === 'spreadsheet' ? t('正在加载表格预览...') : t('正在加载 DOCX 预览...')
+            }).then(function () {
+              if (officeStatus) {
+                officeStatus.hidden = true;
+              }
+            }).catch(function (err) {
+              if (officeStatus) {
+                officeStatus.hidden = false;
+                officeStatus.textContent = (officeKind === 'spreadsheet'
+                  ? t('表格前端预览失败，正在尝试转换为 PDF：')
+                  : t('DOCX 前端预览失败，正在尝试转换为 PDF：')) + (err && err.message ? err.message : err);
+              }
+              officeRender.hidden = true;
+              if (officeFallback) {
+                officeFallback.hidden = false;
+              }
+            });
+          }
         }
 
         const closeBtn = win.querySelector('.preview-close');
@@ -1537,7 +1557,7 @@ function loadUnlockedFolderPasswords() {
       }
 
       function isOfficeName(name) {
-        return /\.(doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp)$/i.test(String(name || ''));
+        return /\.(doc|docx|xls|xlsx|csv|ppt|pptx|odt|ods|odp)$/i.test(String(name || ''));
       }
 
       function findTagMetaById(tagId) {
