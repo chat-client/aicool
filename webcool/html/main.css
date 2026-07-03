@@ -4059,6 +4059,17 @@
       flex-direction: column;
     }
 
+    .floating-preview.is-minimized.preview-kind-rich-text,
+    .floating-preview.is-minimized.preview-kind-code {
+      height: auto !important;
+      min-height: 0;
+    }
+
+    .floating-preview.is-minimized.preview-kind-rich-text .preview-body,
+    .floating-preview.is-minimized.preview-kind-code .preview-body {
+      display: none;
+    }
+
     .floating-preview.preview-kind-code .preview-text {
       flex: 1 1 auto;
       min-height: 420px;
