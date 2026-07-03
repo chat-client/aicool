@@ -133,13 +133,15 @@ function isRecycleFolderPath(path) {
             folderIconHtml = '<span class="folder-tree-icon recycle" aria-hidden="true">🗑</span>';
           } else if (isSharedRootFolderPath(path)) {
             folderIconHtml = '<span class="folder-tree-icon shared" aria-hidden="true">⇄</span>';
+          } else if (isSharedFixedFolderPath(path)) {
+            folderIconHtml = getSharedFixedFolderIconHtml(path);
           } else if (!path) {
             folderIconHtml = '<span class="folder-tree-icon root" aria-hidden="true">⌂</span>';
           }
           const childHtml = hasChildren && expanded
             ? '<div class="folder-tree-children">' + buildFolderTreeHtml(node.children, (level || 0) + 1) + '</div>'
             : '';
-          const displayName = isSharedRootFolderPath(path) ? t('共享目录') : (node.name || '');
+          const displayName = getSharedFolderDisplayName(path, node.name || '');
           const nameHtml = isRenaming
             ? '<input class="folder-rename-input" data-folder-rename-input="' + escapeHtml(path) + '" value="' + escapeHtml(node.name || '') + '" maxlength="120">'
             : '<span class="folder-tree-name">' + folderIconHtml + escapeHtml(displayName) + '</span>';

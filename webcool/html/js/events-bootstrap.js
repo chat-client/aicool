@@ -2021,7 +2021,10 @@
             return;
           }
           const path = entry.getAttribute('data-folder-select') || '';
-          if (path && !canRenameFolderPath(path) && !isRecycleRootFolderPath(path) && !isSharedRootFolderPath(path)) {
+          if (path && !canRenameFolderPath(path)
+            && !isRecycleRootFolderPath(path)
+            && !isSharedRootFolderPath(path)
+            && !isSharedFixedFolderPath(path)) {
             return;
           }
           e.preventDefault();
@@ -2078,7 +2081,9 @@
             return;
           }
           const folderPath = entry.getAttribute('data-drag-folder') || '';
-          if (!folderPath || isRecycleFolderPath(folderPath) || isSharedRootFolderPath(folderPath)) {
+          if (!folderPath || isRecycleFolderPath(folderPath)
+            || isSharedRootFolderPath(folderPath)
+            || isSharedFixedFolderPath(folderPath)) {
             e.preventDefault();
             return;
           }

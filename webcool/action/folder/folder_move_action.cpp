@@ -20,6 +20,10 @@ bool FolderMoveAction::run(request_t& req, response_t& res,
 		json_error(res, 409, "shared folder is protected", req.isKeepAlive());
 		return true;
 	}
+	if (is_shared_fixed_subfolder_path(source_path)) {
+		json_error(res, 409, "shared fixed folder is protected", req.isKeepAlive());
+		return true;
+	}
 	bool source_lock_allowed = false;
 	std::string locked_path;
 	if (!folder_lock_path_allows(upload_dir, source_path,

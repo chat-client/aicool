@@ -368,9 +368,11 @@ function saveUnlockedFolderPasswords() {
         const folderPath = String(path || '');
         const isRoot = folderPath === '';
         const isSharedRoot = isSharedRootFolderPath(folderPath);
+        const isSharedFixed = isSharedFixedFolderPath(folderPath);
         const isRecycleRoot = isRecycleRootFolderPath(folderPath);
-        const node = isRoot ? { locked: false } : findFolderNodeByPath(folderPath);
-        if (!node && !isRecycleRoot && !isSharedRoot) {
+        const node = isRoot ? { locked: false }
+          : (findFolderNodeByPath(folderPath) || (isSharedFixed ? { locked: false } : null));
+        if (!node && !isRecycleRoot && !isSharedRoot && !isSharedFixed) {
           return;
         }
         const menu = document.createElement('div');
@@ -396,7 +398,7 @@ function saveUnlockedFolderPasswords() {
           activeFolderContextMenu = menu;
           return;
         }
-        if (!canRenameFolderPath(folderPath)) {
+        if (!canRenameFolderPath(folderPath) && !isSharedFixed) {
           return;
         }
         const lockActionsHtml = node.locked
@@ -407,8 +409,8 @@ function saveUnlockedFolderPasswords() {
           (remoteDiskClipboardPath ? '<button type="button" class="folder-context-item" data-folder-menu-action="paste">' + t('粘贴') + '</button>' : '') +
           '<button type="button" class="folder-context-item" data-folder-menu-action="copy">' + t('拷贝') + '</button>' +
           '<button type="button" class="folder-context-item" data-folder-menu-action="create">' + t('新建子目录') + '</button>' +
-          '<button type="button" class="folder-context-item" data-folder-menu-action="delete">' + t('删除') + '</button>' +
-          '<button type="button" class="folder-context-item" data-folder-menu-action="rename">' + t('改名') + '</button>' +
+          (isSharedFixed ? '' : '<button type="button" class="folder-context-item" data-folder-menu-action="delete">' + t('删除') + '</button>' +
+            '<button type="button" class="folder-context-item" data-folder-menu-action="rename">' + t('改名') + '</button>') +
           lockActionsHtml;
         document.body.appendChild(menu);
         menu.style.left = Math.round(clientX) + 'px';
@@ -1264,7 +1266,9 @@ function saveUnlockedFolderPasswords() {
 
       function canRenameFolderPath(path) {
         const text = String(path || '');
-        return !!text && !isRecycleFolderPath(text) && !isSharedRootFolderPath(text);
+        return !!text && !isRecycleFolderPath(text)
+          && !isSharedRootFolderPath(text)
+          && !isSharedFixedFolderPath(text);
       }
 
       function closeAudioTagContextMenu() {
@@ -1283,7 +1287,10 @@ function saveUnlockedFolderPasswords() {
 
       function syncFolderActionButtons() {
         if (folderDeleteBtn) {
-          folderDeleteBtn.disabled = !activeFolderPath || isRecycleRootFolderPath(activeFolderPath) || isSharedRootFolderPath(activeFolderPath);
+          folderDeleteBtn.disabled = !activeFolderPath
+            || isRecycleRootFolderPath(activeFolderPath)
+            || isSharedRootFolderPath(activeFolderPath)
+            || isSharedFixedFolderPath(activeFolderPath);
         }
         if (folderRestoreBtn) {
           folderRestoreBtn.disabled = !activeFolderPath || !isRecycleFolderPath(activeFolderPath) || isRecycleRootFolderPath(activeFolderPath);

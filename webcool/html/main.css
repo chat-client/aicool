@@ -1162,6 +1162,30 @@
       border: 1px solid #b8dfc4;
     }
 
+    .folder-tree-icon.shared-fixed.video {
+      background: #fff1f0;
+      color: #b42318;
+      border: 1px solid #ffcbc5;
+    }
+
+    .folder-tree-icon.shared-fixed.audio {
+      background: #f1f5ff;
+      color: #3056b3;
+      border: 1px solid #c4d3ff;
+    }
+
+    .folder-tree-icon.shared-fixed.image {
+      background: #f0f9ff;
+      color: #12607c;
+      border: 1px solid #bae6fd;
+    }
+
+    .folder-tree-icon.shared-fixed.document {
+      background: #fff8e6;
+      color: #8a5a05;
+      border: 1px solid #f6d889;
+    }
+
     .folder-rename-input {
       min-width: 0;
       width: 100%;

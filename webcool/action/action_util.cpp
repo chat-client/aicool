@@ -23,6 +23,12 @@ namespace {
 
 const auto kRecycleFolderName = "回收站";
 const auto kSharedFolderName = "共享目录";
+const char* const kSharedFixedSubfolderNames[] = {
+	"视频",
+	"音频",
+	"图片",
+	"文档",
+};
 std::mutex g_runtime_sqlite_mutex;
 std::string g_runtime_sqlite_lib;
 std::mutex g_runtime_ffmpeg_mutex;
@@ -701,6 +707,14 @@ const char* shared_folder_name() {
 	return kSharedFolderName;
 }
 
+const std::vector<std::string>& shared_fixed_subfolder_names() {
+	static const std::vector<std::string> names(
+		kSharedFixedSubfolderNames,
+		kSharedFixedSubfolderNames
+			+ sizeof(kSharedFixedSubfolderNames) / sizeof(kSharedFixedSubfolderNames[0]));
+	return names;
+}
+
 bool is_shared_root_path(const std::string& relative_path) {
 	return relative_path == shared_folder_name();
 }
@@ -714,6 +728,31 @@ bool is_shared_file_path(const std::string& relative_path) {
 		&& relative_path.compare(0, prefix.size(), prefix) == 0;
 }
 
+bool is_shared_fixed_subfolder_path(const std::string& relative_path) {
+	if (relative_path.empty()) {
+		return false;
+	}
+	const std::string prefix = std::string(shared_folder_name()) + "/";
+	if (relative_path.size() <= prefix.size()
+		|| relative_path.compare(0, prefix.size(), prefix) != 0)
+	{
+		return false;
+	}
+	const std::string child_name = relative_path.substr(prefix.size());
+	if (child_name.find('/') != std::string::npos) {
+		return false;
+	}
+	const std::vector<std::string>& names = shared_fixed_subfolder_names();
+	for (std::vector<std::string>::const_iterator it = names.begin();
+		it != names.end(); ++it)
+	{
+		if (child_name == *it) {
+			return true;
+		}
+	}
+	return false;
+}
+
 bool ensure_shared_upload_dir(std::string& err) {
 	err.clear();
 	const std::string base = runtime_upload_dir_get();
@@ -725,6 +764,16 @@ bool ensure_shared_upload_dir(std::string& err) {
 	if (!make_dir_recursive(path.c_str())) {
 		err = "cannot create shared folder";
 		return false;
+	}
+	const std::vector<std::string>& names = shared_fixed_subfolder_names();
+	for (std::vector<std::string>::const_iterator it = names.begin();
+		it != names.end(); ++it)
+	{
+		const std::string child_path = path + "/" + *it;
+		if (!make_dir_recursive(child_path.c_str())) {
+			err = "cannot create shared fixed folder";
+			return false;
+		}
 	}
 	return true;
 }

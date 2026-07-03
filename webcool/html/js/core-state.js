@@ -542,6 +542,7 @@ function selectRenameInputText(input) {
       var RECYCLE_FOLDER_NAME = '回收站';
 
       var SHARED_FOLDER_NAME = '共享目录';
+      var SHARED_FIXED_FOLDER_NAMES = ['视频', '音频', '图片', '文档'];
 
       var allFiles = [];
 

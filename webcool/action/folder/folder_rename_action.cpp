@@ -20,6 +20,10 @@ bool FolderRenameAction::run(request_t& req, response_t& res,
 		json_error(res, 409, "shared folder is protected", req.isKeepAlive());
 		return true;
 	}
+	if (is_shared_fixed_subfolder_path(old_path)) {
+		json_error(res, 409, "shared fixed folder is protected", req.isKeepAlive());
+		return true;
+	}
 	bool lock_allowed = false;
 	std::string locked_path;
 	if (!folder_lock_path_allows(upload_dir, old_path,
@@ -48,6 +52,10 @@ bool FolderRenameAction::run(request_t& req, response_t& res,
 	const std::string new_path = parent_path.empty() ? new_name : (parent_path + "/" + new_name);
 	if (is_recycle_root_path(new_path)) {
 		json_error(res, 409, "recycle folder name is protected", req.isKeepAlive());
+		return true;
+	}
+	if (is_shared_fixed_subfolder_path(new_path)) {
+		json_error(res, 409, "shared fixed folder name is protected", req.isKeepAlive());
 		return true;
 	}
 	if (new_path == old_path) {

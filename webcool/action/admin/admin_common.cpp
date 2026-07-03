@@ -401,7 +401,15 @@ void ensure_shared_folder_for_storage(const std::string& upload_dir)
 		return;
 	}
 	const std::string path = join_storage_path(upload_dir, shared_folder_name());
-	(void) make_dir_recursive(path.c_str());
+	if (!make_dir_recursive(path.c_str())) {
+		return;
+	}
+	const std::vector<std::string>& names = shared_fixed_subfolder_names();
+	for (std::vector<std::string>::const_iterator it = names.begin();
+		it != names.end(); ++it)
+	{
+		(void) make_dir_recursive(join_storage_path(path, it->c_str()).c_str());
+	}
 }
 
 std::string storage_backup_date_suffix()

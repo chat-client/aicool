@@ -3,6 +3,7 @@
 #include "actions.h"
 
 #include <string>
+#include <vector>
 
 namespace action {
 
@@ -30,9 +31,13 @@ std::string base_name_from_relative_path(const std::string& relative_path);
 
 const char* shared_folder_name();
 
+const std::vector<std::string>& shared_fixed_subfolder_names();
+
 bool is_shared_root_path(const std::string& relative_path);
 
 bool is_shared_file_path(const std::string& relative_path);
+
+bool is_shared_fixed_subfolder_path(const std::string& relative_path);
 
 bool ensure_shared_upload_dir(std::string& err);
 

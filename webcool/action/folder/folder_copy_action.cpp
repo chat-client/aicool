@@ -83,6 +83,10 @@ bool FolderCopyAction::run(request_t& req, response_t& res,
 		json_error(res, 409, "source and destination are the same", req.isKeepAlive());
 		return true;
 	}
+	if (is_shared_fixed_subfolder_path(target_path)) {
+		json_error(res, 409, "shared fixed folder is protected", req.isKeepAlive());
+		return true;
+	}
 
 	const std::string source_full = join_upload_path(upload_dir, source_path);
 	const std::string target_full = join_upload_path(upload_dir, target_path);

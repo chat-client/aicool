@@ -141,6 +141,50 @@ function appendFilePassword(url, path, local) {
         return String(path || '') === SHARED_FOLDER_NAME;
       }
 
+      function isSharedFixedFolderPath(path) {
+        const text = String(path || '');
+        const prefix = SHARED_FOLDER_NAME + '/';
+        if (text.indexOf(prefix) !== 0 || text.indexOf('/', prefix.length) >= 0) {
+          return false;
+        }
+        const name = text.slice(prefix.length);
+        return SHARED_FIXED_FOLDER_NAMES.indexOf(name) >= 0;
+      }
+
+      function getSharedFolderDisplayName(path, fallbackName) {
+        const text = String(path || '');
+        if (isSharedRootFolderPath(text)) {
+          return t('共享目录');
+        }
+        if (isSharedFixedFolderPath(text)) {
+          const prefix = SHARED_FOLDER_NAME + '/';
+          return t(text.slice(prefix.length));
+        }
+        return fallbackName || '';
+      }
+
+      function getSharedFixedFolderIconHtml(path) {
+        const text = String(path || '');
+        if (!isSharedFixedFolderPath(text)) {
+          return '';
+        }
+        const prefix = SHARED_FOLDER_NAME + '/';
+        const name = text.slice(prefix.length);
+        if (name === '视频') {
+          return '<span class="folder-tree-icon shared-fixed video" aria-hidden="true">▶</span>';
+        }
+        if (name === '音频') {
+          return '<span class="folder-tree-icon shared-fixed audio" aria-hidden="true">♪</span>';
+        }
+        if (name === '图片') {
+          return '<span class="folder-tree-icon shared-fixed image" aria-hidden="true">🖼</span>';
+        }
+        if (name === '文档') {
+          return '<span class="folder-tree-icon shared-fixed document" aria-hidden="true">📄</span>';
+        }
+        return '';
+      }
+
       function canUploadLocalDiskToRemoteFolder(path) {
         const folder = String(path || '');
         return !isRecycleFolderPath(folder);
