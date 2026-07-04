@@ -766,6 +766,7 @@
     <ClCompile Include="action\tag\tag_tree.cpp" />
     <ClCompile Include="action\tag\tag_util.cpp" />
     <ClCompile Include="action\upload_action.cpp" />
+    <ClCompile Include="action\upload_stream_action.cpp" />
     <ClCompile Include="action\convert\convert_api_action.cpp" />
     <ClCompile Include="action\convert\convert_command.cpp" />
     <ClCompile Include="action\convert\convert_ffmpeg.cpp" />

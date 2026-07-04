@@ -52,7 +52,6 @@ bool list_folder_tree(const std::string& upload_dir,
 	node.children.clear();
 
 	logger_debug(DEBUG_FOLDER, 1, "get folder tree");
-	printf(">>>>>>>>>>>>>get folder tree\n");
 
 	std::string full = join_upload_path(upload_dir, relative_path);
 	DIR* dir = opendir(full.c_str());
