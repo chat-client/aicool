@@ -11,6 +11,7 @@
 
 #include <windows.h>
 #include <shellapi.h>
+#include <shlobj.h>
 
 #include <direct.h>
 #include <errno.h>
@@ -491,6 +492,26 @@ inline int webcool_getopt(int argc, char* const argv[], const char* optstring)
 //#define getopt webcool_getopt
 //#define optarg webcool_optarg
 //#define optind webcool_optind
+
+inline std::string webcool_windows_home_path()
+{
+	wchar_t path[MAX_PATH];
+	memset(path, 0, sizeof(path));
+	if (SHGetFolderPathW(NULL, CSIDL_PROFILE, NULL, SHGFP_TYPE_CURRENT, path)
+		== S_OK && path[0] != L'\0')
+	{
+		std::string utf8;
+		if (webcool_wide_to_utf8(path, utf8) && !utf8.empty()) {
+			return utf8;
+		}
+	}
+
+	const char* home = getenv("USERPROFILE");
+	if (home == NULL || *home == '\0') {
+		home = getenv("HOME");
+	}
+	return home && *home ? home : ".";
+}
 
 inline bool webcool_shell_open(const std::string& target, std::string& err)
 {

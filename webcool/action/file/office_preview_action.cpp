@@ -45,7 +45,7 @@ bool normalize_local_office_path(const char* input, std::string& out,
 	err.clear();
 #ifdef _WIN32
 	const bool has_input = input != NULL && *input != '\0';
-	std::string text = has_input ? input : windows_home_path();
+	std::string text = has_input ? input : webcool_windows_home_path();
 	if (text == "/") {
 		text = "\\";
 	}
