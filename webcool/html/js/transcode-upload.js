@@ -141,6 +141,11 @@ function appendFilePassword(url, path, local) {
         return String(path || '') === SHARED_FOLDER_NAME;
       }
 
+      function isRootFixedFolderPath(path) {
+        const text = String(path || '');
+        return text.indexOf('/') < 0 && SHARED_FIXED_FOLDER_NAMES.indexOf(text) >= 0;
+      }
+
       function isSharedFixedFolderPath(path) {
         const text = String(path || '');
         const prefix = SHARED_FOLDER_NAME + '/';
@@ -151,10 +156,22 @@ function appendFilePassword(url, path, local) {
         return SHARED_FIXED_FOLDER_NAMES.indexOf(name) >= 0;
       }
 
+      function isReservedFixedFolderPath(path) {
+        return isRootFixedFolderPath(path) || isSharedFixedFolderPath(path);
+      }
+
+      function isFixedFolderParentPath(path) {
+        const text = String(path || '');
+        return !text || isSharedRootFolderPath(text);
+      }
+
       function getSharedFolderDisplayName(path, fallbackName) {
         const text = String(path || '');
         if (isSharedRootFolderPath(text)) {
           return t('共享目录');
+        }
+        if (isRootFixedFolderPath(text)) {
+          return t(text);
         }
         if (isSharedFixedFolderPath(text)) {
           const prefix = SHARED_FOLDER_NAME + '/';
@@ -165,11 +182,11 @@ function appendFilePassword(url, path, local) {
 
       function getSharedFixedFolderIconHtml(path) {
         const text = String(path || '');
-        if (!isSharedFixedFolderPath(text)) {
+        if (!isReservedFixedFolderPath(text)) {
           return '';
         }
         const prefix = SHARED_FOLDER_NAME + '/';
-        const name = text.slice(prefix.length);
+        const name = isSharedFixedFolderPath(text) ? text.slice(prefix.length) : text;
         if (name === '视频') {
           return '<span class="folder-tree-icon shared-fixed video" aria-hidden="true">▶</span>';
         }
@@ -183,6 +200,48 @@ function appendFilePassword(url, path, local) {
           return '<span class="folder-tree-icon shared-fixed document" aria-hidden="true">📄</span>';
         }
         return '';
+      }
+
+      function ensureRootFixedFolderNodes(folders) {
+        const list = Array.isArray(folders) ? folders.slice() : [];
+        SHARED_FIXED_FOLDER_NAMES.forEach(function (name) {
+          const exists = list.some(function (item) {
+            const path = String((item && item.path) || (item && item.name) || '');
+            return path === name;
+          });
+          if (!exists) {
+            list.push({
+              name: name,
+              path: name,
+              parent_path: '',
+              file_count: 0,
+              folder_count: 0,
+              locked: false,
+              children: []
+            });
+          }
+        });
+        return list;
+      }
+
+      function ensureRootFixedFileRecords(files) {
+        const list = Array.isArray(files) ? files.slice() : [];
+        SHARED_FIXED_FOLDER_NAMES.forEach(function (name) {
+          const exists = list.some(function (item) {
+            return !!(item && item.directory) && String((item.path || item.name || '')) === name;
+          });
+          if (!exists) {
+            list.push({
+              name: name,
+              path: name,
+              folder_path: '',
+              directory: true,
+              locked: false,
+              size: 0
+            });
+          }
+        });
+        return list;
       }
 
       function canUploadLocalDiskToRemoteFolder(path) {
@@ -241,7 +300,7 @@ function appendFilePassword(url, path, local) {
       }
 
       function compareFiles(a, b, key, order) {
-        if (!activeFilterTagId && isSharedRootFolderPath(activeFolderPath)) {
+        if (!activeFilterTagId && isFixedFolderParentPath(activeFolderPath)) {
           const fixedRes = compareSharedFixedDirectoryItems(a, b);
           if (fixedRes !== 0) {
             return fixedRes;

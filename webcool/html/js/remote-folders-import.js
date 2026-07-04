@@ -39,7 +39,8 @@ function isRecycleFolderPath(path) {
 
       function replaceFolderChildren(path, children) {
         const target = String(path || '');
-        const mappedChildren = Array.isArray(children) ? children.map(normalizeFolderNode) : [];
+        const sourceChildren = !target ? ensureRootFixedFolderNodes(children) : children;
+        const mappedChildren = Array.isArray(sourceChildren) ? sourceChildren.map(normalizeFolderNode) : [];
         const normalizedChildren = sortSharedFolderChildren(target, mappedChildren);
         if (!target) {
             folderTreeData = normalizedChildren;
@@ -156,7 +157,7 @@ function isRecycleFolderPath(path) {
             folderIconHtml = '<span class="folder-tree-icon recycle" aria-hidden="true">🗑</span>';
           } else if (isSharedRootFolderPath(path)) {
             folderIconHtml = '<span class="folder-tree-icon shared" aria-hidden="true">⇄</span>';
-          } else if (isSharedFixedFolderPath(path)) {
+          } else if (isReservedFixedFolderPath(path)) {
             folderIconHtml = getSharedFixedFolderIconHtml(path);
           } else if (!path) {
             folderIconHtml = '<span class="folder-tree-icon root" aria-hidden="true">⌂</span>';

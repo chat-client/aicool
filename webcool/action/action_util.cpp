@@ -24,10 +24,10 @@ namespace {
 const auto kRecycleFolderName = "回收站";
 const auto kSharedFolderName = "共享目录";
 const char* const kSharedFixedSubfolderNames[] = {
-	"视频",
-	"音频",
 	"图片",
 	"文档",
+	"视频",
+	"音频",
 };
 std::mutex g_runtime_sqlite_mutex;
 std::string g_runtime_sqlite_lib;
@@ -753,6 +753,21 @@ bool is_shared_fixed_subfolder_path(const std::string& relative_path) {
 	return false;
 }
 
+bool is_root_fixed_folder_path(const std::string& relative_path) {
+	if (relative_path.empty() || relative_path.find('/') != std::string::npos) {
+		return false;
+	}
+	const std::vector<std::string>& names = shared_fixed_subfolder_names();
+	for (std::vector<std::string>::const_iterator it = names.begin();
+		it != names.end(); ++it)
+	{
+		if (relative_path == *it) {
+			return true;
+		}
+	}
+	return false;
+}
+
 bool ensure_shared_upload_dir(std::string& err) {
 	err.clear();
 	const std::string base = runtime_upload_dir_get();
@@ -760,12 +775,21 @@ bool ensure_shared_upload_dir(std::string& err) {
 		err = "runtime upload directory is not initialized";
 		return false;
 	}
+	const std::vector<std::string>& names = shared_fixed_subfolder_names();
+	for (std::vector<std::string>::const_iterator it = names.begin();
+		it != names.end(); ++it)
+	{
+		const std::string root_child_path = base + "/" + *it;
+		if (!make_dir_recursive(root_child_path.c_str())) {
+			err = "cannot create root fixed folder";
+			return false;
+		}
+	}
 	const std::string path = base + "/" + shared_folder_name();
 	if (!make_dir_recursive(path.c_str())) {
 		err = "cannot create shared folder";
 		return false;
 	}
-	const std::vector<std::string>& names = shared_fixed_subfolder_names();
 	for (std::vector<std::string>::const_iterator it = names.begin();
 		it != names.end(); ++it)
 	{

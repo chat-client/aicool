@@ -368,11 +368,11 @@ function saveUnlockedFolderPasswords() {
         const folderPath = String(path || '');
         const isRoot = folderPath === '';
         const isSharedRoot = isSharedRootFolderPath(folderPath);
-        const isSharedFixed = isSharedFixedFolderPath(folderPath);
+        const isReservedFixed = isReservedFixedFolderPath(folderPath);
         const isRecycleRoot = isRecycleRootFolderPath(folderPath);
         const node = isRoot ? { locked: false }
-          : (findFolderNodeByPath(folderPath) || (isSharedFixed ? { locked: false } : null));
-        if (!node && !isRecycleRoot && !isSharedRoot && !isSharedFixed) {
+          : (findFolderNodeByPath(folderPath) || (isReservedFixed ? { locked: false } : null));
+        if (!node && !isRecycleRoot && !isSharedRoot && !isReservedFixed) {
           return;
         }
         const menu = document.createElement('div');
@@ -398,7 +398,7 @@ function saveUnlockedFolderPasswords() {
           activeFolderContextMenu = menu;
           return;
         }
-        if (!canRenameFolderPath(folderPath) && !isSharedFixed) {
+        if (!canRenameFolderPath(folderPath) && !isReservedFixed) {
           return;
         }
         const lockActionsHtml = node.locked
@@ -409,7 +409,7 @@ function saveUnlockedFolderPasswords() {
           (remoteDiskClipboardPath ? '<button type="button" class="folder-context-item" data-folder-menu-action="paste">' + t('粘贴') + '</button>' : '') +
           '<button type="button" class="folder-context-item" data-folder-menu-action="copy">' + t('拷贝') + '</button>' +
           '<button type="button" class="folder-context-item" data-folder-menu-action="create">' + t('新建子目录') + '</button>' +
-          (isSharedFixed ? '' : '<button type="button" class="folder-context-item" data-folder-menu-action="delete">' + t('删除') + '</button>' +
+          (isReservedFixed ? '' : '<button type="button" class="folder-context-item" data-folder-menu-action="delete">' + t('删除') + '</button>' +
             '<button type="button" class="folder-context-item" data-folder-menu-action="rename">' + t('改名') + '</button>') +
           lockActionsHtml;
         document.body.appendChild(menu);
@@ -1191,8 +1191,11 @@ function saveUnlockedFolderPasswords() {
       }
 
       function sortSharedFolderChildren(parentPath, children) {
-        const list = Array.isArray(children) ? children.slice() : [];
-        if (!isSharedRootFolderPath(parentPath)) {
+        let list = Array.isArray(children) ? children.slice() : [];
+        if (!String(parentPath || '')) {
+          list = ensureRootFixedFolderNodes(list);
+        }
+        if (!isFixedFolderParentPath(parentPath)) {
           return list;
         }
         return list.sort(function (a, b) {
@@ -1254,13 +1257,16 @@ function saveUnlockedFolderPasswords() {
             fetchFolderList(activeFolderPath)
           ]);
           allFiles = Array.isArray(results[0].files) ? results[0].files.map(normalizeFileRecord) : [];
+          if (!activeFolderPath) {
+            allFiles = ensureRootFixedFileRecords(allFiles).map(normalizeFileRecord);
+          }
           const folderRows = Array.isArray(results[1].folders) ? results[1].folders : [];
           if (activeFolderPath) {
             if (!replaceFolderChildren(activeFolderPath, folderRows)) {
               await loadFolderTreeState();
             }
           } else {
-            folderTreeData = folderRows.map(normalizeFolderNode);
+            folderTreeData = ensureRootFixedFolderNodes(folderRows).map(normalizeFolderNode);
           }
           ensureFolderParentPathExpanded(activeFolderPath);
           await loadTagTreeState();
@@ -1293,7 +1299,7 @@ function saveUnlockedFolderPasswords() {
         const text = String(path || '');
         return !!text && !isRecycleFolderPath(text)
           && !isSharedRootFolderPath(text)
-          && !isSharedFixedFolderPath(text);
+          && !isReservedFixedFolderPath(text);
       }
 
       function closeAudioTagContextMenu() {
@@ -1315,7 +1321,7 @@ function saveUnlockedFolderPasswords() {
           folderDeleteBtn.disabled = !activeFolderPath
             || isRecycleRootFolderPath(activeFolderPath)
             || isSharedRootFolderPath(activeFolderPath)
-            || isSharedFixedFolderPath(activeFolderPath);
+            || isReservedFixedFolderPath(activeFolderPath);
         }
         if (folderRestoreBtn) {
           folderRestoreBtn.disabled = !activeFolderPath || !isRecycleFolderPath(activeFolderPath) || isRecycleRootFolderPath(activeFolderPath);

@@ -33,12 +33,21 @@ static bool folder_access_allowed(const std::string& folder,
 static bool ensure_shared_folder_in_upload_dir(const std::string& upload_dir,
 	std::string& err)
 {
+	const std::vector<std::string>& names = shared_fixed_subfolder_names();
+	for (std::vector<std::string>::const_iterator it = names.begin();
+		it != names.end(); ++it)
+	{
+		const std::string root_child_path = join_upload_path(upload_dir, *it);
+		if (!make_dir_recursive(root_child_path.c_str())) {
+			err = "cannot create root fixed folder";
+			return false;
+		}
+	}
 	const std::string path = join_upload_path(upload_dir, shared_folder_name());
 	if (!make_dir_recursive(path.c_str())) {
 		err = "cannot create shared folder";
 		return false;
 	}
-	const std::vector<std::string>& names = shared_fixed_subfolder_names();
 	for (std::vector<std::string>::const_iterator it = names.begin();
 		it != names.end(); ++it)
 	{

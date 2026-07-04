@@ -24,6 +24,10 @@ bool FolderCopyAction::run(request_t& req, response_t& res,
 		json_error(res, 409, "recycle folder is protected", req.isKeepAlive());
 		return true;
 	}
+	if (is_root_fixed_folder_path(source_path)) {
+		json_error(res, 409, "root fixed folder is protected", req.isKeepAlive());
+		return true;
+	}
 	if (!upload_directory_exists(upload_dir, source_path)) {
 		json_error(res, 404, "folder not found", req.isKeepAlive());
 		return true;
@@ -85,6 +89,10 @@ bool FolderCopyAction::run(request_t& req, response_t& res,
 	}
 	if (is_shared_fixed_subfolder_path(target_path)) {
 		json_error(res, 409, "shared fixed folder is protected", req.isKeepAlive());
+		return true;
+	}
+	if (is_root_fixed_folder_path(target_path)) {
+		json_error(res, 409, "root fixed folder is protected", req.isKeepAlive());
 		return true;
 	}
 

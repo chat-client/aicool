@@ -24,6 +24,10 @@ bool FolderMoveAction::run(request_t& req, response_t& res,
 		json_error(res, 409, "shared fixed folder is protected", req.isKeepAlive());
 		return true;
 	}
+	if (is_root_fixed_folder_path(source_path)) {
+		json_error(res, 409, "root fixed folder is protected", req.isKeepAlive());
+		return true;
+	}
 	bool source_lock_allowed = false;
 	std::string locked_path;
 	if (!folder_lock_path_allows(upload_dir, source_path,
@@ -84,6 +88,10 @@ bool FolderMoveAction::run(request_t& req, response_t& res,
 		root.add_text("path", source_path.c_str());
 		root.add_text("message", "folder unchanged");
 		return sendJson(res, 200, root, req.isKeepAlive());
+	}
+	if (is_root_fixed_folder_path(target_path)) {
+		json_error(res, 409, "root fixed folder is protected", req.isKeepAlive());
+		return true;
 	}
 	if (upload_directory_exists(upload_dir, target_path)) {
 		json_error(res, 409, "target folder already exists", req.isKeepAlive());

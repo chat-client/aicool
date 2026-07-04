@@ -835,7 +835,8 @@ function folderNameFromPath(path) {
 
       async function loadFolderTreeState() {
         const data = await fetchFolderList();
-        folderTreeData = Array.isArray(data.folders) ? data.folders.map(normalizeFolderNode) : [];
+        const folders = ensureRootFixedFolderNodes(Array.isArray(data.folders) ? data.folders : []);
+        folderTreeData = folders.map(normalizeFolderNode);
         if (activeFolderPath) {
           const parts = String(activeFolderPath || '').split('/').filter(Boolean);
           let current = '';

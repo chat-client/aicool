@@ -2045,7 +2045,7 @@
           if (path && !canRenameFolderPath(path)
             && !isRecycleRootFolderPath(path)
             && !isSharedRootFolderPath(path)
-            && !isSharedFixedFolderPath(path)) {
+            && !isReservedFixedFolderPath(path)) {
             return;
           }
           e.preventDefault();
@@ -2104,7 +2104,7 @@
           const folderPath = entry.getAttribute('data-drag-folder') || '';
           if (!folderPath || isRecycleFolderPath(folderPath)
             || isSharedRootFolderPath(folderPath)
-            || isSharedFixedFolderPath(folderPath)) {
+            || isReservedFixedFolderPath(folderPath)) {
             e.preventDefault();
             return;
           }

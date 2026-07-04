@@ -39,6 +39,8 @@ bool is_shared_file_path(const std::string& relative_path);
 
 bool is_shared_fixed_subfolder_path(const std::string& relative_path);
 
+bool is_root_fixed_folder_path(const std::string& relative_path);
+
 bool ensure_shared_upload_dir(std::string& err);
 
 bool upload_regular_file_exists(const std::string& upload_dir,
