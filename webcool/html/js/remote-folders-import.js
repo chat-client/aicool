@@ -321,11 +321,14 @@ function isRecycleFolderPath(path) {
 
       function getRootFolderTreeNodesForRender() {
         const list = Array.isArray(folderTreeData) ? folderTreeData : [];
+        const fixedNodes = [];
         const recycleNodes = [];
         const sharedNodes = [];
         const otherNodes = [];
         list.forEach(function (node) {
-          if (node && isRecycleFolderPath(node.path)) {
+          if (node && isRootFixedFolderPath(node.path)) {
+            fixedNodes.push(node);
+          } else if (node && isRecycleFolderPath(node.path)) {
             recycleNodes.push(node);
           } else if (node && isSharedRootFolderPath(node.path)) {
             sharedNodes.push(node);
@@ -333,14 +336,18 @@ function isRecycleFolderPath(path) {
             otherNodes.push(node);
           }
         });
+        fixedNodes.sort(function (a, b) {
+          return sharedFixedFolderOrder((a && a.path) || '') - sharedFixedFolderOrder((b && b.path) || '');
+        });
+        const rootChildren = fixedNodes.concat(otherNodes);
         return recycleNodes
           .concat(sharedNodes)
           .concat([{
             name: t('根目录'),
             path: '',
             file_count: '',
-            children: otherNodes,
-            folder_count: otherNodes.length,
+            children: rootChildren,
+            folder_count: rootChildren.length,
             fixed_root: true
           }]);
       }
