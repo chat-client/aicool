@@ -39,9 +39,10 @@ function isRecycleFolderPath(path) {
 
       function replaceFolderChildren(path, children) {
         const target = String(path || '');
-        const normalizedChildren = Array.isArray(children) ? children.map(normalizeFolderNode) : [];
+        const mappedChildren = Array.isArray(children) ? children.map(normalizeFolderNode) : [];
+        const normalizedChildren = sortSharedFolderChildren(target, mappedChildren);
         if (!target) {
-          folderTreeData = normalizedChildren;
+            folderTreeData = normalizedChildren;
           return true;
         }
         const node = findFolderNodeByPath(target);

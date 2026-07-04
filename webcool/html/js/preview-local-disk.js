@@ -1176,7 +1176,8 @@ function saveUnlockedFolderPasswords() {
 
       function normalizeFolderNode(node) {
         const item = node && typeof node === 'object' ? node : {};
-        const children = Array.isArray(item.children) ? item.children.map(normalizeFolderNode) : [];
+        const rawChildren = Array.isArray(item.children) ? item.children.map(normalizeFolderNode) : [];
+        const children = sortSharedFolderChildren(String(item.path || ''), rawChildren);
         return {
           name: String(item.name || ''),
 
@@ -1187,6 +1188,21 @@ function saveUnlockedFolderPasswords() {
           locked: !!item.locked,
           children: children
         };
+      }
+
+      function sortSharedFolderChildren(parentPath, children) {
+        const list = Array.isArray(children) ? children.slice() : [];
+        if (!isSharedRootFolderPath(parentPath)) {
+          return list;
+        }
+        return list.sort(function (a, b) {
+          const left = sharedFixedFolderOrder((a && a.path) || (a && a.name) || '');
+          const right = sharedFixedFolderOrder((b && b.path) || (b && b.name) || '');
+          if (left !== right) {
+            return left - right;
+          }
+          return 0;
+        });
       }
 
       function clearTagFileFilter() {

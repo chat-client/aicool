@@ -241,6 +241,12 @@ function appendFilePassword(url, path, local) {
       }
 
       function compareFiles(a, b, key, order) {
+        if (!activeFilterTagId && isSharedRootFolderPath(activeFolderPath)) {
+          const fixedRes = compareSharedFixedDirectoryItems(a, b);
+          if (fixedRes !== 0) {
+            return fixedRes;
+          }
+        }
         let res = 0;
         if (key === 'size') {
           res = safeSize(a) - safeSize(b);
@@ -252,6 +258,25 @@ function appendFilePassword(url, path, local) {
           res = an.localeCompare(bn, 'zh-CN');
         }
         return order === 'desc' ? -res : res;
+      }
+
+      function compareSharedFixedDirectoryItems(a, b) {
+        const left = a || {};
+        const right = b || {};
+        const leftOrder = left.directory ? sharedFixedFolderOrder(getFilePath(left) || left.name) : Number.MAX_SAFE_INTEGER;
+        const rightOrder = right.directory ? sharedFixedFolderOrder(getFilePath(right) || right.name) : Number.MAX_SAFE_INTEGER;
+        if (leftOrder !== rightOrder) {
+          return leftOrder - rightOrder;
+        }
+        return 0;
+      }
+
+      function sharedFixedFolderOrder(path) {
+        const text = String(path || '');
+        const prefix = SHARED_FOLDER_NAME + '/';
+        const name = text.indexOf(prefix) === 0 ? text.slice(prefix.length).split('/')[0] : text.split('/').pop();
+        const index = SHARED_FIXED_FOLDER_NAMES.indexOf(name);
+        return index >= 0 ? index : Number.MAX_SAFE_INTEGER;
       }
 
       function replacePreviewImageWithCanvas(win, canvas, options) {
