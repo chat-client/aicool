@@ -53,8 +53,20 @@ bool FolderCreateAction::run(request_t& req, response_t& res,
 	const std::string full = join_upload_path(upload_dir, new_path);
 	struct stat st;
 	if (stat(full.c_str(), &st) == 0) {
-		json_error(res, 409, S_ISDIR(st.st_mode) ? "folder already exists" : "target path already exists", req.isKeepAlive());
-		return true;
+		if (!S_ISDIR(st.st_mode)) {
+			json_error(res, 409, "target path already exists", req.isKeepAlive());
+			return true;
+		}
+
+		acl::json json;
+		acl::json_node& root = json.create_node();
+		root.add_bool("ok", true);
+		root.add_text("name", name.c_str());
+		root.add_text("path", new_path.c_str());
+		root.add_text("parent_path", parent_path.c_str());
+		root.add_bool("existed", true);
+		root.add_text("message", "folder already exists");
+		return sendJson(res, 200, root, req.isKeepAlive());
 	}
 	if (!make_dir(full.c_str())) {
 		json_error(res, 500, "create folder failed", req.isKeepAlive());

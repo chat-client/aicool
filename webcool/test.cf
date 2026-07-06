@@ -53,7 +53,7 @@ service webcool
 #	进程日志记录文件
 	master_log = /opt/soft/webcool/logs/webcool.log
 #	调试日志方式，格式：tag:level; tag:level; tab:level, 如：all:1; 101:2
-	master_debug = all:0, 207:1
+	master_debug = all:0, 207:0
 #	进程启动参数，只能为: -u [是否允许以某普通用户的身份运行]
 #	master_args = -u
 #	传递给服务子进程的环境变量, 可以通过 getenv("SERVICE_ENV") 获得此值
