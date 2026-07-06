@@ -1015,7 +1015,7 @@ function localDirLockIconHtml(path, locked) {
 
       function bindVideoResume(video, fileName) {
         const key = String(fileName || '');
-        if (!video || !key) {
+        if (!video || !key || isMovVideoName(key)) {
           return;
         }
 

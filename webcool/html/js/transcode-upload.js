@@ -10,6 +10,10 @@ function appendFilePassword(url, path, local) {
         return /\.(rm|rmvb|mov|wmv|mpg|mpeg)$/i.test(String(name || ''));
       }
 
+      function isMovVideoName(name) {
+        return /\.mov$/i.test(String(name || '').split('?')[0]);
+      }
+
       function startTagRename(tagId) {
         const id = String(tagId || '');
         const meta = findTagMetaById(id);
@@ -126,6 +130,12 @@ function appendFilePassword(url, path, local) {
       }
 
       async function loadVideoResumePosition(fileName) {
+        if (isMovVideoName(fileName)) {
+          return {
+            found: false,
+            positionMs: 0
+          };
+        }
         const data = await fetchJson(api.videoResume + '?file=' + encodeURIComponent(fileName || ''));
         return {
           found: !!data.found,

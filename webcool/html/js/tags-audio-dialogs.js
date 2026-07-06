@@ -300,6 +300,9 @@ function getLocalDirPassword(path) {
       }
 
       async function saveVideoResumePosition(fileName, positionMs) {
+        if (isMovVideoName(fileName)) {
+          return;
+        }
         const safeMs = Math.max(0, Math.round(Number(positionMs) || 0));
         await fetchJson(
           api.videoResumeSave
@@ -495,7 +498,7 @@ function getLocalDirPassword(path) {
 
       function scheduleSaveVideoResumePosition(fileName, positionMs) {
         const key = String(fileName || '');
-        if (!key) {
+        if (!key || isMovVideoName(key)) {
           return;
         }
 
