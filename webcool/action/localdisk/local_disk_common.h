@@ -58,22 +58,7 @@ static bool seek_file64(FILE* fp, long long offset)
 #ifdef _WIN32
 static std::string windows_home_path()
 {
-	wchar_t path[MAX_PATH];
-	memset(path, 0, sizeof(path));
-	if (SHGetFolderPathW(NULL, CSIDL_PROFILE, NULL, SHGFP_TYPE_CURRENT, path)
-		== S_OK && path[0] != L'\0')
-	{
-		std::string utf8;
-		if (webcool_wide_to_utf8(path, utf8) && !utf8.empty()) {
-			return utf8;
-		}
-	}
-
-	const char* home = getenv("USERPROFILE");
-	if (home == NULL || *home == '\0') {
-		home = getenv("HOME");
-	}
-	return home && *home ? home : ".";
+	return webcool_windows_home_path();
 }
 
 static std::string windows_last_error_message(DWORD code)
