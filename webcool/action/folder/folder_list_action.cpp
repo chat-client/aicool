@@ -30,36 +30,6 @@ static bool folder_access_allowed(const std::string& folder,
 	return folder_lock_unlocked(locked_path, locks, unlocked_locks);
 }
 
-static bool ensure_shared_folder_in_upload_dir(const std::string& upload_dir,
-	std::string& err)
-{
-	const std::vector<std::string>& names = shared_fixed_subfolder_names();
-	for (std::vector<std::string>::const_iterator it = names.begin();
-		it != names.end(); ++it)
-	{
-		const std::string root_child_path = join_upload_path(upload_dir, *it);
-		if (!make_dir_recursive(root_child_path.c_str())) {
-			err = "cannot create root fixed folder";
-			return false;
-		}
-	}
-	const std::string path = join_upload_path(upload_dir, shared_folder_name());
-	if (!make_dir_recursive(path.c_str())) {
-		err = "cannot create shared folder";
-		return false;
-	}
-	for (std::vector<std::string>::const_iterator it = names.begin();
-		it != names.end(); ++it)
-	{
-		const std::string child_path = path + "/" + *it;
-		if (!make_dir_recursive(child_path.c_str())) {
-			err = "cannot create shared fixed folder";
-			return false;
-		}
-	}
-	return true;
-}
-
 static bool root_has_shared_folder(const folder_node_t& root_node)
 {
 	for (size_t i = 0; i < root_node.children.size(); ++i) {
@@ -79,11 +49,7 @@ bool FolderListAction::run(request_t& req, response_t& res,
 	}
 
 	std::string err;
-	if (!ensure_shared_upload_dir(err)) {
-		json_error(res, 500, err.c_str(), req.isKeepAlive());
-		return true;
-	}
-	if (!ensure_shared_folder_in_upload_dir(upload_dir, err)) {
+	if (!ensure_fixed_upload_folders(upload_dir, err)) {
 		json_error(res, 500, err.c_str(), req.isKeepAlive());
 		return true;
 	}

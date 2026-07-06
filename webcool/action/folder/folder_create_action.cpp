@@ -40,6 +40,10 @@ bool FolderCreateAction::run(request_t& req, response_t& res,
 		json_error(res, 500, "cannot access upload dir", req.isKeepAlive());
 		return true;
 	}
+	if (!ensure_fixed_upload_folders(upload_dir, err)) {
+		json_error(res, 500, err.c_str(), req.isKeepAlive());
+		return true;
+	}
 	if (!parent_path.empty() && !upload_directory_exists(upload_dir, parent_path)) {
 		json_error(res, 404, "parent folder not found", req.isKeepAlive());
 		return true;
