@@ -17,7 +17,26 @@
 #include <vector>
 #include "common/webcool_mutex.h"
 
+#undef sendJson
+#undef sendText
+#undef json_error
+
 namespace action {
+
+static void log_response_error(int status, const char* msg, const char* file,
+	int line, const char* func)
+{
+	const char* text = msg ? msg : "unknown error";
+	const char* source = file ? file : "unknown";
+	const char* fn = func ? func : "unknown";
+	if (status >= 500) {
+		logger_error("response error status=%d, message=%s, source=%s:%d, function=%s",
+			status, text, source, line, fn);
+	} else {
+		logger_warn("response error status=%d, message=%s, source=%s:%d, function=%s",
+			status, text, source, line, fn);
+	}
+}
 
 namespace {
 
@@ -1057,8 +1076,11 @@ bool sendHtml(response_t& res, const acl::string& html, const bool keep_alive) {
 	return sendData(res, html, "text/html; charset=utf-8", keep_alive);
 }
 
-bool sendText(response_t& res, const int status, const char* text,
-	  const bool keep_alive) {
+bool sendText_at(response_t& res, const int status, const char* text,
+	  const bool keep_alive, const char* file, int line, const char* func) {
+	if (status >= 400) {
+		log_response_error(status, text, file, line, func);
+	}
 	res.setStatus(status);
 	res.setContentType("text/plain; charset=utf-8");
 	res.setKeepAlive(keep_alive);
@@ -1110,9 +1132,10 @@ long long safe_atoll(const char* s, const long long def) {
 	return n;
 }
 
-void json_error(response_t& res, int status, const char* msg,
-	bool keep_alive)
+void json_error_at(response_t& res, int status, const char* msg,
+	bool keep_alive, const char* file, int line, const char* func)
 {
+	log_response_error(status, msg, file, line, func);
 	acl::json json;
 	acl::json_node& root = json.create_node();
 	root.add_bool("ok", false);

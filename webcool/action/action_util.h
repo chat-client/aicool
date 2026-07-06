@@ -70,8 +70,8 @@ bool sendData(response_t& res, const acl::string& data,
 bool sendHtml(response_t& res, const acl::string& html,
 	bool keep_alive = true);
 
-bool sendText(response_t& res, int status, const char* text,
-	bool keep_alive = true);
+bool sendText_at(response_t& res, int status, const char* text,
+	bool keep_alive, const char* file, int line, const char* func);
 
 bool sendJson(response_t& res, int status, const acl::json_node& json,
 	bool keep_alive = true);
@@ -110,6 +110,13 @@ int safe_atoi(const char* s, int def);
 long safe_atol(const char* s, long def);
 long long safe_atoll(const char* s, long long def);
 
-void json_error(response_t& res, int status, const char* msg, bool keep_alive);
+void json_error_at(response_t& res, int status, const char* msg,
+	bool keep_alive, const char* file, int line, const char* func);
+
+#define sendText(res, status, text, keep_alive) \
+	action::sendText_at(res, status, text, keep_alive, __FILE__, __LINE__, __FUNCTION__)
+
+#define json_error(res, status, msg, keep_alive) \
+	action::json_error_at(res, status, msg, keep_alive, __FILE__, __LINE__, __FUNCTION__)
 
 } // namespace action
