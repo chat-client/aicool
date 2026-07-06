@@ -31,6 +31,7 @@ sqlite: sqlite-download
 	$(MAKE) -C third-party sqlite-lib
 
 acl:
+	@git submodule update --init --recursive
 	$(MAKE) -C third-party acl-lib
 
 app: tools sqlite acl
