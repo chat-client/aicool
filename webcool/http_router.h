@@ -97,6 +97,7 @@ private:
 	static bool routeFolderMove(request_t& req, response_t& res);
 	static bool routeFolderCopy(request_t& req, response_t& res);
 	static bool routeFolderDelete(request_t& req, response_t& res);
+	static bool routeFolderEmpty(request_t& req, response_t& res);
 	static bool routeFolderLock(request_t& req, response_t& res);
 	static bool routeFolderUnlock(request_t& req, response_t& res);
 	static bool routeFolderLockVerify(request_t& req, response_t& res);

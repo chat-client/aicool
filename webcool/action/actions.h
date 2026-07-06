@@ -531,6 +531,12 @@ public:
 		const std::string& upload_dir);
 };
 
+class FolderEmptyAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
 class FolderLockAction {
 public:
 	static bool run(request_t& req, response_t& res,

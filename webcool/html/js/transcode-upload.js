@@ -764,22 +764,9 @@ function appendFilePassword(url, path, local) {
         if (!confirmed) {
           return;
         }
-        const data = await fetchJson(api.files + '?folder=' + encodeURIComponent(RECYCLE_FOLDER_NAME));
-        const files = Array.isArray(data.files) ? data.files.map(normalizeFileRecord) : [];
-        if (!files.length) {
-          showStatus(t('回收站已经是空的'), 'ok');
-          return;
-        }
-        let deletedCount = 0;
         resetStatus();
-        for (let i = 0; i < files.length; i += 1) {
-          const path = String((files[i] && files[i].path) || '');
-          if (!path || !isRecycleFolderPath(path) || isRecycleRootFolderPath(path)) {
-            continue;
-          }
-          await fetchJson(api.del + '?file=' + encodeURIComponent(path));
-          deletedCount += 1;
-        }
+        const result = await fetchJson(api.folderEmpty + '?path=' + encodeURIComponent(RECYCLE_FOLDER_NAME), { method: 'POST' });
+        const deletedCount = Number((result && result.count) || 0);
         selectedFileNames.clear();
         selectedFolderPaths.clear();
         if (isRecycleFolderPath(activeFolderPath)) {
@@ -787,7 +774,10 @@ function appendFilePassword(url, path, local) {
         }
         ensureFolderPathExpanded(RECYCLE_FOLDER_NAME);
         await loadFiles();
-        showStatus(t('回收站已清空，共删除 ') + deletedCount + t(' 个项目'), 'warn');
+        showStatus(deletedCount === 0
+          ? t('回收站已经是空的')
+          : (t('回收站已清空，共删除 ') + deletedCount + t(' 个项目')),
+          deletedCount === 0 ? 'ok' : 'warn');
       }
 
       function getFileTimeText(file, keys) {

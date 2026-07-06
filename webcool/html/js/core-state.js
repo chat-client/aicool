@@ -22,6 +22,7 @@ function selectRenameInputText(input) {
         folderMove: '/api/v1/folders/move',
         folderCopy: '/api/v1/folders/copy',
         folderDelete: '/api/v1/folders/delete',
+        folderEmpty: '/api/v1/folders/empty',
         folderLock: '/api/v1/folders/lock',
         folderUnlock: '/api/v1/folders/unlock',
         folderLockVerify: '/api/v1/folders/lock/verify',

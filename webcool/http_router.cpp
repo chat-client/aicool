@@ -269,6 +269,7 @@ bool request_storage_backup_events(const char* path, request_t& req,
 	}
 	if (strcmp(path, "/api/v1/delete") == 0
 		|| strcmp(path, "/api/v1/folders/delete") == 0
+		|| strcmp(path, "/api/v1/folders/empty") == 0
 		|| strcmp(path, "/api/v1/restore") == 0)
 	{
 		return false;
@@ -340,6 +341,7 @@ void http_router::setup() const {
 		.Get("/api/v1/folders/move", &http_router::routeFolderMove)
 		.Get("/api/v1/folders/copy", &http_router::routeFolderCopy)
 		.Get("/api/v1/folders/delete", &http_router::routeFolderDelete)
+		.Get("/api/v1/folders/empty", &http_router::routeFolderEmpty)
 		.Get("/api/v1/folders/lock", &http_router::routeFolderLock)
 		.Get("/api/v1/folders/unlock", &http_router::routeFolderUnlock)
 		.Get("/api/v1/folders/lock/verify", &http_router::routeFolderLockVerify)
@@ -399,6 +401,7 @@ void http_router::setup() const {
 		.Post("/api/v1/folders/move", &http_router::routeFolderMove)
 		.Post("/api/v1/folders/copy", &http_router::routeFolderCopy)
 		.Post("/api/v1/folders/delete", &http_router::routeFolderDelete)
+		.Post("/api/v1/folders/empty", &http_router::routeFolderEmpty)
 		.Post("/api/v1/folders/lock", &http_router::routeFolderLock)
 		.Post("/api/v1/folders/unlock", &http_router::routeFolderUnlock)
 		.Post("/api/v1/folders/lock/verify", &http_router::routeFolderLockVerify)
@@ -508,6 +511,7 @@ bool http_router::routeDefault(const char*, request_t& req, response_t& res) {
 	acl::json_node& root = json.create_node();
 	root.add_bool("ok", false);
 	root.add_text("error", "unsupported api path");
+	logger_error("unsupported api path: %s", req.getPathInfo());
 	return action::sendJson(res, 404, root, req.isKeepAlive());
 }
 
@@ -839,6 +843,11 @@ bool http_router::routeFolderCopy(request_t& req, response_t& res) {
 bool http_router::routeFolderDelete(request_t& req, response_t& res) {
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::FolderDeleteAction::run(req, res, dir);
+}
+
+bool http_router::routeFolderEmpty(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::FolderEmptyAction::run(req, res, dir);
 }
 
 bool http_router::routeFolderLock(request_t& req, response_t& res) {
