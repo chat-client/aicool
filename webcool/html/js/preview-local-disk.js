@@ -1257,9 +1257,6 @@ function saveUnlockedFolderPasswords() {
             fetchFolderList(activeFolderPath)
           ]);
           allFiles = Array.isArray(results[0].files) ? results[0].files.map(normalizeFileRecord) : [];
-          if (!activeFolderPath) {
-            allFiles = ensureRootFixedFileRecords(allFiles).map(normalizeFileRecord);
-          }
           const folderRows = Array.isArray(results[1].folders) ? results[1].folders : [];
           if (activeFolderPath) {
             if (!replaceFolderChildren(activeFolderPath, folderRows)) {

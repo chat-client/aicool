@@ -224,26 +224,6 @@ function appendFilePassword(url, path, local) {
         return list;
       }
 
-      function ensureRootFixedFileRecords(files) {
-        const list = Array.isArray(files) ? files.slice() : [];
-        SHARED_FIXED_FOLDER_NAMES.forEach(function (name) {
-          const exists = list.some(function (item) {
-            return !!(item && item.directory) && String((item.path || item.name || '')) === name;
-          });
-          if (!exists) {
-            list.push({
-              name: name,
-              path: name,
-              folder_path: '',
-              directory: true,
-              locked: false,
-              size: 0
-            });
-          }
-        });
-        return list;
-      }
-
       function canUploadLocalDiskToRemoteFolder(path) {
         const folder = String(path || '');
         return !isRecycleFolderPath(folder);

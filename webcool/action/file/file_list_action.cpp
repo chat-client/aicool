@@ -112,6 +112,12 @@ bool FilesAction::run(request_t& req, response_t& res,
 		if (!filter_folder.empty() && item_ref.folder_path != filter_folder) {
 			continue;
 		}
+		if (item_ref.directory) {
+			continue;
+		}
+		if (filter_folder.empty() && is_root_fixed_folder_path(item_ref.path)) {
+			continue;
+		}
 		bool file_locked = false;
 		std::string file_lock_err;
 		if (file_lock_path_has_lock(upload_dir, remote_file_lock_key(item_ref.path),
