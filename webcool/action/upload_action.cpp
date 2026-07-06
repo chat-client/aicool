@@ -100,6 +100,16 @@ bool copy_mime_body_to_file(const std::string& tmp_path,
 
 acl::json_node* check_reuqest(request_t& req, acl::json& json,
 	  long long& content_length, acl::http_mime*& mime, int& status) {
+
+	content_length = req.getContentLength();
+	if (content_length <= 0) {
+		acl::json_node& root = json.create_node();
+		root.add_bool("ok", false);
+		root.add_text("error", "empty request body");
+		status = 400;
+		return &root;
+	}
+
 	if (req.getRequestType() != acl::HTTP_REQUEST_MULTIPART_FORM) {
 		acl::json_node& root = json.create_node();
 		root.add_bool("ok", false);
@@ -113,15 +123,6 @@ acl::json_node* check_reuqest(request_t& req, acl::json& json,
 		acl::json_node& root = json.create_node();
 		root.add_bool("ok", false);
 		root.add_text("error", "getHttpMime failed");
-		status = 400;
-		return &root;
-	}
-
-	content_length = req.getContentLength();
-	if (content_length <= 0) {
-		acl::json_node& root = json.create_node();
-		root.add_bool("ok", false);
-		root.add_text("error", "empty request body");
 		status = 400;
 		return &root;
 	}
@@ -190,7 +191,7 @@ bool UploadAction::run(request_t& req, response_t& res,
 
 	acl::json json;
 	acl::http_mime* mime;
-	long long content_length;
+	long long content_length = -1;
 	int status = 200;
 	acl::json_node* err = check_reuqest(req, json, content_length, mime, status);
 	if (err) {
