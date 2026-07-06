@@ -970,16 +970,18 @@ function getLocalDirPassword(path) {
           return;
         }
         for (let i = 0; i < list.length; i += 1) {
+          const sourcePath = String(list[i] || '');
           await fetchJson(
             withFolderPassword(
-              appendFilePassword(withFolderPassword(api.fileMove + '?file=' + encodeURIComponent(list[i]) + '&folder=' + encodeURIComponent(folderPath || ''), parentFolderPathFromFilePath(list[i])), list[i], false),
+              appendFilePassword(withFolderPassword(api.fileMove + '?file=' + encodeURIComponent(sourcePath) + '&folder=' + encodeURIComponent(folderPath || ''), parentFolderPathFromFilePath(sourcePath)), sourcePath, false),
               folderPath || '',
               'target_folder_password'
             ),
             { method: 'POST' }
           );
-          selectedFileNames.delete(list[i]);
+          selectedFileNames.delete(sourcePath);
         }
+        await refreshFolderRowsForChangedFiles(list, folderPath || '');
         await loadFiles();
         showStatus(list.length > 1 ? ('已移动 ' + list.length + ' 个文件') : '文件已移动', 'ok');
       }

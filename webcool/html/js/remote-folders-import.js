@@ -61,6 +61,25 @@ function isRecycleFolderPath(path) {
         replaceFolderChildren(target, Array.isArray(data.folders) ? data.folders : []);
       }
 
+      async function refreshFolderRowsForChangedFiles(filePaths, targetFolder) {
+        const parents = new Set();
+        const list = Array.isArray(filePaths) ? filePaths : [];
+        list.forEach(function (filePath) {
+          const sourceFolder = parentFolderPathFromFilePath(filePath);
+          parents.add(parentFolderPathFromFilePath(sourceFolder));
+        });
+        parents.add(parentFolderPathFromFilePath(targetFolder || ''));
+        const parentList = Array.from(parents);
+        for (let i = 0; i < parentList.length; i += 1) {
+          const parent = parentList[i];
+          const data = await fetchFolderList(parent);
+          if (!replaceFolderChildren(parent, Array.isArray(data.folders) ? data.folders : [])) {
+            await loadFolderTreeState();
+            return;
+          }
+        }
+      }
+
       function updateExplorerLayout() {
         const isTagFilterMode = !!activeFilterTagId;
         const isPreviewEnabledTag = isTagFilterMode && isActiveTagPreviewEnabled();
