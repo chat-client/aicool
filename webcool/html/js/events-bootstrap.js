@@ -1560,6 +1560,16 @@
           return;
         }
 
+        const mindmap = e.target.closest('.mindmap-btn');
+        if (mindmap) {
+          const mfile = mindmap.getAttribute('data-mindmap-file');
+          const mname = mindmap.getAttribute('data-mindmap-name') || '';
+          if (mfile) {
+            openPreview('mindmap', mfile, mname);
+          }
+          return;
+        }
+
         const preview = e.target.closest('.preview-btn');
         if (preview) {
           const pfile = preview.getAttribute('data-preview-file');

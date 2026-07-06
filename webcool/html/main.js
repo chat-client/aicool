@@ -68,6 +68,7 @@
     '/webcool/html/js/docx-preview-support.js',
     '/webcool/html/js/spreadsheet-preview-support.js',
     '/webcool/html/js/pptx-preview-support.js',
+    '/webcool/html/js/xmind-preview-support.js',
     '/webcool/html/js/remote-files.js',
     '/webcool/html/js/preview-local-disk.js',
     '/webcool/html/js/admin-storage.js',

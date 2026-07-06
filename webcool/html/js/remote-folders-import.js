@@ -871,6 +871,7 @@ function isRecycleFolderPath(path) {
         if (isImageName(name)) return t('图片');
         if (isPdfName(name)) return 'PDF';
         if (typeof isOfficeName === 'function' && isOfficeName(name)) return 'Office';
+        if (typeof isXMindName === 'function' && isXMindName(name)) return 'XMind';
         if (window.WebCoolHtml && window.WebCoolHtml.isHtmlName(name)) return 'HTML';
         if (isTextName(name)) return t('文本');
         const dot = name.lastIndexOf('.');

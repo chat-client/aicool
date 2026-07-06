@@ -4185,6 +4185,77 @@
       padding: 16px;
     }
 
+    .floating-preview.preview-kind-mindmap {
+      width: min(1040px, calc(100vw - 56px));
+      height: min(720px, calc(100vh - 56px));
+    }
+
+    .floating-preview.preview-kind-mindmap .preview-body {
+      height: calc(100% - 49px);
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .preview-body-mindmap {
+      background: #f8fbff;
+    }
+
+    .xmind-preview-shell {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+      background: #f8fbff;
+      overflow: hidden;
+    }
+
+    .xmind-preview-status {
+      position: absolute;
+      left: 14px;
+      top: 12px;
+      right: 14px;
+      z-index: 2;
+      border: 1px solid #d7e8f8;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.94);
+      color: #2b4c6d;
+      font-size: calc(13px * var(--font-scale));
+      font-weight: 800;
+      padding: 9px 12px;
+      box-shadow: 0 8px 22px rgba(39, 77, 113, 0.12);
+    }
+
+    .xmind-preview-host,
+    .xmind-preview-render {
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+    }
+
+    .xmind-preview-render iframe {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      border: 0;
+      background: #fff;
+    }
+
+    .xmind-preview-loading {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .floating-preview.is-maximized.preview-kind-mindmap .xmind-preview-shell,
+    .floating-preview.is-maximized.preview-kind-mindmap .xmind-preview-host,
+    .floating-preview.is-maximized.preview-kind-mindmap .xmind-preview-render {
+      min-height: 0;
+    }
+
     .office-render .docx-wrapper {
       background: transparent;
       padding: 0;

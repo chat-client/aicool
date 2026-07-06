@@ -111,6 +111,7 @@ function folderNameFromPath(path) {
           && window.WebCoolPptxPreview
           && window.WebCoolPptxPreview.isPptxName(previewName);
         const isFrontendOffice = isDocxOffice || isSpreadsheetOffice || isPptxOffice;
+        const isXMindPreview = kind === 'mindmap' && isXMindName(previewName);
         const cacheBust = function (value) {
           return value + (value.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now();
         };
@@ -139,16 +140,19 @@ function folderNameFromPath(path) {
           win.classList.add('preview-kind-rich-text');
         } else if (isFrontendOffice) {
           win.classList.add('preview-kind-rich-text', 'preview-kind-office');
+        } else if (isXMindPreview) {
+          win.classList.add('preview-kind-mindmap');
         } else if (isCodeText) {
           win.classList.add('preview-kind-code');
         }
         const titleText = kind === 'video' ? '视频播放：'
-          : (kind === 'audio' ? '音频播放：'
+            : (kind === 'audio' ? '音频播放：'
             : (kind === 'office' ? t('Office预览：')
+              : (kind === 'mindmap' ? t('思维导图预览：')
               : (kind === 'pdf' ? 'PDF预览：'
               : (kind === 'text'
                 ? (isMarkdownText ? t('Markdown预览：') : (isHtmlText ? t('HTML预览：') : '文本查看：'))
-                : '图片预览：'))));
+                : '图片预览：')))));
         const escapedTitle = escapeHtml(name || '');
 
         let mediaHtml = '';
@@ -188,6 +192,12 @@ function folderNameFromPath(path) {
               '<div class="office-preview-status" data-office-preview-status>' + escapeHtml(officeLoadingText) + '</div>' +
               '<div class="office-render" data-office-render data-office-preview-kind="' + officePreviewKind + '"></div>' +
               '<iframe class="preview-pdf office-pdf-fallback" data-office-pdf-fallback hidden data-office-pdf-src="' + escapeHtml(officePdfUrl) + '" title="' + escapedTitle + '"></iframe>' +
+            '</div>';
+        } else if (kind === 'mindmap' && isXMindPreview) {
+          bodyClass += ' preview-body-mindmap';
+          mediaHtml = '<div class="xmind-preview-shell">' +
+              '<div class="xmind-preview-status" data-xmind-preview-status>' + escapeHtml(t('正在加载 XMind 预览...')) + '</div>' +
+              '<div class="xmind-preview-host" data-xmind-preview-host></div>' +
             '</div>';
         } else if (kind === 'pdf' || kind === 'office') {
           mediaHtml = '<iframe class="preview-pdf" src="' + escapeHtml(url) + '" title="' + escapedTitle + '"></iframe>';
@@ -529,6 +539,32 @@ function folderNameFromPath(path) {
                   officeFallback.setAttribute('src', fallbackSrc);
                 }
                 officeFallback.hidden = false;
+              }
+            });
+          }
+        }
+
+        const xmindHost = win.querySelector('[data-xmind-preview-host]');
+        if (xmindHost) {
+          const xmindStatus = win.querySelector('[data-xmind-preview-status]');
+          const renderer = window.WebCoolXMindPreview && window.WebCoolXMindPreview.renderPreview;
+          if (!renderer) {
+            if (xmindStatus) {
+              xmindStatus.textContent = t('XMind 预览组件未加载。');
+            }
+          } else {
+            renderer(xmindHost, url, {
+              token: authState.token,
+              loadingText: t('正在加载 XMind 预览...'),
+              region: 'cn'
+            }).then(function () {
+              if (xmindStatus) {
+                xmindStatus.hidden = true;
+              }
+            }).catch(function (err) {
+              if (xmindStatus) {
+                xmindStatus.hidden = false;
+                xmindStatus.textContent = t('XMind 预览失败：') + (err && err.message ? err.message : err);
               }
             });
           }
@@ -1601,6 +1637,12 @@ function loadUnlockedFolderPasswords() {
 
       function isOfficeName(name) {
         return /\.(doc|docx|xls|xlsx|csv|ppt|pptx|odt|ods|odp)$/i.test(String(name || ''));
+      }
+
+      function isXMindName(name) {
+        return window.WebCoolXMindPreview
+          ? window.WebCoolXMindPreview.isXMindName(name)
+          : /\.xmind$/i.test(String(name || ''));
       }
 
       function findTagMetaById(tagId) {

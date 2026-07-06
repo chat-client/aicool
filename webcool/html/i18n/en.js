@@ -127,6 +127,7 @@
     '源码': 'Source',
     'Markdown预览：': 'Markdown Preview: ',
     'HTML预览：': 'HTML Preview: ',
+    '思维导图预览：': 'Mind Map Preview: ',
     'HTML预览': 'HTML Preview',
     '排序': 'Sort',
     '按名称': 'By name',

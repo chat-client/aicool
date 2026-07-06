@@ -667,7 +667,7 @@ function loadUnlockedFilePasswords() {
       }
 
       function isDocumentName(name) {
-        return /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp|rtf|txt|md|markdown|mdown|mkdn|log|csv|tsv|json|xml|yaml|yml|ini|conf|html|htm|css|js|ts|c|h|cc|cpp|cxx|hpp|java|py|go|sh|sql|proto)$/i.test(String(name || ''));
+        return /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp|rtf|xmind|txt|md|markdown|mdown|mkdn|log|csv|tsv|json|xml|yaml|yml|ini|conf|html|htm|css|js|ts|c|h|cc|cpp|cxx|hpp|java|py|go|sh|sql|proto)$/i.test(String(name || ''));
       }
 
       function canBindFileToTagOnClient(tagId, fileName) {
@@ -685,7 +685,7 @@ function loadUnlockedFilePasswords() {
           return { ok: false, message: t('图片标签及其子标签只能引用图片文件（png/jpg/jpeg/gif/heic/heif）') };
         }
         if (constraint === 'document' && !isDocumentName(fileName)) {
-          return { ok: false, message: t('文档标签及其子标签只能引用文档文件（pdf/office/markdown/txt/code）') };
+          return { ok: false, message: t('文档标签及其子标签只能引用文档文件（pdf/office/xmind/markdown/txt/code）') };
         }
         return { ok: true, message: '' };
       }
@@ -751,13 +751,16 @@ function loadUnlockedFilePasswords() {
         const officeBtn = isOfficeName(name)
           ? '<button class="local-preview-btn preview-btn" data-kind="office" data-local-file="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '">预览</button>'
           : '';
+        const xmindBtn = isXMindName(name)
+          ? '<button class="local-preview-btn preview-btn" data-kind="mindmap" data-local-file="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '">预览</button>'
+          : '';
         const deleteBtn = '<button class="local-delete-btn delete-btn" data-local-delete="' + encodedPath + '" data-local-name="' + escapeHtml(path) + '" title="移至回收站" aria-label="移至回收站">移除</button>';
         return (
           '<tr class="local-disk-draggable' + selectedClass + '" draggable="' + (isRenamingLocalDiskItem ? 'false' : 'true') + '" data-local-drag="' + encodedPath + '" data-local-file-context="' + encodedPath + '" data-file-locked="' + (fileLocked ? '1' : '0') + '" data-file-video="' + (isVideoName(name) ? '1' : '0') + '">' +
             '<td>' + displayName + '</td>' +
             '<td>' + (formatNumber(Number(item.size || 0)) + ' 字节') + '</td>' +
             '<td>' + escapeHtml((item && item.modified_time) || '-') + '</td>' +
-            '<td class="actions-cell"><div class="actions">' + previewBtn + videoBtn + audioBtn + textBtn + pdfBtn + officeBtn + '</div></td>' +
+            '<td class="actions-cell"><div class="actions">' + previewBtn + videoBtn + audioBtn + textBtn + pdfBtn + officeBtn + xmindBtn + '</div></td>' +
             '<td class="row-danger-action"><div class="danger-actions">' + deleteBtn + '</div></td>' +
           '</tr>'
         );
