@@ -1,11 +1,11 @@
 #include "stdafx.h"
 #include "folder_common.h"
 
-#include <mutex>
+#include "common/webcool_mutex.h"
 
 namespace action {
 
-std::mutex g_folder_lock_mutex;
+webcool::mutex g_folder_lock_mutex;
 
 static std::string folder_locks_file_path(const std::string& upload_dir) {
 	return upload_dir + "/.folder_locks.txt";
@@ -121,7 +121,7 @@ bool rename_folder_locks_prefix(const std::string& upload_dir,
 	if (old_prefix.empty() || new_prefix.empty() || old_prefix == new_prefix) {
 		return true;
 	}
-	std::lock_guard<std::mutex> guard(g_folder_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_folder_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_folder_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -150,7 +150,7 @@ bool folder_lock_path_allows(const std::string& upload_dir,
 {
 	allowed = false;
 	locked_path.clear();
-	std::lock_guard<std::mutex> guard(g_folder_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_folder_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_folder_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -168,7 +168,7 @@ bool folder_lock_path_has_lock(const std::string& upload_dir,
 	const std::string& relative_path, bool& locked, std::string& err)
 {
 	locked = false;
-	std::lock_guard<std::mutex> guard(g_folder_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_folder_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_folder_locks_locked(upload_dir, locks, err)) {
 		return false;

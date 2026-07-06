@@ -10,13 +10,13 @@
 
 #include <cerrno>
 #include <fstream>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <sys/stat.h>
 
 namespace action {
 namespace {
 
-std::mutex g_user_prefs_mutex;
+webcool::mutex g_user_prefs_mutex;
 const char* kAuthDirName = "webcool_auth";
 
 std::string auth_prefs_dir(const std::string& upload_dir)
@@ -95,7 +95,7 @@ bool valid_username_for_prefs(const std::string& username, std::string& err)
 bool load_user_prefs(const std::string& upload_dir,
 	const std::string& username, user_prefs_t& prefs, std::string& err)
 {
-	std::lock_guard<std::mutex> guard(g_user_prefs_mutex);
+	std::lock_guard<webcool::mutex> guard(g_user_prefs_mutex);
 	prefs = default_user_prefs();
 	if (!valid_username_for_prefs(username, err)) {
 		return false;
@@ -128,7 +128,7 @@ bool load_user_prefs(const std::string& upload_dir,
 bool save_user_prefs(const std::string& upload_dir,
 	const std::string& username, const user_prefs_t& prefs, std::string& err)
 {
-	std::lock_guard<std::mutex> guard(g_user_prefs_mutex);
+	std::lock_guard<webcool::mutex> guard(g_user_prefs_mutex);
 	if (!valid_username_for_prefs(username, err)) {
 		return false;
 	}
@@ -163,7 +163,7 @@ bool save_user_prefs(const std::string& upload_dir,
 bool delete_user_prefs(const std::string& upload_dir,
 	const std::string& username, std::string& err)
 {
-	std::lock_guard<std::mutex> guard(g_user_prefs_mutex);
+	std::lock_guard<webcool::mutex> guard(g_user_prefs_mutex);
 	if (!valid_username_for_prefs(username, err)) {
 		return false;
 	}
@@ -184,7 +184,7 @@ bool rename_user_prefs(const std::string& upload_dir,
 	const std::string& old_username, const std::string& new_username,
 	std::string& err)
 {
-	std::lock_guard<std::mutex> guard(g_user_prefs_mutex);
+	std::lock_guard<webcool::mutex> guard(g_user_prefs_mutex);
 	std::string old_err;
 	std::string new_err;
 	if (!valid_username_for_prefs(old_username, old_err)

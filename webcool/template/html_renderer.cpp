@@ -1,12 +1,12 @@
 #include "stdafx.h"
 #include "html_renderer.h"
 #include <map>
-#include <mutex>
+#include "common/webcool_mutex.h"
 
 namespace {
 
 std::map<std::string, std::string> g_template_cache;
-std::mutex g_template_cache_mutex;
+webcool::mutex g_template_cache_mutex;
 
 } // namespace
 
@@ -36,7 +36,7 @@ void html_renderer::render_text(acl::string& text, const template_vars& vars)
 
 void html_renderer::clear_cache()
 {
-	std::lock_guard<std::mutex> guard(g_template_cache_mutex);
+	std::lock_guard<webcool::mutex> guard(g_template_cache_mutex);
 	g_template_cache.clear();
 }
 
@@ -47,7 +47,7 @@ bool html_renderer::load_cached_file(const char* file, acl::string& out)
 	}
 
 	{
-		std::lock_guard<std::mutex> guard(g_template_cache_mutex);
+		std::lock_guard<webcool::mutex> guard(g_template_cache_mutex);
 		std::map<std::string, std::string>::const_iterator it =
 			g_template_cache.find(file);
 		if (it != g_template_cache.end()) {
@@ -62,7 +62,7 @@ bool html_renderer::load_cached_file(const char* file, acl::string& out)
 	}
 
 	{
-		std::lock_guard<std::mutex> guard(g_template_cache_mutex);
+		std::lock_guard<webcool::mutex> guard(g_template_cache_mutex);
 		g_template_cache[file] = content.c_str();
 	}
 

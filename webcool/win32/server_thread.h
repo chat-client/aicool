@@ -1,6 +1,6 @@
 #pragma once
 #include <map>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <thread>
 
 // ──────────────────────────────────────
@@ -22,7 +22,7 @@ private:
 	http_service& service_;
 	acl::server_socket *server_;
 	bool opened_;
-	std::mutex conns_mutex_;
+	webcool::mutex conns_mutex_;
 	std::map<unsigned, std::shared_ptr<acl::fiber>> fibers_;
 	acl::fiber_tbox2<bool> stop_signal_;
 	acl::wait_group stop_wait_group_;

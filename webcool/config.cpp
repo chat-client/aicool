@@ -2,7 +2,7 @@
 #include <atomic>
 #include <cerrno>
 #include <fstream>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include "action/action_util.h"
 #include "platform_compat.h"
 #include "config.h"
@@ -23,7 +23,7 @@ std::atomic<bool>     g_service_stopping(false);
 
 namespace {
 
-std::mutex g_primary_storage_state_mutex;
+webcool::mutex g_primary_storage_state_mutex;
 
 // primary_storage.path 所在目录：Windows 为 %APPDATA%/webcool 或 %USERPROFILE%/.webcool；
 // macOS 为 ~/Library/Application Support/webcool；Linux 为 $HOME/.webcool。
@@ -183,12 +183,12 @@ std::string join_config_path(const std::string& parent, const char* name) {
 }
 
 bool read_primary_storage_path(std::string& path, std::string& err) {
-	std::lock_guard<std::mutex> guard(g_primary_storage_state_mutex);
+	std::lock_guard<webcool::mutex> guard(g_primary_storage_state_mutex);
 	return read_primary_storage_path_unlocked(path, err);
 }
 
 bool write_primary_storage_path(const std::string& canonical_path, std::string& err) {
-	std::lock_guard<std::mutex> guard(g_primary_storage_state_mutex);
+	std::lock_guard<webcool::mutex> guard(g_primary_storage_state_mutex);
 	return write_primary_storage_path_unlocked(canonical_path, err);
 }
 

@@ -31,6 +31,9 @@
     <Filter Include="源文件\template">
       <UniqueIdentifier>{da9a4bf6-59b4-44f4-a9e7-0caec0c50f8d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\common">
+      <UniqueIdentifier>{baf42bc0-7321-46d8-8f4e-bc0e9fb95d34}</UniqueIdentifier>
+    </Filter>
     <Filter Include="源文件\win32">
       <UniqueIdentifier>{6de9ddec-b1f1-4553-ab3b-5b4db83923a8}</UniqueIdentifier>
     </Filter>
@@ -295,6 +298,9 @@
     </ClInclude>
     <ClInclude Include="action\localdisk\local_disk_common.h">
       <Filter>源文件\action\localdisk</Filter>
+    </ClInclude>
+    <ClInclude Include="common\webcool_mutex.h">
+      <Filter>源文件\common</Filter>
     </ClInclude>
     <ClInclude Include="platform_compat.h">
       <Filter>头文件</Filter>

@@ -16,9 +16,9 @@
 namespace action {
 namespace admin_internal {
 
-std::mutex g_runtime_upload_mutex;
+webcool::mutex g_runtime_upload_mutex;
 std::string g_runtime_upload_dir;
-std::mutex g_settings_mutex;
+webcool::mutex g_settings_mutex;
 
 webcool_settings_t default_settings()
 {
@@ -709,7 +709,7 @@ void runtime_upload_dir_init(const std::string& upload_dir)
 {
 	bool changed = false;
 	{
-		std::lock_guard<std::mutex> guard(g_runtime_upload_mutex);
+		std::lock_guard<webcool::mutex> guard(g_runtime_upload_mutex);
 		if (g_runtime_upload_dir.empty()) {
 			g_runtime_upload_dir = upload_dir;
 			changed = true;
@@ -724,14 +724,14 @@ void runtime_upload_dir_init(const std::string& upload_dir)
 
 std::string runtime_upload_dir_get()
 {
-	std::lock_guard<std::mutex> guard(g_runtime_upload_mutex);
+	std::lock_guard<webcool::mutex> guard(g_runtime_upload_mutex);
 	return g_runtime_upload_dir;
 }
 
 void runtime_upload_dir_set(const std::string& upload_dir)
 {
 	{
-		std::lock_guard<std::mutex> guard(g_runtime_upload_mutex);
+		std::lock_guard<webcool::mutex> guard(g_runtime_upload_mutex);
 		g_runtime_upload_dir = upload_dir;
 	}
 	ensure_shared_folder_for_storage(upload_dir);
@@ -763,7 +763,7 @@ bool storage_reconcile_startup_primary(const std::string& upload_dir,
 		if (!ensure_storage_target_path(previous_dir, canonical_previous, err)) {
 			return false;
 		}
-		std::lock_guard<std::mutex> settings_guard(g_settings_mutex);
+		std::lock_guard<webcool::mutex> settings_guard(g_settings_mutex);
 		webcool_settings_t settings;
 		if (!load_settings_unlocked(current_dir, settings, err)) {
 			return false;
@@ -795,7 +795,7 @@ bool storage_reconcile_startup_primary(const std::string& upload_dir,
 	} else {
 		// 未通过 -d 显式覆盖（含 primary_storage.path 优先、配置文件、默认值等场景）：
 		// 仅规范化备份路径，不自动把旧主存储加入备份列表
-		std::lock_guard<std::mutex> settings_guard(g_settings_mutex);
+		std::lock_guard<webcool::mutex> settings_guard(g_settings_mutex);
 		webcool_settings_t settings;
 		if (!load_settings_unlocked(current_dir, settings, err)) {
 			return false;
@@ -819,7 +819,7 @@ bool storage_reconcile_startup_primary(const std::string& upload_dir,
 bool local_disk_access_allowed(const std::string& upload_dir, bool admin,
 	std::string& err)
 {
-	std::lock_guard<std::mutex> guard(g_settings_mutex);
+	std::lock_guard<webcool::mutex> guard(g_settings_mutex);
 	webcool_settings_t settings;
 	if (!load_settings_unlocked(upload_dir, settings, err)) {
 		return false;
@@ -833,7 +833,7 @@ bool AdminStorageInfoAction::run(request_t& req, response_t& res,
 	std::string err;
 	webcool_settings_t settings;
 	{
-		std::lock_guard<std::mutex> guard(g_settings_mutex);
+		std::lock_guard<webcool::mutex> guard(g_settings_mutex);
 		if (!load_settings_unlocked(upload_dir, settings, err)) {
 			json_error(res, 500, err.c_str(), req.isKeepAlive());
 			return true;

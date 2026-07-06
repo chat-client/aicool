@@ -3,7 +3,7 @@
 
 namespace action {
 
-std::mutex g_tag_mutex;
+webcool::mutex g_tag_mutex;
 std::string g_tag_db_file;
 bool g_tag_db_ready = false;
 unsigned long g_tag_id_seq = 0;
@@ -191,7 +191,7 @@ bool ensure_tag_db_for_request(const std::string& upload_dir,
 		}
 	}
 
-	std::lock_guard<std::mutex> guard(g_tag_mutex);
+	std::lock_guard<webcool::mutex> guard(g_tag_mutex);
 	if (!ensure_tag_dir(upload_dir, err)) {
 		g_tag_db_ready = false;
 		return false;
@@ -423,7 +423,7 @@ bool is_protected_root_tag(const TagRow& row) {
 }
 bool init_tag_db(const std::string& upload_dir, std::string& err) {
 	err.clear();
-	std::lock_guard<std::mutex> guard(g_tag_mutex);
+	std::lock_guard<webcool::mutex> guard(g_tag_mutex);
 	acl::string next_db_file;
 	next_db_file.format("%s/.tag_catalog.db", upload_dir.c_str());
 	if (g_tag_db_ready && g_tag_db_file == next_db_file.c_str()) {

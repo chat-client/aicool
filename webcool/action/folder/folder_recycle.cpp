@@ -2,7 +2,7 @@
 #include "folder_common.h"
 
 #include <ctime>
-#include <mutex>
+#include "common/webcool_mutex.h"
 
 namespace action {
 
@@ -33,7 +33,7 @@ bool alloc_recycle_folder_target(const std::string& upload_dir,
 		err += path.c_str();
 		return false;
 	}
-	std::lock_guard<std::mutex> guard(g_recycle_mutex);
+	std::lock_guard<webcool::mutex> guard(g_recycle_mutex);
 	for (int i = 0; i < 1024; ++i) {
 		const std::string unique_name = make_folder_recycle_unique_name(original_name);
 		const std::string candidate = std::string(recycle_folder_name()) + "/" + unique_name;

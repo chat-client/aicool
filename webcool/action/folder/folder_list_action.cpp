@@ -2,7 +2,7 @@
 #include "folder_common.h"
 
 #include <algorithm>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <sstream>
 
 namespace action {
@@ -99,7 +99,7 @@ bool FolderListAction::run(request_t& req, response_t& res,
 
 	std::map<std::string, std::string> locks;
 	{
-		std::lock_guard<std::mutex> guard(g_folder_lock_mutex);
+		std::lock_guard<webcool::mutex> guard(g_folder_lock_mutex);
 		if (!load_folder_locks_locked(upload_dir, locks, err)) {
 			json_error(res, 500, err.c_str(), req.isKeepAlive());
 			return true;

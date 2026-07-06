@@ -3,7 +3,7 @@
 
 namespace action {
 
-std::mutex g_transcode_mutex;
+webcool::mutex g_transcode_mutex;
 std::map<std::string, std::shared_ptr<transcode_task_t> > g_transcode_tasks;
 std::map<std::string, std::string> g_running_task_by_file;
 std::set<std::string> g_active_stream_sidecars;
@@ -18,7 +18,7 @@ std::string make_task_id() {
 void update_task_progress(const std::shared_ptr<transcode_task_t>& task,
 	double percent, const char* msg)
 {
-	std::lock_guard<std::mutex> guard(g_transcode_mutex);
+	std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 	if (percent < 0) {
 		percent = 0;
 	}
@@ -37,12 +37,12 @@ void update_task_progress(const std::shared_ptr<transcode_task_t>& task,
 void set_task_process_pid(const std::shared_ptr<transcode_task_t>& task,
 	long process_pid)
 {
-	std::lock_guard<std::mutex> guard(g_transcode_mutex);
+	std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 	task->process_pid = process_pid;
 }
 
 bool is_task_cancel_requested(const std::shared_ptr<transcode_task_t>& task) {
-	std::lock_guard<std::mutex> guard(g_transcode_mutex);
+	std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 	return task->cancel_requested;
 }
 
@@ -57,7 +57,7 @@ void finish_task(const std::shared_ptr<transcode_task_t>& task,
 {
 	std::string sync_dir;
 	{
-		std::lock_guard<std::mutex> guard(g_transcode_mutex);
+		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 		task->done = true;
 		task->success = success;
 		task->progress = success ? 100.0 : task->progress;
@@ -93,7 +93,7 @@ bool snapshot_task_by_id(const char* task_id, const std::string& scope,
 	if (task_id == nullptr || *task_id == '\0') {
 		return false;
 	}
-	std::lock_guard<std::mutex> guard(g_transcode_mutex);
+	std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 	const auto it = g_transcode_tasks.find(task_id);
 	if (it == g_transcode_tasks.end() || !it->second) {
 		return false;
@@ -121,7 +121,7 @@ bool snapshot_task_by_id(const char* task_id, const std::string& scope,
 void snapshot_running_tasks(const std::string& scope,
 	std::vector<transcode_task_snapshot_t>& out) {
 	out.clear();
-	std::lock_guard<std::mutex> guard(g_transcode_mutex);
+	std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 	for (const auto & task : g_transcode_tasks) {
 		if (!task.second || task.second->done
 			  || task.second->scope != scope) {
@@ -156,7 +156,7 @@ bool request_cancel_task(const char* task_id, const std::string& scope,
 
 	long pid = -1;
 	{
-		std::lock_guard<std::mutex> guard(g_transcode_mutex);
+		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 		const auto it = g_transcode_tasks.find(task_id);
 		if (it == g_transcode_tasks.end() || !it->second) {
 			return false;

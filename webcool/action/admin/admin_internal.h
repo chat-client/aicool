@@ -3,7 +3,7 @@
 #include "../actions.h"
 #include "../action_util.h"
 
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <string>
 #include <vector>
 
@@ -50,18 +50,18 @@ struct webcool_settings_t {
 	std::vector<storage_backup_path_t> backup_paths;
 };
 
-extern std::mutex g_runtime_upload_mutex;
+extern webcool::mutex g_runtime_upload_mutex;
 extern std::string g_runtime_upload_dir;
-extern std::mutex g_settings_mutex;
+extern webcool::mutex g_settings_mutex;
 
-extern std::mutex g_storage_migrate_mutex;
+extern webcool::mutex g_storage_migrate_mutex;
 extern storage_migrate_task_t g_storage_migrate_task;
 extern unsigned long long g_storage_migrate_seq;
 
-extern std::mutex g_storage_backup_task_mutex;
+extern webcool::mutex g_storage_backup_task_mutex;
 extern storage_migrate_task_t g_storage_backup_task;
 extern unsigned long long g_storage_backup_seq;
-extern std::mutex g_storage_backup_mutex;
+extern webcool::mutex g_storage_backup_mutex;
 
 webcool_settings_t default_settings();
 //void json_error(response_t& res, int status, const char* msg, bool keep_alive);

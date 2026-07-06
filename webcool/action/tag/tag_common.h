@@ -3,7 +3,7 @@
 #include "../file/file_common.h"
 
 #include <map>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <set>
 #include <string>
 #include <vector>
@@ -17,7 +17,7 @@ struct TagRow {
 	long long sort_order;
 };
 
-extern std::mutex g_tag_mutex;
+extern webcool::mutex g_tag_mutex;
 extern std::string g_tag_db_file;
 extern bool g_tag_db_ready;
 extern unsigned long g_tag_id_seq;

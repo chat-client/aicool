@@ -10,7 +10,7 @@ bool AdminLocalDiskSettingsAction::run(request_t& req, response_t& res,
 	std::string err;
 	webcool_settings_t settings;
 	{
-		std::lock_guard<std::mutex> guard(g_settings_mutex);
+		std::lock_guard<webcool::mutex> guard(g_settings_mutex);
 		if (!load_settings_unlocked(upload_dir, settings, err)) {
 			json_error(res, 500, err.c_str(), req.isKeepAlive());
 			return true;

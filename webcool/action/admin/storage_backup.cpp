@@ -19,11 +19,11 @@
 namespace action {
 namespace admin_internal {
 
-std::mutex g_storage_backup_task_mutex;
+webcool::mutex g_storage_backup_task_mutex;
 storage_migrate_task_t g_storage_backup_task;
 unsigned long long g_storage_backup_seq = 0;
-std::mutex g_storage_backup_mutex;
-std::mutex g_storage_backup_auto_mutex;
+webcool::mutex g_storage_backup_mutex;
+webcool::mutex g_storage_backup_auto_mutex;
 struct storage_backup_auto_event_t {
 	std::string upload_dir;
 	std::vector<std::string> sync_paths;
@@ -37,7 +37,7 @@ bool g_storage_backup_auto_running = false;
 
 std::string make_backup_task_id()
 {
-	std::lock_guard<std::mutex> guard(g_storage_backup_task_mutex);
+	std::lock_guard<webcool::mutex> guard(g_storage_backup_task_mutex);
 	++g_storage_backup_seq;
 	return std::string("storage-backup-") + std::to_string((long long) time(NULL))
 		+ "-" + std::to_string((long long) getpid())
@@ -46,7 +46,7 @@ std::string make_backup_task_id()
 
 void update_backup_task(const storage_migrate_task_t& task)
 {
-	std::lock_guard<std::mutex> guard(g_storage_backup_task_mutex);
+	std::lock_guard<webcool::mutex> guard(g_storage_backup_task_mutex);
 	storage_migrate_task_t merged = task;
 	if (g_storage_backup_task.id == task.id
 		&& task.state != "done"
@@ -69,7 +69,7 @@ void update_backup_task(const storage_migrate_task_t& task)
 
 storage_migrate_task_t current_backup_task_snapshot()
 {
-	std::lock_guard<std::mutex> guard(g_storage_backup_task_mutex);
+	std::lock_guard<webcool::mutex> guard(g_storage_backup_task_mutex);
 	return g_storage_backup_task;
 }
 
@@ -499,7 +499,7 @@ bool storage_backup_sync_incremental_blocking(const std::string& upload_dir,
 {
 	std::vector<storage_backup_path_t> backup_paths;
 	{
-		std::lock_guard<std::mutex> settings_guard(g_settings_mutex);
+		std::lock_guard<webcool::mutex> settings_guard(g_settings_mutex);
 		webcool_settings_t settings;
 		if (!load_settings_unlocked(upload_dir, settings, err)) {
 			return false;
@@ -510,7 +510,7 @@ bool storage_backup_sync_incremental_blocking(const std::string& upload_dir,
 		return true;
 	}
 
-	std::lock_guard<std::mutex> backup_guard(g_storage_backup_mutex);
+	std::lock_guard<webcool::mutex> backup_guard(g_storage_backup_mutex);
 	std::string source_dir;
 	if (!canonical_existing_path(upload_dir, source_dir, err)) {
 		return false;
@@ -674,7 +674,7 @@ bool storage_backup_sync_paths_blocking(const std::string& upload_dir,
 
 	std::vector<storage_backup_path_t> backup_paths;
 	{
-		std::lock_guard<std::mutex> settings_guard(g_settings_mutex);
+		std::lock_guard<webcool::mutex> settings_guard(g_settings_mutex);
 		webcool_settings_t settings;
 		if (!load_settings_unlocked(storage_dir, settings, err)) {
 			return false;
@@ -685,7 +685,7 @@ bool storage_backup_sync_paths_blocking(const std::string& upload_dir,
 		return true;
 	}
 
-	std::lock_guard<std::mutex> backup_guard(g_storage_backup_mutex);
+	std::lock_guard<webcool::mutex> backup_guard(g_storage_backup_mutex);
 	std::string source_dir;
 	if (!canonical_existing_path(storage_dir, source_dir, err)) {
 		return false;
@@ -825,7 +825,7 @@ void run_storage_backup_auto_worker()
 	while (true) {
 		std::vector<storage_backup_auto_event_t> events;
 		{
-			std::lock_guard<std::mutex> guard(g_storage_backup_auto_mutex);
+			std::lock_guard<webcool::mutex> guard(g_storage_backup_auto_mutex);
 			if (g_storage_backup_auto_events.empty()) {
 				g_storage_backup_auto_running = false;
 				return;
@@ -835,7 +835,7 @@ void run_storage_backup_auto_worker()
 
 		acl_doze(500);
 		{
-			std::lock_guard<std::mutex> guard(g_storage_backup_auto_mutex);
+			std::lock_guard<webcool::mutex> guard(g_storage_backup_auto_mutex);
 			for (size_t i = 0; i < g_storage_backup_auto_events.size(); ++i) {
 				backup_auto_merge_event(events, g_storage_backup_auto_events[i]);
 			}
@@ -918,7 +918,7 @@ std::string wait_backup_conflict_resolution(storage_migrate_task_t& task,
 void run_storage_backup_sync_task(storage_migrate_task_t task,
 	std::vector<storage_move_item_t> items, std::vector<std::string> target_dirs)
 {
-	std::lock_guard<std::mutex> backup_guard(g_storage_backup_mutex);
+	std::lock_guard<webcool::mutex> backup_guard(g_storage_backup_mutex);
 	task.state = "running";
 	task.message = "正在准备备份同步";
 	update_backup_task(task);
@@ -1033,7 +1033,7 @@ bool storage_backup_sync_now(const std::string& upload_dir, std::string& err)
 	err.clear();
 	bool start_worker = false;
 	{
-		std::lock_guard<std::mutex> guard(g_storage_backup_auto_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_backup_auto_mutex);
 		storage_backup_auto_event_t event;
 		event.upload_dir = upload_dir;
 		event.full_sync = true;
@@ -1091,7 +1091,7 @@ bool storage_backup_sync_path_moves(const std::string& upload_dir,
 	}
 	bool start_worker = false;
 	{
-		std::lock_guard<std::mutex> guard(g_storage_backup_auto_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_backup_auto_mutex);
 		backup_auto_merge_event(g_storage_backup_auto_events, event);
 		if (!g_storage_backup_auto_running) {
 			g_storage_backup_auto_running = true;
@@ -1109,7 +1109,7 @@ bool storage_backup_upload_auto_sync_enabled(const std::string& upload_dir,
 {
 	const std::string storage_dir = runtime_upload_dir_get().empty()
 		? upload_dir : runtime_upload_dir_get();
-	std::lock_guard<std::mutex> settings_guard(g_settings_mutex);
+	std::lock_guard<webcool::mutex> settings_guard(g_settings_mutex);
 	webcool_settings_t settings;
 	if (!load_settings_unlocked(storage_dir, settings, err)) {
 		return true;
@@ -1132,7 +1132,7 @@ bool AdminStorageBackupAction::run(request_t& req, response_t& res,
 	int status = 200;
 	bool ok = true;
 	acl::gofiber_wait_thread([&] {
-		std::lock_guard<std::mutex> guard(g_settings_mutex);
+		std::lock_guard<webcool::mutex> guard(g_settings_mutex);
 		if (!load_settings_unlocked(upload_dir, settings, err)) {
 			status = 500;
 			ok = false;
@@ -1249,7 +1249,7 @@ bool AdminStorageSwapBackupAction::run(request_t& req, response_t& res,
 			return;
 		}
 		{
-			std::lock_guard<std::mutex> guard(g_settings_mutex);
+			std::lock_guard<webcool::mutex> guard(g_settings_mutex);
 			if (!load_settings_unlocked(upload_dir, settings, err)) {
 				status = 500;
 				ok = false;
@@ -1301,7 +1301,7 @@ bool AdminStorageSwapBackupAction::run(request_t& req, response_t& res,
 		next_backups.push_back(make_backup_path(source_dir, true));
 		settings.backup_paths = next_backups;
 		{
-			std::lock_guard<std::mutex> guard(g_settings_mutex);
+			std::lock_guard<webcool::mutex> guard(g_settings_mutex);
 			if (!save_settings_unlocked(backup_dir, settings, err)) {
 				status = 500;
 				ok = false;
@@ -1339,7 +1339,7 @@ bool AdminStorageBackupSyncAction::run(request_t& req, response_t& res,
 	int status = 200;
 	bool ok = true;
 	{
-		std::lock_guard<std::mutex> guard(g_storage_backup_task_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_backup_task_mutex);
 		if (g_storage_backup_task.state == "queued"
 			|| g_storage_backup_task.state == "running"
 			|| g_storage_backup_task.state == "paused"
@@ -1373,7 +1373,7 @@ bool AdminStorageBackupSyncAction::run(request_t& req, response_t& res,
 			return;
 		}
 		{
-			std::lock_guard<std::mutex> settings_guard(g_settings_mutex);
+			std::lock_guard<webcool::mutex> settings_guard(g_settings_mutex);
 			webcool_settings_t settings;
 			if (!load_settings_unlocked(upload_dir, settings, err)) {
 				status = 500;
@@ -1460,7 +1460,7 @@ bool AdminStorageBackupSyncProgressAction::run(request_t& req, response_t& res)
 {
 	storage_migrate_task_t task;
 	{
-		std::lock_guard<std::mutex> guard(g_storage_backup_task_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_backup_task_mutex);
 		task = g_storage_backup_task;
 	}
 	const char* task_id = req.getParameter("task_id");
@@ -1505,7 +1505,7 @@ bool AdminStorageBackupSyncResolveAction::run(request_t& req, response_t& res)
 		return true;
 	}
 	{
-		std::lock_guard<std::mutex> guard(g_storage_backup_task_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_backup_task_mutex);
 		if (task_id != NULL && *task_id != '\0' && g_storage_backup_task.id != task_id) {
 			json_error(res, 404, "task not found", req.isKeepAlive());
 			return true;
@@ -1540,7 +1540,7 @@ bool AdminStorageBackupSyncControlAction::run(request_t& req, response_t& res)
 		return true;
 	}
 	{
-		std::lock_guard<std::mutex> guard(g_storage_backup_task_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_backup_task_mutex);
 		if (task_id != NULL && *task_id != '\0' && g_storage_backup_task.id != task_id) {
 			json_error(res, 404, "task not found", req.isKeepAlive());
 			return true;

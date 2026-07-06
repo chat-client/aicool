@@ -1,5 +1,5 @@
 #pragma once
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <vector>
 
 class http_service;
@@ -32,6 +32,6 @@ private:
 	webcool_options options_;
 	acl::server_socket* server_;
 	std::vector<server_thread*> threads_;
-	mutable std::mutex mutex_;
+	mutable webcool::mutex mutex_;
 	bool running_;
 };

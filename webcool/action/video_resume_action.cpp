@@ -12,13 +12,13 @@
 #include <unistd.h>
 #endif
 
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <string>
 #include <vector>
 
 namespace action {
 
-static std::mutex g_resume_mutex;
+static webcool::mutex g_resume_mutex;
 static std::string g_resume_db_file;
 static bool g_resume_db_ready = false;
 static const char* g_video_resume_create_table_sql =
@@ -146,7 +146,7 @@ static bool ensure_video_resume_db_for_request(const std::string& upload_dir,
 		}
 	}
 
-	std::lock_guard<std::mutex> guard(g_resume_mutex);
+	std::lock_guard<webcool::mutex> guard(g_resume_mutex);
 	if (!ensure_resume_table_exists_locked(err)) {
 		g_resume_db_ready = false;
 		return false;
@@ -159,7 +159,7 @@ static bool ensure_video_resume_db_for_request(const std::string& upload_dir,
 bool init_video_resume_db(const std::string& upload_dir, std::string& err) {
 	err.clear();
 
-	std::lock_guard<std::mutex> guard(g_resume_mutex);
+	std::lock_guard<webcool::mutex> guard(g_resume_mutex);
 	acl::string next_db_file;
 	next_db_file.format("%s/.video_resume.db", upload_dir.c_str());
 	if (g_resume_db_ready && g_resume_db_file == next_db_file.c_str()) {
@@ -188,7 +188,7 @@ bool video_resume_rename_file(const std::string& upload_dir,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_resume_mutex);
+	std::lock_guard<webcool::mutex> guard(g_resume_mutex);
 	acl::db_sqlite db(resume_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!db.open()) {
 		err = db.get_error();
@@ -228,7 +228,7 @@ bool video_resume_rename_folder_prefix(const std::string& upload_dir,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_resume_mutex);
+	std::lock_guard<webcool::mutex> guard(g_resume_mutex);
 	acl::db_sqlite db(resume_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!db.open()) {
 		err = db.get_error();
@@ -288,7 +288,7 @@ bool VideoResumeGetAction::run(request_t& req, response_t& res,
 	}
 
 	{
-		std::lock_guard<std::mutex> guard(g_resume_mutex);
+		std::lock_guard<webcool::mutex> guard(g_resume_mutex);
 		if (!g_resume_db_ready || g_resume_db_file.empty()) {
 			json_error(res, 500, "resume database not initialized", req.isKeepAlive());
 			return true;
@@ -366,7 +366,7 @@ bool VideoResumeSetAction::run(request_t& req, response_t& res,
 	}
 
 	{
-		std::lock_guard<std::mutex> guard(g_resume_mutex);
+		std::lock_guard<webcool::mutex> guard(g_resume_mutex);
 		if (!g_resume_db_ready || g_resume_db_file.empty()) {
 			json_error(res, 500, "resume database not initialized", req.isKeepAlive());
 			return true;

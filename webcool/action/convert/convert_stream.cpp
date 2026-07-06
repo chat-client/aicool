@@ -5,19 +5,19 @@ namespace action {
 
 bool is_active_stream_sidecar(const std::string& path)
 {
-	std::lock_guard<std::mutex> guard(g_transcode_mutex);
+	std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 	return g_active_stream_sidecars.find(path) != g_active_stream_sidecars.end();
 }
 
 void register_stream_sidecar(const std::string& path)
 {
-	std::lock_guard<std::mutex> guard(g_transcode_mutex);
+	std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 	g_active_stream_sidecars.insert(path);
 }
 
 void unregister_stream_sidecar(const std::string& path)
 {
-	std::lock_guard<std::mutex> guard(g_transcode_mutex);
+	std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 	g_active_stream_sidecars.erase(path);
 }
 

@@ -11,7 +11,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <memory>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <string>
 #include <unordered_map>
 
@@ -27,15 +27,15 @@ struct StreamUploadTarget {
 	const char* basename = nullptr;
 };
 
-std::mutex g_upload_stream_locks_mutex;
-std::unordered_map<std::string, std::weak_ptr<std::mutex> > g_upload_stream_locks;
+webcool::mutex g_upload_stream_locks_mutex;
+std::unordered_map<std::string, std::weak_ptr<webcool::mutex> > g_upload_stream_locks;
 
 struct StreamUploadGuard {
-	explicit StreamUploadGuard(const std::shared_ptr<std::mutex>& m)
+	explicit StreamUploadGuard(const std::shared_ptr<webcool::mutex>& m)
 		: mutex(m), lock(*mutex) {}
 
-	std::shared_ptr<std::mutex> mutex;
-	std::unique_lock<std::mutex> lock;
+	std::shared_ptr<webcool::mutex> mutex;
+	std::unique_lock<webcool::mutex> lock;
 };
 
 acl::json_node& make_error_json(acl::json& json, const char* message) {
@@ -151,9 +151,9 @@ bool md5_equals(const std::string& expected, const std::string& actual) {
 }
 
 StreamUploadGuard acquire_stream_upload_lock(const StreamUploadTarget& target) {
-	std::shared_ptr<std::mutex> lock;
+	std::shared_ptr<webcool::mutex> lock;
 	{
-		std::lock_guard<std::mutex> guard(g_upload_stream_locks_mutex);
+		std::lock_guard<webcool::mutex> guard(g_upload_stream_locks_mutex);
 		for (auto it = g_upload_stream_locks.begin(); it != g_upload_stream_locks.end();) {
 			if (it->second.expired()) {
 				it = g_upload_stream_locks.erase(it);
@@ -162,10 +162,10 @@ StreamUploadGuard acquire_stream_upload_lock(const StreamUploadTarget& target) {
 			}
 		}
 
-		std::weak_ptr<std::mutex>& weak = g_upload_stream_locks[target.dest_path];
+		std::weak_ptr<webcool::mutex>& weak = g_upload_stream_locks[target.dest_path];
 		lock = weak.lock();
 		if (!lock) {
-			lock = std::make_shared<std::mutex>();
+			lock = std::make_shared<webcool::mutex>();
 			weak = lock;
 		}
 	}

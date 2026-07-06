@@ -4,7 +4,7 @@
 
 #include <fstream>
 #include <map>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <string>
 #include <vector>
 
@@ -18,7 +18,7 @@ struct folder_node_t {
 	std::vector<folder_node_t> children;
 };
 
-extern std::mutex g_folder_lock_mutex;
+extern webcool::mutex g_folder_lock_mutex;
 
 bool should_skip_self_parent_entry(const char* name);
 bool validate_folder_segment(const std::string& name, std::string& err);

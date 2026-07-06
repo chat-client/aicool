@@ -85,7 +85,7 @@ bool try_send_remote_running_task_response(response_t& res, bool keep_alive,
 	const std::string& upload_dir, const std::string& file_path)
 {
 	const std::string task_key = scoped_task_key(upload_dir, file_path);
-	std::lock_guard<std::mutex> guard(g_transcode_mutex);
+	std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 	const auto it = g_running_task_by_file.find(task_key);
 	if (it == g_running_task_by_file.end()) {
 		return false;
@@ -171,7 +171,7 @@ std::shared_ptr<transcode_task_t> register_remote_transcode_task(
 	task->secondary_output_name = output.secondary_output_name;
 	task->message = "等待后台转码";
 
-	std::lock_guard<std::mutex> guard(g_transcode_mutex);
+	std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 	g_transcode_tasks[task->id] = task;
 	g_running_task_by_file[scoped_task_key(task->scope, task->file_name)] = task->id;
 	return task;

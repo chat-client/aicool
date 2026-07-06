@@ -14,7 +14,7 @@ bool tag_unbind_file(const std::string& upload_dir,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_tag_mutex);
+	std::lock_guard<webcool::mutex> guard(g_tag_mutex);
 	acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!open_tag_db_locked(db, err)) {
 		return false;
@@ -42,7 +42,7 @@ bool tag_rename_file(const std::string& upload_dir,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_tag_mutex);
+	std::lock_guard<webcool::mutex> guard(g_tag_mutex);
 	acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!open_tag_db_locked(db, err)) {
 		return false;
@@ -72,7 +72,7 @@ bool tag_rename_folder_prefix(const std::string& upload_dir,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_tag_mutex);
+	std::lock_guard<webcool::mutex> guard(g_tag_mutex);
 	acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!db.open()) {
 		err = db.get_error();

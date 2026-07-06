@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "folder_common.h"
 
-#include <mutex>
+#include "common/webcool_mutex.h"
 
 namespace action {
 
@@ -43,7 +43,7 @@ bool FolderLockAction::run(request_t& req, response_t& res,
 	}
 
 	{
-		std::lock_guard<std::mutex> guard(g_folder_lock_mutex);
+		std::lock_guard<webcool::mutex> guard(g_folder_lock_mutex);
 		std::map<std::string, std::string> locks;
 		if (!load_folder_locks_locked(upload_dir, locks, err)) {
 			json_error(res, 500, err.c_str(), req.isKeepAlive());
@@ -76,7 +76,7 @@ bool FolderUnlockAction::run(request_t& req, response_t& res,
 	const std::string password = req.getParameter("password") ? req.getParameter("password") : "";
 
 	{
-		std::lock_guard<std::mutex> guard(g_folder_lock_mutex);
+		std::lock_guard<webcool::mutex> guard(g_folder_lock_mutex);
 		std::map<std::string, std::string> locks;
 		if (!load_folder_locks_locked(upload_dir, locks, err)) {
 			json_error(res, 500, err.c_str(), req.isKeepAlive());

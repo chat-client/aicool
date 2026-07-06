@@ -14,7 +14,7 @@
 #include <cstring>
 #include <fstream>
 #include <map>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <sstream>
 #include <string>
 #include <vector>
@@ -36,7 +36,7 @@ struct user_record_t {
 	bool admin = false;
 };
 
-std::mutex g_auth_mutex;
+webcool::mutex g_auth_mutex;
 
 #if 0
 static void json_error(response_t& res, int status, const char* msg,
@@ -444,7 +444,7 @@ bool current_user(const request_t& req, const std::string& upload_dir,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::lock_guard<webcool::mutex> guard(g_auth_mutex);
 	std::vector<user_record_t> users;
 	std::string err;
 	if (!load_users_unlocked(upload_dir, users, err)) {
@@ -492,7 +492,7 @@ void add_user_json(acl::json_node& parent, const user_record_t& user)
 
 bool auth_system_initialized(const std::string& upload_dir)
 {
-	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::lock_guard<webcool::mutex> guard(g_auth_mutex);
 	std::vector<user_record_t> users;
 	std::string err;
 	return load_users_unlocked(upload_dir, users, err) && !users.empty();
@@ -595,7 +595,7 @@ bool AuthRegisterAction::run(request_t& req, response_t& res,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::lock_guard<webcool::mutex> guard(g_auth_mutex);
 	std::vector<user_record_t> users;
 	if (!load_users_unlocked(upload_dir, users, err)) {
 		json_error(res, 500, err.c_str(), req.isKeepAlive());
@@ -638,7 +638,7 @@ bool AuthLoginAction::run(request_t& req, response_t& res,
 	const std::string password = req.getParameter("password")
 		? req.getParameter("password") : "";
 
-	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::lock_guard<webcool::mutex> guard(g_auth_mutex);
 	std::vector<user_record_t> users;
 	std::string err;
 	if (!load_users_unlocked(upload_dir, users, err)) {
@@ -698,7 +698,7 @@ bool AuthPasswordAction::run(request_t& req, response_t& res,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::lock_guard<webcool::mutex> guard(g_auth_mutex);
 	std::vector<user_record_t> users;
 	if (!load_users_unlocked(upload_dir, users, err)) {
 		json_error(res, 500, err.c_str(), req.isKeepAlive());
@@ -745,7 +745,7 @@ bool AuthUsersAction::run(const request_t& req, response_t& res,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::lock_guard<webcool::mutex> guard(g_auth_mutex);
 	std::vector<user_record_t> users;
 	std::string err;
 	if (!load_users_unlocked(upload_dir, users, err)) {
@@ -780,7 +780,7 @@ bool AuthUserCreateAction::run(request_t& req, response_t& res,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::lock_guard<webcool::mutex> guard(g_auth_mutex);
 	std::vector<user_record_t> users;
 	if (!load_users_unlocked(upload_dir, users, err)) {
 		json_error(res, 500, err.c_str(), req.isKeepAlive());
@@ -836,7 +836,7 @@ bool AuthUserUpdateAction::run(request_t& req, response_t& res,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::lock_guard<webcool::mutex> guard(g_auth_mutex);
 	std::vector<user_record_t> users;
 	if (!load_users_unlocked(upload_dir, users, err)) {
 		json_error(res, 500, err.c_str(), req.isKeepAlive());
@@ -897,7 +897,7 @@ bool AuthUserDeleteAction::run(const request_t& req, response_t& res,
 		return false;
 	}
 
-	std::lock_guard<std::mutex> guard(g_auth_mutex);
+	std::lock_guard<webcool::mutex> guard(g_auth_mutex);
 	std::vector<user_record_t> users;
 	if (!load_users_unlocked(upload_dir, users, err)) {
 		json_error(res, 500, err.c_str(), req.isKeepAlive());

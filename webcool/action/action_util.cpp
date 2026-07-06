@@ -15,7 +15,7 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <mutex>
+#include "common/webcool_mutex.h"
 
 namespace action {
 
@@ -29,11 +29,11 @@ const char* const kSharedFixedSubfolderNames[] = {
 	"视频",
 	"音频",
 };
-std::mutex g_runtime_sqlite_mutex;
+webcool::mutex g_runtime_sqlite_mutex;
 std::string g_runtime_sqlite_lib;
-std::mutex g_runtime_ffmpeg_mutex;
+webcool::mutex g_runtime_ffmpeg_mutex;
 std::string g_runtime_ffmpeg_path;
-std::mutex g_remote_copy_mutex;
+webcool::mutex g_remote_copy_mutex;
 unsigned long g_remote_copy_seq = 0;
 std::map<std::string, remote_copy_task_snapshot_t> g_remote_copy_tasks;
 
@@ -41,7 +41,7 @@ std::map<std::string, remote_copy_task_snapshot_t> g_remote_copy_tasks;
 
 static std::string make_remote_copy_task_id()
 {
-	std::lock_guard<std::mutex> guard(g_remote_copy_mutex);
+	std::lock_guard<webcool::mutex> guard(g_remote_copy_mutex);
 	++g_remote_copy_seq;
 	return std::string("remote-copy-")
 		+ std::to_string(static_cast<long long>(time(nullptr)))
@@ -51,7 +51,7 @@ static std::string make_remote_copy_task_id()
 
 static void update_remote_copy_task(const remote_copy_task_snapshot_t& task)
 {
-	std::lock_guard<std::mutex> guard(g_remote_copy_mutex);
+	std::lock_guard<webcool::mutex> guard(g_remote_copy_mutex);
 	remote_copy_task_snapshot_t merged = task;
 	const auto it = g_remote_copy_tasks.find(task.id);
 	if (it != g_remote_copy_tasks.end() && it->second.cancel_requested) {
@@ -67,7 +67,7 @@ static void update_remote_copy_task(const remote_copy_task_snapshot_t& task)
 
 static bool is_remote_copy_cancel_requested(const std::string& task_id)
 {
-	std::lock_guard<std::mutex> guard(g_remote_copy_mutex);
+	std::lock_guard<webcool::mutex> guard(g_remote_copy_mutex);
 	const auto it = g_remote_copy_tasks.find(task_id);
 	return it != g_remote_copy_tasks.end() && it->second.cancel_requested;
 }
@@ -424,7 +424,7 @@ std::string start_remote_copy_task(const std::string& source_full,
 bool remote_copy_task_snapshot(const std::string& task_id,
 	remote_copy_task_snapshot_t& snapshot)
 {
-	std::lock_guard<std::mutex> guard(g_remote_copy_mutex);
+	std::lock_guard<webcool::mutex> guard(g_remote_copy_mutex);
 	const std::map<std::string, remote_copy_task_snapshot_t>::const_iterator it =
 		g_remote_copy_tasks.find(task_id);
 	if (it == g_remote_copy_tasks.end()) {
@@ -437,7 +437,7 @@ bool remote_copy_task_snapshot(const std::string& task_id,
 bool remote_copy_task_cancel(const std::string& task_id,
 	remote_copy_task_snapshot_t& snapshot)
 {
-	std::lock_guard<std::mutex> guard(g_remote_copy_mutex);
+	std::lock_guard<webcool::mutex> guard(g_remote_copy_mutex);
 	const auto it = g_remote_copy_tasks.find(task_id);
 	if (it == g_remote_copy_tasks.end()) {
 		return false;
@@ -453,22 +453,22 @@ bool remote_copy_task_cancel(const std::string& task_id,
 }
 
 void runtime_sqlite_lib_set(const std::string& sqlite_lib_path) {
-	std::lock_guard<std::mutex> guard(g_runtime_sqlite_mutex);
+	std::lock_guard<webcool::mutex> guard(g_runtime_sqlite_mutex);
 	g_runtime_sqlite_lib = sqlite_lib_path;
 }
 
 std::string runtime_sqlite_lib_get() {
-	std::lock_guard<std::mutex> guard(g_runtime_sqlite_mutex);
+	std::lock_guard<webcool::mutex> guard(g_runtime_sqlite_mutex);
 	return g_runtime_sqlite_lib;
 }
 
 void runtime_ffmpeg_path_set(const std::string& ffmpeg_path) {
-	std::lock_guard<std::mutex> guard(g_runtime_ffmpeg_mutex);
+	std::lock_guard<webcool::mutex> guard(g_runtime_ffmpeg_mutex);
 	g_runtime_ffmpeg_path = ffmpeg_path;
 }
 
 std::string runtime_ffmpeg_path_get() {
-	std::lock_guard<std::mutex> guard(g_runtime_ffmpeg_mutex);
+	std::lock_guard<webcool::mutex> guard(g_runtime_ffmpeg_mutex);
 	return g_runtime_ffmpeg_path;
 }
 

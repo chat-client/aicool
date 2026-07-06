@@ -13,13 +13,13 @@
 namespace action {
 namespace admin_internal {
 
-std::mutex g_storage_migrate_mutex;
+webcool::mutex g_storage_migrate_mutex;
 storage_migrate_task_t g_storage_migrate_task;
 unsigned long long g_storage_migrate_seq = 0;
 
 std::string make_task_id()
 {
-	std::lock_guard<std::mutex> guard(g_storage_migrate_mutex);
+	std::lock_guard<webcool::mutex> guard(g_storage_migrate_mutex);
 	++g_storage_migrate_seq;
 	return std::string("storage-migrate-")
 		+ std::to_string(static_cast<long long>(time(nullptr)))
@@ -29,7 +29,7 @@ std::string make_task_id()
 
 void update_task(const storage_migrate_task_t& task)
 {
-	std::lock_guard<std::mutex> guard(g_storage_migrate_mutex);
+	std::lock_guard<webcool::mutex> guard(g_storage_migrate_mutex);
 	storage_migrate_task_t merged = task;
 	if (g_storage_migrate_task.id == task.id
 		&& task.state != "done"
@@ -52,7 +52,7 @@ void update_task(const storage_migrate_task_t& task)
 
 storage_migrate_task_t current_storage_task_snapshot()
 {
-	std::lock_guard<std::mutex> guard(g_storage_migrate_mutex);
+	std::lock_guard<webcool::mutex> guard(g_storage_migrate_mutex);
 	return g_storage_migrate_task;
 }
 
@@ -389,7 +389,7 @@ bool AdminStorageMigrateAction::run(request_t& req, response_t& res,
 		return true;
 	}
 	{
-		std::lock_guard<std::mutex> guard(g_settings_mutex);
+		std::lock_guard<webcool::mutex> guard(g_settings_mutex);
 		webcool_settings_t settings;
 		if (!load_settings_unlocked(upload_dir, settings, err)) {
 			json_error(res, 500, err.c_str(), req.isKeepAlive());
@@ -408,7 +408,7 @@ bool AdminStorageMigrateAction::run(request_t& req, response_t& res,
 		}
 	}
 	{
-		std::lock_guard<std::mutex> guard(g_storage_migrate_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_migrate_mutex);
 		if (g_storage_migrate_task.state == "queued"
 			|| g_storage_migrate_task.state == "running")
 		{
@@ -481,7 +481,7 @@ bool AdminStorageMigrateProgressAction::run(request_t& req, response_t& res)
 {
 	storage_migrate_task_t task;
 	{
-		std::lock_guard<std::mutex> guard(g_storage_migrate_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_migrate_mutex);
 		task = g_storage_migrate_task;
 	}
 	const char* task_id = req.getParameter("task_id");
@@ -527,7 +527,7 @@ bool AdminStorageMigrateResolveAction::run(request_t& req, response_t& res)
 		return true;
 	}
 	{
-		std::lock_guard<std::mutex> guard(g_storage_migrate_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_migrate_mutex);
 		if (task_id != nullptr && *task_id != '\0' && g_storage_migrate_task.id != task_id) {
 			json_error(res, 404, "task not found", req.isKeepAlive());
 			return true;
@@ -560,7 +560,7 @@ bool AdminStorageMigrateControlAction::run(request_t& req, response_t& res)
 		return true;
 	}
 	{
-		std::lock_guard<std::mutex> guard(g_storage_migrate_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_migrate_mutex);
 		if (task_id != nullptr && *task_id != '\0' && g_storage_migrate_task.id != task_id) {
 			json_error(res, 404, "task not found", req.isKeepAlive());
 			return true;
@@ -600,7 +600,7 @@ bool AdminStorageMigrateCleanupAction::run(request_t& req, response_t& res)
 	const char* task_id = req.getParameter("task_id");
 	storage_migrate_task_t task;
 	{
-		std::lock_guard<std::mutex> guard(g_storage_migrate_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_migrate_mutex);
 		if (task_id != nullptr && *task_id != '\0' && g_storage_migrate_task.id != task_id) {
 			json_error(res, 404, "task not found", req.isKeepAlive());
 			return true;
@@ -617,7 +617,7 @@ bool AdminStorageMigrateCleanupAction::run(request_t& req, response_t& res)
 		return true;
 	}
 	{
-		std::lock_guard<std::mutex> guard(g_storage_migrate_mutex);
+		std::lock_guard<webcool::mutex> guard(g_storage_migrate_mutex);
 		if (g_storage_migrate_task.id == task.id) {
 			g_storage_migrate_task.cleanup_done = true;
 		}

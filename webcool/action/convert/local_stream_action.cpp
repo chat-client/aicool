@@ -114,7 +114,7 @@ bool LocalDiskVideoStreamAction::run(request_t& req, response_t& res,
 		task->message = "边转边看准备中";
 		task->local = true;
 		{
-			std::lock_guard<std::mutex> guard(g_transcode_mutex);
+			std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 			g_transcode_tasks[task->id] = task;
 		}
 	}

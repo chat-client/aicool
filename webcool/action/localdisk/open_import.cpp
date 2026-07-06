@@ -386,7 +386,7 @@ bool LocalDiskImportProgressAction::run(request_t& req, response_t& res)
 
 	local_import_task_t task;
 	{
-		std::lock_guard<std::mutex> guard(g_local_import_mutex);
+		std::lock_guard<webcool::mutex> guard(g_local_import_mutex);
 		std::map<std::string, local_import_task_t>::const_iterator it =
 			g_local_import_tasks.find(task_id);
 		if (it == g_local_import_tasks.end()) {
@@ -453,7 +453,7 @@ bool LocalDiskImportControlAction::run(request_t& req, response_t& res)
 		return true;
 	}
 	{
-		std::lock_guard<std::mutex> guard(g_local_import_mutex);
+		std::lock_guard<webcool::mutex> guard(g_local_import_mutex);
 		std::map<std::string, local_import_task_t>::iterator it =
 			g_local_import_tasks.find(task_id);
 		if (it == g_local_import_tasks.end()) {

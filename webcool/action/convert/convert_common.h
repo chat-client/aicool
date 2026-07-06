@@ -14,7 +14,7 @@
 #include <atomic>
 #include <map>
 #include <memory>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <set>
 #include <vector>
 
@@ -84,7 +84,7 @@ struct ffmpeg_process_t {
 };
 using ffmpeg_process_ptr = std::shared_ptr<ffmpeg_process_t>;
 
-extern std::mutex g_transcode_mutex;
+extern webcool::mutex g_transcode_mutex;
 extern std::map<std::string, std::shared_ptr<transcode_task_t> > g_transcode_tasks;
 extern std::map<std::string, std::string> g_running_task_by_file;
 extern std::set<std::string> g_active_stream_sidecars;

@@ -18,7 +18,7 @@
 
 #include <algorithm>
 #include <map>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <set>
 #include <stdlib.h>
 #include <string>
@@ -134,7 +134,7 @@ struct local_import_task_t {
 	bool cancel_requested;
 };
 
-static std::mutex g_local_import_mutex;
+static webcool::mutex g_local_import_mutex;
 static std::map<std::string, local_import_task_t> g_local_import_tasks;
 static unsigned long long g_local_import_seq = 0;
 
@@ -1040,7 +1040,7 @@ static bool collect_local_import_directory(const std::string& source_dir,
 
 static std::string create_local_import_task_id()
 {
-	std::lock_guard<std::mutex> guard(g_local_import_mutex);
+	std::lock_guard<webcool::mutex> guard(g_local_import_mutex);
 	g_local_import_seq++;
 	return std::string("local-import-") + std::to_string((long long) time(NULL))
 		+ "-" + std::to_string((long long) getpid())
@@ -1050,7 +1050,7 @@ static std::string create_local_import_task_id()
 static void update_local_import_task(const std::string& task_id,
 	const local_import_task_t& task)
 {
-	std::lock_guard<std::mutex> guard(g_local_import_mutex);
+	std::lock_guard<webcool::mutex> guard(g_local_import_mutex);
 	local_import_task_t merged = task;
 	std::map<std::string, local_import_task_t>::const_iterator it =
 		g_local_import_tasks.find(task_id);
@@ -1063,7 +1063,7 @@ static void update_local_import_task(const std::string& task_id,
 
 static local_import_task_t current_local_import_task(const std::string& task_id)
 {
-	std::lock_guard<std::mutex> guard(g_local_import_mutex);
+	std::lock_guard<webcool::mutex> guard(g_local_import_mutex);
 	std::map<std::string, local_import_task_t>::const_iterator it =
 		g_local_import_tasks.find(task_id);
 	if (it != g_local_import_tasks.end()) {

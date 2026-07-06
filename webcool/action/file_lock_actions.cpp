@@ -15,14 +15,14 @@
 
 #include <fstream>
 #include <map>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <string>
 
 namespace action {
 
 namespace {
 
-static std::mutex g_file_lock_mutex;
+static webcool::mutex g_file_lock_mutex;
 static const char* g_remote_file_lock_prefix = "remote:";
 static const char* g_local_file_lock_prefix = "local:";
 static const char* g_local_dir_lock_prefix = "local-dir:";
@@ -249,7 +249,7 @@ bool file_lock_path_allows(const std::string& upload_dir,
 {
 	allowed = false;
 	err.clear();
-	std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_file_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -268,7 +268,7 @@ bool file_lock_path_has_lock(const std::string& upload_dir,
 {
 	locked = false;
 	err.clear();
-	std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_file_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -284,7 +284,7 @@ bool file_lock_rename_key(const std::string& upload_dir,
 	if (old_key.empty() || new_key.empty() || old_key == new_key) {
 		return true;
 	}
-	std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_file_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -306,7 +306,7 @@ bool file_lock_rename_prefix(const std::string& upload_dir,
 	if (old_prefix.empty() || new_prefix.empty() || old_prefix == new_prefix) {
 		return true;
 	}
-	std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_file_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -338,7 +338,7 @@ bool local_dir_lock_path_allows(const std::string& upload_dir,
 	allowed = false;
 	locked_path.clear();
 	err.clear();
-	std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_file_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -373,7 +373,7 @@ bool local_dir_lock_path_has_lock(const std::string& upload_dir,
 {
 	locked = false;
 	err.clear();
-	std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_file_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -393,7 +393,7 @@ bool named_lock_set(const std::string& upload_dir,
 	if (!validate_file_lock_password(password, err)) {
 		return false;
 	}
-	std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_file_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -406,7 +406,7 @@ bool named_lock_remove(const std::string& upload_dir,
 	const std::string& key, const std::string& password, std::string& err)
 {
 	err.clear();
-	std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_file_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -430,7 +430,7 @@ bool named_lock_verify(const std::string& upload_dir,
 {
 	allowed = false;
 	err.clear();
-	std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+	std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 	std::map<std::string, std::string> locks;
 	if (!load_file_locks_locked(upload_dir, locks, err)) {
 		return false;
@@ -461,7 +461,7 @@ bool FileLockAction::run(request_t& req, response_t& res,
 	}
 
 	{
-		std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+		std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 		std::map<std::string, std::string> locks;
 		if (!load_file_locks_locked(upload_dir, locks, err)) {
 			json_error(res, 500, err.c_str(), req.isKeepAlive());
@@ -497,7 +497,7 @@ bool FileUnlockAction::run(request_t& req, response_t& res,
 		: "";
 
 	{
-		std::lock_guard<std::mutex> guard(g_file_lock_mutex);
+		std::lock_guard<webcool::mutex> guard(g_file_lock_mutex);
 		std::map<std::string, std::string> locks;
 		if (!load_file_locks_locked(upload_dir, locks, err)) {
 			json_error(res, 500, err.c_str(), req.isKeepAlive());

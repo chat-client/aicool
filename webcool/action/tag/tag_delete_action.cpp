@@ -20,7 +20,7 @@ bool TagDeleteAction::run(request_t& req, response_t& res,
 
 	std::vector<std::string> ids;
 	{
-		std::lock_guard<std::mutex> guard(g_tag_mutex);
+		std::lock_guard<webcool::mutex> guard(g_tag_mutex);
 		acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 		if (!open_tag_db_locked(db, db_err)) {
 			json_error(res, 500, db_err.c_str(), req.isKeepAlive());

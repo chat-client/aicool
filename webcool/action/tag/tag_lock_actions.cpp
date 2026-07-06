@@ -16,7 +16,7 @@ static bool fetch_tag_for_lock_request(const std::string& upload_dir,
 		json_error(res, 400, err.c_str(), req.isKeepAlive());
 		return false;
 	}
-	std::lock_guard<std::mutex> guard(g_tag_mutex);
+	std::lock_guard<webcool::mutex> guard(g_tag_mutex);
 	acl::db_sqlite db(tag_db_file_for_upload_dir(upload_dir).c_str(), "utf-8");
 	if (!open_tag_db_locked(db, err)) {
 		json_error(res, 500, err.c_str(), req.isKeepAlive());

@@ -18,7 +18,7 @@
 
 #include <algorithm>
 #include <map>
-#include <mutex>
+#include "common/webcool_mutex.h"
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -43,7 +43,7 @@ struct recycle_record_t {
 	std::string original_name;
 };
 
-extern std::mutex g_recycle_mutex;
+extern webcool::mutex g_recycle_mutex;
 extern std::string g_recycle_db_file;
 extern bool g_recycle_db_ready;
 extern unsigned long g_recycle_seq;

@@ -40,7 +40,7 @@ bool LocalDiskVideoConvertAction::run(request_t& req, response_t& res,
 	const std::string task_key = std::string("local:") + local_path;
 	{
 		const std::string scoped_key = scoped_task_key(upload_dir, task_key);
-		std::lock_guard<std::mutex> guard(g_transcode_mutex);
+		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 		auto it = g_running_task_by_file.find(scoped_key);
 		if (it != g_running_task_by_file.end()) {
 			auto task_it = g_transcode_tasks.find(it->second);
@@ -75,7 +75,7 @@ bool LocalDiskVideoConvertAction::run(request_t& req, response_t& res,
 	task->local = true;
 
 	{
-		std::lock_guard<std::mutex> guard(g_transcode_mutex);
+		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 		g_transcode_tasks[task->id] = task;
 		g_running_task_by_file[scoped_task_key(task->scope, task->file_name)] = task->id;
 	}

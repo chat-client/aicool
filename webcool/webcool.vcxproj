@@ -805,6 +805,7 @@
     <ClInclude Include="action\folder\folder_common.h" />
     <ClInclude Include="action\tag\tag_common.h" />
     <ClInclude Include="action\localdisk\local_disk_common.h" />
+    <ClInclude Include="common\webcool_mutex.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="http_router.h" />
     <ClInclude Include="http_service.h" />

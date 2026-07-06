@@ -15,7 +15,7 @@ webcool_controller::~webcool_controller() {
 }
 
 bool webcool_controller::start(std::string& err) {
-	std::lock_guard<std::mutex> guard(mutex_);
+	std::lock_guard<webcool::mutex> guard(mutex_);
 	err.clear();
 	if (running_) {
 		return true;
@@ -56,14 +56,14 @@ bool webcool_controller::start(std::string& err) {
 }
 
 void webcool_controller::stop() {
-	std::lock_guard<std::mutex> guard(mutex_);
+	std::lock_guard<webcool::mutex> guard(mutex_);
 	stop_locked();
 }
 
 void webcool_controller::wait() {
 	std::vector<server_thread*> threads;
 	{
-		std::lock_guard<std::mutex> guard(mutex_);
+		std::lock_guard<webcool::mutex> guard(mutex_);
 		threads.swap(threads_);
 	}
 	for (size_t i = 0; i < threads.size(); ++i) {
@@ -71,7 +71,7 @@ void webcool_controller::wait() {
 		delete threads[i];
 	}
 	{
-		std::lock_guard<std::mutex> guard(mutex_);
+		std::lock_guard<webcool::mutex> guard(mutex_);
 		if (server_ != nullptr) {
 			delete server_;
 			server_ = nullptr;
@@ -82,12 +82,12 @@ void webcool_controller::wait() {
 }
 
 bool webcool_controller::running() const {
-	std::lock_guard<std::mutex> guard(mutex_);
+	std::lock_guard<webcool::mutex> guard(mutex_);
 	return running_;
 }
 
 void webcool_controller::configure(const webcool_options& options) {
-	std::lock_guard<std::mutex> guard(mutex_);
+	std::lock_guard<webcool::mutex> guard(mutex_);
 	if (!running_) {
 		options_ = options;
 	}
