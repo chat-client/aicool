@@ -722,6 +722,7 @@
     <ClCompile Include="action\admin\localdisk_setting.cpp" />
     <ClCompile Include="action\admin\storage_migrate.cpp" />
     <ClCompile Include="action\auth_actions.cpp" />
+    <ClCompile Include="action\folder\folder_empty_action.cpp" />
     <ClCompile Include="action\user_prefs.cpp" />
     <ClCompile Include="action\file\file_copy_action.cpp" />
     <ClCompile Include="action\file\file_delete_action.cpp" />

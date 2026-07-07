@@ -37,6 +37,12 @@
     <Filter Include="源文件\win32">
       <UniqueIdentifier>{6de9ddec-b1f1-4553-ab3b-5b4db83923a8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\action\folder">
+      <UniqueIdentifier>{ed5d0b1a-9569-491c-9838-4b8dadb34269}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\action\tag">
+      <UniqueIdentifier>{7dca2715-a430-4a63-b62b-3dcdc281d8e6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -102,42 +108,6 @@
     <ClCompile Include="action\file_lock_actions.cpp">
       <Filter>源文件\action</Filter>
     </ClCompile>
-    <ClCompile Include="action\folder\folder_copy_action.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_create_action.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_delete_action.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_init.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_lock.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_recycle.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_tree.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_util.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_list_action.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_lock_actions.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_move_action.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
-    <ClCompile Include="action\folder\folder_rename_action.cpp">
-      <Filter>源文件\action\folder</Filter>
-    </ClCompile>
     <ClCompile Include="action\image_actions.cpp">
       <Filter>源文件\action</Filter>
     </ClCompile>
@@ -152,42 +122,6 @@
     </ClCompile>
     <ClCompile Include="action\page_actions.cpp">
       <Filter>源文件\action</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_bind_action.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_binding.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_create_action.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_db.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_delete_action.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_files_action.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_list_action.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_lock_actions.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_move_action.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_rename_action.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_tree.cpp">
-      <Filter>源文件\action\tag</Filter>
-    </ClCompile>
-    <ClCompile Include="action\tag\tag_util.cpp">
-      <Filter>源文件\action\tag</Filter>
     </ClCompile>
     <ClCompile Include="action\upload_action.cpp">
       <Filter>源文件\action</Filter>
@@ -267,6 +201,81 @@
     <ClCompile Include="win32\win32_gui.cpp">
       <Filter>源文件\win32</Filter>
     </ClCompile>
+    <ClCompile Include="action\folder\folder_copy_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_create_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_delete_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_init.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_list_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_lock.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_lock_actions.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_move_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_recycle.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_rename_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_tree.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_util.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_bind_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_binding.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_create_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_db.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_delete_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_files_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_list_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_lock_actions.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_move_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_rename_action.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_tree.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\tag\tag_util.cpp">
+      <Filter>源文件\action\tag</Filter>
+    </ClCompile>
+    <ClCompile Include="action\folder\folder_empty_action.cpp">
+      <Filter>源文件\action\folder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="http_servlet.h">
@@ -286,12 +295,6 @@
     </ClInclude>
     <ClInclude Include="action\file\file_common.h">
       <Filter>源文件\action\file</Filter>
-    </ClInclude>
-    <ClInclude Include="action\folder\folder_common.h">
-      <Filter>源文件\action\folder</Filter>
-    </ClInclude>
-    <ClInclude Include="action\tag\tag_common.h">
-      <Filter>源文件\action\tag</Filter>
     </ClInclude>
     <ClInclude Include="action\convert\convert_common.h">
       <Filter>源文件\action\convert</Filter>
@@ -331,6 +334,12 @@
     </ClInclude>
     <ClInclude Include="win32\resource.h">
       <Filter>源文件\win32</Filter>
+    </ClInclude>
+    <ClInclude Include="action\folder\folder_common.h">
+      <Filter>源文件\action\folder</Filter>
+    </ClInclude>
+    <ClInclude Include="action\tag\tag_common.h">
+      <Filter>源文件\action\tag</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
