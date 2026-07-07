@@ -93,16 +93,10 @@ bool master_service::prepare_runtime(bool& upload_dir_specified) {
 
 	std::string err;
 
-	if (!set_config_text(g_upload_dir, sizeof(g_upload_dir),
-		resolved_upload_dir, "file save directory", err))
-	{
-		logger_error("set_config_text error=%s, dir=%s", err.c_str(), g_upload_dir);
-		return false;
-	}
-	if (!action::storage_reconcile_startup_primary(g_upload_dir,
+	if (!action::storage_prepare_startup_primary(g_upload_dir,
 		upload_dir_specified, err))
 	{
-		logger_error("storage_reconcile_startup_primary error=%s, dir=%s",
+		logger_error("storage_prepare_startup_primary error=%s, dir=%s",
 			err.c_str(), g_upload_dir);
 		return false;
 	}

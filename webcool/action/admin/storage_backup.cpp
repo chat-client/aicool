@@ -512,7 +512,7 @@ bool storage_backup_sync_incremental_blocking(const std::string& upload_dir,
 
 	std::lock_guard<webcool::mutex> backup_guard(g_storage_backup_mutex);
 	std::string source_dir;
-	if (!canonical_existing_path(upload_dir, source_dir, err)) {
+	if (!resolve_existing_real_path(upload_dir, source_dir, err)) {
 		return false;
 	}
 	std::vector<storage_backup_path_t> enabled_paths;
@@ -687,7 +687,7 @@ bool storage_backup_sync_paths_blocking(const std::string& upload_dir,
 
 	std::lock_guard<webcool::mutex> backup_guard(g_storage_backup_mutex);
 	std::string source_dir;
-	if (!canonical_existing_path(storage_dir, source_dir, err)) {
+	if (!resolve_existing_real_path(storage_dir, source_dir, err)) {
 		return false;
 	}
 	std::vector<storage_backup_path_t> enabled_paths;
@@ -771,8 +771,8 @@ bool backup_relative_scope_prefix(const std::string& storage_dir,
 	prefix.clear();
 	std::string storage_abs;
 	std::string scope_abs;
-	if (!canonical_existing_path(storage_dir, storage_abs, err)
-		|| !canonical_existing_path(scope_dir, scope_abs, err))
+	if (!resolve_existing_real_path(storage_dir, storage_abs, err)
+		|| !resolve_existing_real_path(scope_dir, scope_abs, err))
 	{
 		return false;
 	}
@@ -1243,7 +1243,7 @@ bool AdminStorageSwapBackupAction::run(request_t& req, response_t& res,
 	int status = 200;
 	bool ok = true;
 	acl::gofiber_wait_thread([&] {
-		if (!canonical_existing_path(upload_dir, source_dir, err)) {
+		if (!resolve_existing_real_path(upload_dir, source_dir, err)) {
 			status = 500;
 			ok = false;
 			return;
@@ -1367,7 +1367,7 @@ bool AdminStorageBackupSyncAction::run(request_t& req, response_t& res,
 
 	std::vector<storage_move_item_t> items;
 	acl::gofiber_wait_thread([&] {
-		if (!canonical_existing_path(upload_dir, source_dir, err)) {
+		if (!resolve_existing_real_path(upload_dir, source_dir, err)) {
 			status = 500;
 			ok = false;
 			return;

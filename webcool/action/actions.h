@@ -20,7 +20,7 @@ std::string runtime_ffmpeg_path_get();
 void runtime_upload_dir_init(const std::string& upload_dir);
 std::string runtime_upload_dir_get();
 void runtime_upload_dir_set(const std::string& upload_dir);
-bool storage_reconcile_startup_primary(const std::string& upload_dir,
+bool storage_prepare_startup_primary(const std::string& upload_dir,
 	bool upload_dir_specified, std::string& err);
 bool storage_backup_sync_now(const std::string& upload_dir, std::string& err);
 bool storage_backup_sync_paths(const std::string& upload_dir,

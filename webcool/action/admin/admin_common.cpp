@@ -20,6 +20,7 @@ webcool::mutex g_runtime_upload_mutex;
 std::string g_runtime_upload_dir;
 webcool::mutex g_settings_mutex;
 
+// 创建管理设置的默认值。
 webcool_settings_t default_settings()
 {
 	webcool_settings_t settings;
@@ -31,6 +32,7 @@ webcool_settings_t default_settings()
 }
 
 #if 0
+// 生成统一格式的 JSON 错误响应。
 void json_error(response_t& res, int status, const char* msg, bool keep_alive)
 {
 	acl::json json;
@@ -41,16 +43,18 @@ void json_error(response_t& res, int status, const char* msg, bool keep_alive)
 }
 #endif
 
-std::string canonical_or_empty_path(const std::string& input, std::string& err)
+// 解析已存在路径的真实路径，失败时返回空字符串。
+std::string real_path_or_empty(const std::string& input, std::string& err)
 {
-	std::string path;
-	if (!canonical_existing_path(input, path, err)) {
+	std::string real_path;
+	if (!resolve_existing_real_path(input, real_path, err)) {
 		return "";
 	}
-	return path;
+	return real_path;
 }
 
-bool canonical_existing_path(const std::string& input,
+// 使用 realpath 解析已存在路径，得到系统真实路径。
+bool resolve_existing_real_path(const std::string& input,
 	std::string& out, std::string& err)
 {
 	char resolved[PATH_MAX];
@@ -62,6 +66,7 @@ bool canonical_existing_path(const std::string& input,
 	return true;
 }
 
+// 判断存储路径是否为平台绝对路径。
 bool is_absolute_storage_path(const std::string& path)
 {
 #ifdef _WIN32
@@ -78,6 +83,7 @@ bool is_absolute_storage_path(const std::string& path)
 #endif
 }
 
+// 确保存储目标路径存在，并返回其真实路径。
 bool ensure_storage_target_path(const std::string& input,
 	std::string& out, std::string& err)
 {
@@ -89,9 +95,10 @@ bool ensure_storage_target_path(const std::string& input,
 		err = "cannot create target storage path";
 		return false;
 	}
-	return canonical_existing_path(input, out, err);
+	return resolve_existing_real_path(input, out, err);
 }
 
+// 判断 candidate 是否与 base 相同，或位于 base 子目录下。
 bool is_same_or_child_path(const std::string& base,
 	const std::string& candidate)
 {
@@ -137,6 +144,7 @@ bool is_same_or_child_path(const std::string& base,
 #endif
 }
 
+// 初始化主存储目录下需要的各类数据库。
 bool init_storage_databases(const std::string& path, std::string& err)
 {
 	return init_video_resume_db(path, err)
@@ -145,16 +153,19 @@ bool init_storage_databases(const std::string& path, std::string& err)
 		&& init_category_folder_db(path, err);
 }
 
+// 返回管理设置目录路径。
 std::string settings_dir(const std::string& upload_dir)
 {
 	return join_upload_path(upload_dir, ".webcool_settings");
 }
 
+// 返回管理设置文件路径。
 std::string settings_file(const std::string& upload_dir)
 {
 	return settings_dir(upload_dir) + "/settings.db";
 }
 
+// 将文本解析为布尔值，无法识别时返回 fallback。
 bool parse_bool_text(const std::string& text, bool fallback)
 {
 	if (text == "1" || text == "true" || text == "yes" || text == "on") {
@@ -166,12 +177,14 @@ bool parse_bool_text(const std::string& text, bool fallback)
 	return fallback;
 }
 
+// 从请求参数中读取布尔值，缺失时返回 fallback。
 bool request_bool_param(request_t& req, const char* name, bool fallback)
 {
 	const char* value = req.getParameter(name);
 	return value ? parse_bool_text(value, fallback) : fallback;
 }
 
+// 判断备份路径列表中是否已有完全相同的路径字符串。
 bool backup_vector_contains(const std::vector<storage_backup_path_t>& items,
 	const std::string& value)
 {
@@ -183,6 +196,7 @@ bool backup_vector_contains(const std::vector<storage_backup_path_t>& items,
 	return false;
 }
 
+// 创建一个备份路径配置项。
 storage_backup_path_t make_backup_path(const std::string& path, bool enabled)
 {
 	storage_backup_path_t item;
@@ -191,6 +205,7 @@ storage_backup_path_t make_backup_path(const std::string& path, bool enabled)
 	return item;
 }
 
+// 在持有 settings 锁的前提下加载管理设置。
 bool load_settings_unlocked(const std::string& upload_dir,
 	webcool_settings_t& settings, std::string& err)
 {
@@ -231,6 +246,7 @@ bool load_settings_unlocked(const std::string& upload_dir,
 	return true;
 }
 
+// 在持有 settings 锁的前提下保存管理设置。
 bool save_settings_unlocked(const std::string& upload_dir,
 	const webcool_settings_t& settings, std::string& err)
 {
@@ -267,6 +283,7 @@ bool save_settings_unlocked(const std::string& upload_dir,
 	return true;
 }
 
+// 判断备份路径列表中是否已有指向同一真实目录的路径。
 bool backup_vector_contains_dir(const std::vector<storage_backup_path_t>& items,
 	const std::string& dir)
 {
@@ -281,26 +298,27 @@ bool backup_vector_contains_dir(const std::vector<storage_backup_path_t>& items,
 	return false;
 }
 
-bool canonicalize_backup_paths_for_primary(const std::string& upload_dir,
+// 将主存储的备份路径列表统一为真实路径，并移除与主存储重复的项。
+bool normalize_backup_real_paths_for_primary(const std::string& upload_dir,
 	webcool_settings_t& settings, bool& changed, std::string& err)
 {
-	std::string source_dir;
-	if (!canonical_existing_path(upload_dir, source_dir, err)) {
+	std::string primary_real_path;
+	if (!resolve_existing_real_path(upload_dir, primary_real_path, err)) {
 		return false;
 	}
 	std::vector<storage_backup_path_t> next;
 	for (auto & backup_path : settings.backup_paths) {
-		std::string backup_dir;
-		if (!ensure_storage_target_path(backup_path.path, backup_dir, err)) {
+		std::string backup_real_path;
+		if (!ensure_storage_target_path(backup_path.path, backup_real_path, err)) {
 			return false;
 		}
-		if (backup_dir == source_dir) {
+		if (backup_real_path == primary_real_path) {
 			changed = true;
 			continue;
 		}
 		bool exists = false;
 		for (auto & path : next) {
-			if (path.path == backup_dir) {
+			if (path.path == backup_real_path) {
 				exists = true;
 				if (backup_path.enabled && !path.enabled) {
 					path.enabled = true;
@@ -309,9 +327,9 @@ bool canonicalize_backup_paths_for_primary(const std::string& upload_dir,
 			}
 		}
 		if (!exists) {
-			next.push_back(make_backup_path(backup_dir, backup_path.enabled));
+			next.push_back(make_backup_path(backup_real_path, backup_path.enabled));
 		}
-		if (backup_path.path != backup_dir) {
+		if (backup_path.path != backup_real_path) {
 			changed = true;
 		}
 	}
@@ -322,12 +340,13 @@ bool canonicalize_backup_paths_for_primary(const std::string& upload_dir,
 	return true;
 }
 
+// 校验备份路径不能与主存储或其他备份路径互相包含。
 bool validate_backup_path_for_settings(const std::string& upload_dir,
 	const std::string& target_dir, const std::vector<storage_backup_path_t>& existing,
 	const std::string& skip_path, std::string& err)
 {
 	std::string source_dir;
-	if (!canonical_existing_path(upload_dir, source_dir, err)) {
+	if (!resolve_existing_real_path(upload_dir, source_dir, err)) {
 		return false;
 	}
 	if (source_dir == target_dir) {
@@ -362,6 +381,7 @@ bool validate_backup_path_for_settings(const std::string& upload_dir,
 	return true;
 }
 
+// 按当前平台规则拼接存储路径。
 std::string join_storage_path(const std::string& parent, const char* name)
 {
 #ifdef _WIN32
@@ -381,20 +401,25 @@ std::string join_storage_path(const std::string& parent, const char* name)
 #endif
 }
 
+// 将当前主存储路径写入 primary_storage.path。
 bool record_primary_storage_path(const std::string& upload_dir, std::string& err)
 {
 	if (upload_dir.empty()) {
 		logger("upload dir is empty");
 		return true;
 	}
-	std::string current_dir;
-	if (!canonical_existing_path(upload_dir, current_dir, err)) {
-		logger_error("canonical_existing_path error, upload_dir=%s", upload_dir.c_str());
+	std::string real_path;
+	if (!resolve_existing_real_path(upload_dir, real_path, err)) {
+		logger_error("resolve_existing_real_path error, upload_dir=%s", upload_dir.c_str());
 		return false;
 	}
-	return write_primary_storage_path(current_dir, err);
+	if (is_absolute_storage_path(upload_dir)) {
+		return write_primary_storage_path(upload_dir, err);
+	}
+	return write_primary_storage_path(real_path, err);
 }
 
+// 确保存储目录中存在共享目录及其固定子目录。
 void ensure_shared_folder_for_storage(const std::string& upload_dir)
 {
 	if (upload_dir.empty()) {
@@ -417,6 +442,7 @@ void ensure_shared_folder_for_storage(const std::string& upload_dir)
 	}
 }
 
+// 生成用于备份文件名的时间后缀。
 std::string storage_backup_date_suffix()
 {
 	char buf[32];
@@ -429,6 +455,7 @@ std::string storage_backup_date_suffix()
 	return buf;
 }
 
+// 直接复制单个存储文件。
 bool copy_storage_file_plain(const std::string& source,
 	const std::string& dest, std::string& err)
 {
@@ -471,6 +498,7 @@ bool copy_storage_file_plain(const std::string& source,
 	return ok;
 }
 
+// 递归复制存储路径下的普通文件和目录。
 bool copy_storage_path_plain(const std::string& source,
 	const std::string& dest, std::string& err)
 {
@@ -520,6 +548,7 @@ bool copy_storage_path_plain(const std::string& source,
 	return true;
 }
 
+// 收集迁移需要处理的文件和目录项。
 bool collect_move_items(const std::string& source,
 	const std::string& target, std::vector<storage_move_item_t>& items,
 	std::string& err)
@@ -584,6 +613,7 @@ bool collect_move_items(const std::string& source,
 	return true;
 }
 
+// 递归删除指定路径。
 bool delete_path_recursive_plain(const std::string& path, std::string& err)
 {
 	struct stat st{};
@@ -624,6 +654,7 @@ bool delete_path_recursive_plain(const std::string& path, std::string& err)
 	return true;
 }
 
+// 删除存储目录内容，但保留 .backup 目录。
 bool delete_storage_contents_except_backup(const std::string& path, std::string& err)
 {
 	DIR* dir = opendir(path.c_str());
@@ -647,6 +678,7 @@ bool delete_storage_contents_except_backup(const std::string& path, std::string&
 	return true;
 }
 
+// 删除存储目录下的全部内容。
 bool delete_storage_contents_all(const std::string& path, std::string& err)
 {
 	DIR* dir = opendir(path.c_str());
@@ -668,6 +700,7 @@ bool delete_storage_contents_all(const std::string& path, std::string& err)
 	return true;
 }
 
+// 获取存储路径最后一级名称。
 std::string storage_base_name(const std::string& path)
 {
 #ifdef _WIN32
@@ -701,10 +734,69 @@ std::string storage_base_name(const std::string& path)
 #endif
 }
 
+// 需要时把历史主存储加入备份路径列表。
+bool add_previous_primary_backup_if_needed(const std::string& current_real_path,
+	const std::string& previous_path, webcool_settings_t& settings,
+	bool& settings_changed, std::string& err)
+{
+	if (previous_path.empty()) {
+		return true;
+	}
+
+	std::string previous_real_path;
+	if (!ensure_storage_target_path(previous_path, previous_real_path, err)) {
+		return false;
+	}
+	if (previous_real_path == current_real_path
+		|| backup_vector_contains_dir(settings.backup_paths, previous_real_path))
+	{
+		return true;
+	}
+	if (!validate_backup_path_for_settings(current_real_path, previous_real_path,
+		settings.backup_paths, "", err))
+	{
+		return false;
+	}
+	settings.backup_paths.push_back(make_backup_path(previous_real_path, true));
+	settings_changed = true;
+	return true;
+}
+
+// 准备启动期主存储相关设置，包含备份路径规范化和旧主存储处理。
+bool prepare_primary_settings(const std::string& current_real_path,
+	const std::string& previous_path, bool add_previous_backup, std::string& err)
+{
+	std::lock_guard<webcool::mutex> settings_guard(g_settings_mutex);
+	webcool_settings_t settings;
+	if (!load_settings_unlocked(current_real_path, settings, err)) {
+		return false;
+	}
+
+	bool settings_changed = false;
+	if (!normalize_backup_real_paths_for_primary(current_real_path, settings,
+		settings_changed, err))
+	{
+		return false;
+	}
+	if (add_previous_backup
+		&& !add_previous_primary_backup_if_needed(current_real_path, previous_path,
+			settings, settings_changed, err))
+	{
+		return false;
+	}
+	if (settings_changed
+		&& !save_settings_unlocked(current_real_path, settings, err))
+	{
+		return false;
+	}
+	return true;
+}
+
 } // namespace admin_internal
 
 using namespace admin_internal;
 
+// 初始化运行期主存储路径，只在首次设置时写入。
 void runtime_upload_dir_init(const std::string& upload_dir)
 {
 	bool changed = false;
@@ -722,12 +814,14 @@ void runtime_upload_dir_init(const std::string& upload_dir)
 	}
 }
 
+// 获取当前运行期主存储路径。
 std::string runtime_upload_dir_get()
 {
 	std::lock_guard<webcool::mutex> guard(g_runtime_upload_mutex);
 	return g_runtime_upload_dir;
 }
 
+// 更新当前运行期主存储路径并持久化。
 void runtime_upload_dir_set(const std::string& upload_dir)
 {
 	{
@@ -739,83 +833,34 @@ void runtime_upload_dir_set(const std::string& upload_dir)
 	(void) record_primary_storage_path(upload_dir, err);
 }
 
-// 启动时 reconcile 主存储路径：规范化当前 upload_dir、同步 settings.db 中的备份路径，
-// 若本次由命令行 -d 显式指定且与 primary_storage.path 记录不同，则将旧主存储加入备份列表，
-// 最后把当前路径写回 primary_storage.path。
-bool storage_reconcile_startup_primary(const std::string& upload_dir,
+// 启动时准备主存储路径：
+// 1. 用真实路径比较当前存储和历史存储，避免软链接导致误判；
+// 2. 规范化 settings.db 中的备份路径；
+// 3. 命令行 -d 显式切换存储时，将旧主存储加入备份列表；
+// 4. 持久化当前生效路径，并保留用户配置的绝对软链接路径。
+bool storage_prepare_startup_primary(const std::string& upload_dir,
 	bool upload_dir_specified, std::string& err)
 {
 	err.clear();
-	std::string current_dir;
-	// 将本次生效的 upload_dir 解析为绝对路径
-	if (!canonical_existing_path(upload_dir, current_dir, err)) {
+	std::string current_real_path;
+	if (!resolve_existing_real_path(upload_dir, current_real_path, err)) {
 		return false;
 	}
 
-	// 读取 primary_storage.path 中上次记录的主存储（路径解析逻辑见 config.cpp）
-	std::string previous_dir;
-	if (!read_primary_storage_path(previous_dir, err)) {
+	std::string previous_path;
+	if (!read_primary_storage_path(previous_path, err)) {
 		return false;
 	}
-	if (upload_dir_specified && !previous_dir.empty()) {
-		// 命令行显式指定 -d 且存在历史主存储记录：视为用户主动切换存储位置
-		std::string canonical_previous;
-		if (!ensure_storage_target_path(previous_dir, canonical_previous, err)) {
-			return false;
-		}
-		std::lock_guard<webcool::mutex> settings_guard(g_settings_mutex);
-		webcool_settings_t settings;
-		if (!load_settings_unlocked(current_dir, settings, err)) {
-			return false;
-		}
-		bool settings_changed = false;
-		// 规范化备份路径列表（去除无效项、统一为绝对路径）
-		if (!canonicalize_backup_paths_for_primary(current_dir, settings,
-			settings_changed, err))
-		{
-			return false;
-		}
-		if (canonical_previous != current_dir) {
-			// 旧主存储尚未在备份列表中，则追加为启用状态的备份路径
-			if (!backup_vector_contains_dir(settings.backup_paths, canonical_previous)) {
-				if (!validate_backup_path_for_settings(current_dir,
-					canonical_previous, settings.backup_paths, "", err))
-				{
-					return false;
-				}
-				settings.backup_paths.push_back(make_backup_path(canonical_previous, true));
-				settings_changed = true;
-			}
-		}
-		if (settings_changed
-			&& !save_settings_unlocked(current_dir, settings, err))
-		{
-			return false;
-		}
-	} else {
-		// 未通过 -d 显式覆盖（含 primary_storage.path 优先、配置文件、默认值等场景）：
-		// 仅规范化备份路径，不自动把旧主存储加入备份列表
-		std::lock_guard<webcool::mutex> settings_guard(g_settings_mutex);
-		webcool_settings_t settings;
-		if (!load_settings_unlocked(current_dir, settings, err)) {
-			return false;
-		}
-		bool settings_changed = false;
-		if (!canonicalize_backup_paths_for_primary(current_dir, settings,
-			settings_changed, err))
-		{
-			return false;
-		}
-		if (settings_changed
-			&& !save_settings_unlocked(current_dir, settings, err))
-		{
-			return false;
-		}
+
+	if (!prepare_primary_settings(current_real_path, previous_path,
+		upload_dir_specified, err))
+	{
+		return false;
 	}
-	// 将当前主存储路径持久化到 primary_storage.path
-	return record_primary_storage_path(current_dir, err);
+	return record_primary_storage_path(upload_dir, err);
 }
 
+// 判断当前用户是否允许访问服务器本地磁盘。
 bool local_disk_access_allowed(const std::string& upload_dir, bool admin,
 	std::string& err)
 {
@@ -827,6 +872,7 @@ bool local_disk_access_allowed(const std::string& upload_dir, bool admin,
 	return admin ? settings.local_disk_admin : settings.local_disk_user;
 }
 
+// 返回存储管理页面需要的主存储、备份和权限信息。
 bool AdminStorageInfoAction::run(request_t& req, response_t& res,
 	const std::string& upload_dir)
 {

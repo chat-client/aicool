@@ -376,7 +376,7 @@ bool AdminStorageMigrateAction::run(request_t& req, response_t& res,
 		root.add_text("path", target_dir.c_str());
 		return sendJson(res, 200, root, req.isKeepAlive());
 	}
-	if (!canonical_existing_path(upload_dir, source_dir, err)) {
+	if (!resolve_existing_real_path(upload_dir, source_dir, err)) {
 		json_error(res, 500, err.c_str(), req.isKeepAlive());
 		return true;
 	}
@@ -397,7 +397,7 @@ bool AdminStorageMigrateAction::run(request_t& req, response_t& res,
 		}
 		for (auto & backup_path : settings.backup_paths) {
 			std::string backup_dir;
-			if (canonical_existing_path(backup_path.path, backup_dir, err)
+			if (resolve_existing_real_path(backup_path.path, backup_dir, err)
 				&& target_dir == backup_dir)
 			{
 				json_error(res, 409,

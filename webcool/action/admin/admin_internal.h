@@ -66,8 +66,8 @@ extern webcool::mutex g_storage_backup_mutex;
 webcool_settings_t default_settings();
 //void json_error(response_t& res, int status, const char* msg, bool keep_alive);
 
-std::string canonical_or_empty_path(const std::string& input, std::string& err);
-bool canonical_existing_path(const std::string& input, std::string& out, std::string& err);
+std::string real_path_or_empty(const std::string& input, std::string& err);
+bool resolve_existing_real_path(const std::string& input, std::string& out, std::string& err);
 bool is_absolute_storage_path(const std::string& path);
 bool ensure_storage_target_path(const std::string& input, std::string& out, std::string& err);
 bool is_same_or_child_path(const std::string& base, const std::string& candidate);
