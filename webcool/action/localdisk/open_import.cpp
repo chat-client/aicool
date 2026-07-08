@@ -121,27 +121,22 @@ static bool local_import_request_data(request_t& req, std::string& folder,
 		return true;
 	}
 
-	std::string body_text;
-	if (!read_local_import_body(req, body_text, err)) {
-		return false;
-	}
-
-	acl::json body(body_text.c_str());
-	if (!body.finish()) {
+	acl::json* body = req.getJson(4 * 1024 * 1024);
+	if (body == NULL) {
 		err = "invalid json body";
 		return false;
 	}
 
-	acl::json_node* folder_node = body["folder"];
+	acl::json_node* folder_node = (*body)["folder"];
 	if (folder_node != NULL) {
 		folder = local_import_json_text(folder_node);
 	}
-	acl::json_node* password_node = body["folder_password"];
+	acl::json_node* password_node = (*body)["folder_password"];
 	if (password_node != NULL) {
 		folder_password = local_import_json_text(password_node);
 	}
 
-	acl::json_node* paths_node = body["paths"];
+	acl::json_node* paths_node = (*body)["paths"];
 	if (paths_node != NULL) {
 		paths.clear();
 		local_import_json_paths(paths_node, paths);

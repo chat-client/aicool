@@ -37,44 +37,6 @@ static bool copy_from_remote_is_json_request(request_t& req)
 		|| value.find("+json") != std::string::npos;
 }
 
-static bool read_copy_from_remote_body(request_t& req, std::string& body,
-	std::string& err)
-{
-	body.clear();
-	err.clear();
-	const long long content_length = req.getContentLength();
-	if (content_length <= 0) {
-		return true;
-	}
-	if (content_length > 256 * 1024) {
-		err = "request body too large";
-		return false;
-	}
-
-	acl::istream& in = req.getInputStream();
-	char buf[4096];
-	long long read_total = 0;
-	while (read_total < content_length) {
-		size_t want = sizeof(buf);
-		const long long remain = content_length - read_total;
-		if ((long long) want > remain) {
-			want = (size_t) remain;
-		}
-		const int n = in.read(buf, want);
-		if (n < 0) {
-			err = acl::last_serror();
-			return false;
-		}
-		if (n == 0) {
-			err = "request body incomplete";
-			return false;
-		}
-		body.append(buf, (size_t) n);
-		read_total += n;
-	}
-	return true;
-}
-
 static bool copy_from_remote_request_data(request_t& req,
 	std::string& source_path, bool& source_is_dir_param,
 	std::string& target, std::string& folder_password,
@@ -100,18 +62,14 @@ static bool copy_from_remote_request_data(request_t& req,
 	if (!copy_from_remote_is_json_request(req)) {
 		return true;
 	}
-	std::string body_text;
-	if (!read_copy_from_remote_body(req, body_text, err)) {
-		return false;
-	}
-	acl::json body(body_text.c_str());
-	if (!body.finish()) {
+	acl::json* body = req.getJson(256 * 1024);
+	if (body == NULL) {
 		err = "invalid json body";
 		return false;
 	}
 
-	const std::string body_path = copy_from_remote_json_text(body["path"]);
-	const std::string body_file = copy_from_remote_json_text(body["file"]);
+	const std::string body_path = copy_from_remote_json_text((*body)["path"]);
+	const std::string body_file = copy_from_remote_json_text((*body)["file"]);
 	if (!body_path.empty()) {
 		source_path = body_path;
 		source_is_dir_param = true;
@@ -120,19 +78,19 @@ static bool copy_from_remote_request_data(request_t& req,
 		source_is_dir_param = false;
 	}
 
-	acl::json_node* target_node = body["target"];
+	acl::json_node* target_node = (*body)["target"];
 	if (target_node != NULL) {
 		target = copy_from_remote_json_text(target_node);
 	}
-	acl::json_node* folder_password_node = body["folder_password"];
+	acl::json_node* folder_password_node = (*body)["folder_password"];
 	if (folder_password_node != NULL) {
 		folder_password = copy_from_remote_json_text(folder_password_node);
 	}
-	acl::json_node* file_password_node = body["file_password"];
+	acl::json_node* file_password_node = (*body)["file_password"];
 	if (file_password_node != NULL) {
 		file_password = copy_from_remote_json_text(file_password_node);
 	}
-	acl::json_node* target_password_node = body["target_local_dir_password"];
+	acl::json_node* target_password_node = (*body)["target_local_dir_password"];
 	if (target_password_node != NULL) {
 		target_local_dir_password =
 			copy_from_remote_json_text(target_password_node);
