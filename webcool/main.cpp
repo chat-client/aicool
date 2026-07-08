@@ -8,7 +8,7 @@
 #include "http_router.h"
 #include "master_service.h"
 
-static auto g_webcool_version = "1.6.2";
+static auto g_webcool_version = "1.6.3";
 
 static const char* event_type_name(acl::fiber_event_t event_type) {
 	switch (event_type) {
