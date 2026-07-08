@@ -319,6 +319,7 @@ void http_router::setup() const {
 		.Get("/api/v1/local-disk/mkdir", &http_router::routeLocalDiskCreateDir)
 		.Get("/api/v1/local-disk/move", &http_router::routeLocalDiskMove)
 		.Get("/api/v1/local-disk/copy", &http_router::routeLocalDiskCopy)
+		.Get("/api/v1/local-disk/copy-from-remote", &http_router::routeLocalDiskCopyFromRemote)
 		.Get("/api/v1/local-disk/rename", &http_router::routeLocalDiskRename)
 		.Get("/api/v1/local-disk/open-trash", &http_router::routeLocalDiskOpenTrash)
 		.Get("/api/v1/local-disk/open-file", &http_router::routeLocalDiskOpenFile)
@@ -412,6 +413,7 @@ void http_router::setup() const {
 		.Post("/api/v1/local-disk/mkdir", &http_router::routeLocalDiskCreateDir)
 		.Post("/api/v1/local-disk/move", &http_router::routeLocalDiskMove)
 		.Post("/api/v1/local-disk/copy", &http_router::routeLocalDiskCopy)
+		.Post("/api/v1/local-disk/copy-from-remote", &http_router::routeLocalDiskCopyFromRemote)
 		.Post("/api/v1/local-disk/rename", &http_router::routeLocalDiskRename)
 		.Post("/api/v1/local-disk/open-trash", &http_router::routeLocalDiskOpenTrash)
 		.Post("/api/v1/local-disk/open-file", &http_router::routeLocalDiskOpenFile)
@@ -726,6 +728,11 @@ bool http_router::routeLocalDiskMove(request_t& req, response_t& res) {
 
 bool http_router::routeLocalDiskCopy(request_t& req, response_t& res) {
 	return action::LocalDiskCopyAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_router::routeLocalDiskCopyFromRemote(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::LocalDiskCopyFromRemoteAction::run(req, res, dir);
 }
 
 bool http_router::routeLocalDiskRename(request_t& req, response_t& res) {

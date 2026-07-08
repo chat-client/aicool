@@ -75,6 +75,7 @@ private:
 	static bool routeLocalDiskCreateDir(request_t& req, response_t& res);
 	static bool routeLocalDiskMove(request_t& req, response_t& res);
 	static bool routeLocalDiskCopy(request_t& req, response_t& res);
+	static bool routeLocalDiskCopyFromRemote(request_t& req, response_t& res);
 	static bool routeLocalDiskRename(request_t& req, response_t& res);
 	static bool routeLocalDiskOpenTrash(request_t& req, response_t& res);
 	static bool routeLocalDiskOpenFile(request_t& req, response_t& res);

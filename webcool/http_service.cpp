@@ -165,7 +165,7 @@ bool http_service::doService(int type, HttpRequest& req, HttpResponse& res,
 	timeval end{};
 	gettimeofday(&end, nullptr);
 	const double cost = acl::stamp_sub(end, begin);
-	logger_debug(DEBUG_ACTION, 1, "Time cost %.2f m, method=%s, path=%s, query=%s",
-		cost, method.c_str(), path, req.getQueryString());
+	logger_debug(DEBUG_ACTION, 1, "Time cost %.2f m, method=%s, url=%s",
+		cost, method.c_str(), req.getRequestUri());
 	return keep;
 }

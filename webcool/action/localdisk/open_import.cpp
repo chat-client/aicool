@@ -23,18 +23,40 @@ static void local_import_json_paths(acl::json_node* node,
 	if (node == NULL) {
 		return;
 	}
-	if (!node->is_array()) {
+	acl::json_node* obj = node->get_obj();
+	if (obj == NULL) {
+		return;
+	}
+	if (!obj->is_array()) {
 		split_local_paths(local_import_json_text(node).c_str(), paths);
 		return;
 	}
-	for (acl::json_node* child = node->first_child(); child != NULL;
-		child = node->next_child())
+	for (acl::json_node* child = obj->first_child(); child != NULL;
+		child = obj->next_child())
 	{
 		const std::string path = local_import_json_text(child);
 		if (!path.empty()) {
 			paths.push_back(path);
 		}
 	}
+}
+
+static bool local_import_is_json_request(request_t& req)
+{
+	if (req.getRequestType() == acl::HTTP_REQUEST_TEXT_JSON) {
+		return true;
+	}
+	const char* content_type = req.getHeader("Content-Type");
+	if (content_type == NULL) {
+		return false;
+	}
+	std::string value = content_type;
+	for (size_t i = 0; i < value.size(); ++i) {
+		value[i] = (char) ::tolower((unsigned char) value[i]);
+	}
+	return value.find("application/json") != std::string::npos
+		|| value.find("text/json") != std::string::npos
+		|| value.find("+json") != std::string::npos;
 }
 
 static bool read_local_import_body(request_t& req, std::string& body,
@@ -87,7 +109,7 @@ static bool local_import_request_data(request_t& req, std::string& folder,
 	if (req.getContentLength() <= 0 || !paths.empty()) {
 		return true;
 	}
-	if (req.getRequestType() != acl::HTTP_REQUEST_TEXT_JSON) {
+	if (!local_import_is_json_request(req)) {
 		if (req.getRequestType() == acl::HTTP_REQUEST_NORMAL) {
 			return true;
 		}
@@ -99,22 +121,27 @@ static bool local_import_request_data(request_t& req, std::string& folder,
 		return true;
 	}
 
-	acl::json* body = req.getJson(4 * 1024 * 1024);
-	if (body == NULL) {
+	std::string body_text;
+	if (!read_local_import_body(req, body_text, err)) {
+		return false;
+	}
+
+	acl::json body(body_text.c_str());
+	if (!body.finish()) {
 		err = "invalid json body";
 		return false;
 	}
 
-	acl::json_node* folder_node = (*body)["folder"];
+	acl::json_node* folder_node = body["folder"];
 	if (folder_node != NULL) {
 		folder = local_import_json_text(folder_node);
 	}
-	acl::json_node* password_node = (*body)["folder_password"];
+	acl::json_node* password_node = body["folder_password"];
 	if (password_node != NULL) {
 		folder_password = local_import_json_text(password_node);
 	}
 
-	acl::json_node* paths_node = (*body)["paths"];
+	acl::json_node* paths_node = body["paths"];
 	if (paths_node != NULL) {
 		paths.clear();
 		local_import_json_paths(paths_node, paths);
