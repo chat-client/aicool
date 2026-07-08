@@ -41,7 +41,7 @@ static bool copy_from_remote_request_data(request_t& req,
 	std::string& source_path, bool& source_is_dir_param,
 	std::string& target, std::string& folder_password,
 	std::string& file_password, std::string& target_local_dir_password,
-	std::string& err)
+	bool& overwrite, std::string& err)
 {
 	source_is_dir_param = req.getParameter("path") != NULL;
 	const char* source_param = source_is_dir_param
@@ -55,6 +55,8 @@ static bool copy_from_remote_request_data(request_t& req,
 		? req.getParameter("file_password") : "";
 	target_local_dir_password = req.getParameter("target_local_dir_password")
 		? req.getParameter("target_local_dir_password") : "";
+	overwrite = req.getParameter("overwrite") != NULL
+		&& strcmp(req.getParameter("overwrite"), "1") == 0;
 
 	if (req.getContentLength() <= 0) {
 		return true;
@@ -94,6 +96,11 @@ static bool copy_from_remote_request_data(request_t& req,
 	if (target_password_node != NULL) {
 		target_local_dir_password =
 			copy_from_remote_json_text(target_password_node);
+	}
+	acl::json_node* overwrite_node = (*body)["overwrite"];
+	if (overwrite_node != NULL) {
+		const std::string overwrite_text = copy_from_remote_json_text(overwrite_node);
+		overwrite = overwrite_text == "true" || overwrite_text == "1";
 	}
 	return true;
 }
@@ -560,10 +567,11 @@ bool LocalDiskCopyFromRemoteAction::run(request_t& req, response_t& res,
 	std::string file_password;
 	std::string target_local_dir_password;
 	std::string err;
+	bool overwrite = false;
 	bool source_is_dir_param = false;
 	if (!copy_from_remote_request_data(req, raw_source_path,
 		source_is_dir_param, target, folder_password, file_password,
-		target_local_dir_password, err))
+		target_local_dir_password, overwrite, err))
 	{
 		json_error(res, 400, err.c_str(), req.isKeepAlive());
 		return true;
@@ -670,11 +678,17 @@ bool LocalDiskCopyFromRemoteAction::run(request_t& req, response_t& res,
 	const std::string dest = join_local_path(target, name.c_str());
 	struct stat dest_st;
 	if (stat(dest.c_str(), &dest_st) == 0) {
-		json_error(res, 409, "target already contains a path with same name",
-			req.isKeepAlive());
-		return true;
+		if (!overwrite) {
+			json_error(res, 409, "target already contains a path with same name",
+				req.isKeepAlive());
+			return true;
+		}
+		if (!remove_local_path_recursive(dest, err)) {
+			json_error(res, 500, err.c_str(), req.isKeepAlive());
+			return true;
+		}
 	}
-	if (errno != ENOENT) {
+	else if (errno != ENOENT) {
 		json_error(res, 500, strerror(errno), req.isKeepAlive());
 		return true;
 	}
@@ -689,6 +703,7 @@ bool LocalDiskCopyFromRemoteAction::run(request_t& req, response_t& res,
 	root.add_text("source", source_path.c_str());
 	root.add_text("target", target.c_str());
 	root.add_bool("directory", source_is_dir);
+	root.add_bool("overwritten", overwrite);
 	root.add_text("message", "copy task started");
 	return sendJson(res, 200, root, req.isKeepAlive());
 }

@@ -99,12 +99,14 @@ static bool read_local_import_body(request_t& req, std::string& body,
 
 static bool local_import_request_data(request_t& req, std::string& folder,
 	std::string& folder_password, std::vector<std::string>& paths,
-	std::string& err)
+	bool& overwrite, std::string& err)
 {
 	folder = req.getParameter("folder") ? req.getParameter("folder") : "";
 	folder_password = req.getParameter("folder_password")
 		? req.getParameter("folder_password") : "";
 	split_local_paths(req.getParameter("paths"), paths);
+	overwrite = req.getParameter("overwrite") != NULL
+		&& strcmp(req.getParameter("overwrite"), "1") == 0;
 
 	if (req.getContentLength() <= 0 || !paths.empty()) {
 		return true;
@@ -134,6 +136,11 @@ static bool local_import_request_data(request_t& req, std::string& folder,
 	acl::json_node* password_node = (*body)["folder_password"];
 	if (password_node != NULL) {
 		folder_password = local_import_json_text(password_node);
+	}
+	acl::json_node* overwrite_node = (*body)["overwrite"];
+	if (overwrite_node != NULL) {
+		const std::string overwrite_text = local_import_json_text(overwrite_node);
+		overwrite = overwrite_text == "true" || overwrite_text == "1";
 	}
 
 	acl::json_node* paths_node = (*body)["paths"];
@@ -214,8 +221,9 @@ bool LocalDiskImportAction::run(request_t& req, response_t& res,
 	std::string folder_password;
 	std::string folder_path;
 	std::string err;
+	bool overwrite = false;
 	if (!local_import_request_data(req, raw_folder_path, folder_password,
-		raw_paths, err))
+		raw_paths, overwrite, err))
 	{
 		json_error(res, 400, err.c_str(), req.isKeepAlive());
 		return true;
@@ -298,27 +306,32 @@ bool LocalDiskImportAction::run(request_t& req, response_t& res,
 	std::vector<std::string> dirs;
 	std::vector<local_import_file_t> files;
 	std::set<std::string> used_relative_paths;
+	std::vector<std::string> overwrite_targets;
 	for (size_t i = 0; i < filtered_sources.size(); ++i) {
 		const std::string source = filtered_sources[i];
-		if (filtered_is_dir[i]) {
-			std::string remote_dir = unique_upload_directory_relative(
-				upload_dir, folder_path, local_base_name(source));
-			if (remote_dir.empty()) {
-				json_error(res, 500, "cannot create unique target directory name",
+		const std::string base_name = local_base_name(source);
+		const std::string target_relative = folder_path.empty()
+			? base_name
+			: (folder_path + "/" + base_name);
+		const std::string target_full = join_upload_path(upload_dir, target_relative);
+		struct stat target_st;
+		if (stat(target_full.c_str(), &target_st) == 0) {
+			if (!overwrite) {
+				json_error(res, 409, "target already contains a path with same name",
 					req.isKeepAlive());
 				return true;
 			}
+			overwrite_targets.push_back(target_full);
+		} else if (errno != ENOENT) {
+			json_error(res, 500, strerror(errno), req.isKeepAlive());
+			return true;
+		}
+		if (filtered_is_dir[i]) {
+			std::string remote_dir = target_relative;
 			if (used_relative_paths.find(remote_dir) != used_relative_paths.end()) {
-				const std::string base_name = local_base_name(source);
-				for (int n = 1; n < 10000; ++n) {
-					const std::string candidate = folder_path.empty()
-						? (base_name + "." + std::to_string(n))
-						: (folder_path + "/" + base_name + "." + std::to_string(n));
-					if (used_relative_paths.find(candidate) == used_relative_paths.end()) {
-						remote_dir = candidate;
-						break;
-					}
-				}
+				json_error(res, 409, "target already contains a path with same name",
+					req.isKeepAlive());
+				return true;
 			}
 			if (!collect_local_import_directory(source, remote_dir, dirs, files, err)) {
 				json_error(res, 500, err.c_str(), req.isKeepAlive());
@@ -337,24 +350,11 @@ bool LocalDiskImportAction::run(request_t& req, response_t& res,
 			return true;
 		}
 		std::string relative_path;
-		if (unique_upload_path(upload_dir, folder_path, local_base_name(source),
-			relative_path).empty())
-		{
-			json_error(res, 500, "cannot create unique target file name",
+		relative_path = target_relative;
+		if (used_relative_paths.find(relative_path) != used_relative_paths.end()) {
+			json_error(res, 409, "target already contains a path with same name",
 				req.isKeepAlive());
 			return true;
-		}
-		if (used_relative_paths.find(relative_path) != used_relative_paths.end()) {
-			const std::string base_name = local_base_name(source);
-			for (int n = 1; n < 10000; ++n) {
-				const std::string candidate = folder_path.empty()
-					? (base_name + "." + std::to_string(n))
-					: (folder_path + "/" + base_name + "." + std::to_string(n));
-				if (used_relative_paths.find(candidate) == used_relative_paths.end()) {
-					relative_path = candidate;
-					break;
-				}
-			}
 		}
 		local_import_file_t file;
 		file.source = source;
@@ -363,6 +363,12 @@ bool LocalDiskImportAction::run(request_t& req, response_t& res,
 		file.size = regular_file_size(file.source);
 		files.push_back(file);
 		used_relative_paths.insert(relative_path);
+	}
+	for (size_t i = 0; i < overwrite_targets.size(); ++i) {
+		if (!remove_local_path_recursive(overwrite_targets[i], err)) {
+			json_error(res, 500, err.c_str(), req.isKeepAlive());
+			return true;
+		}
 	}
 
 	const std::string task_id = create_local_import_task_id();
