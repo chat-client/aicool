@@ -68,7 +68,8 @@
         link.removeAttribute("href");
         return;
       }
-      link.href = "./files/" + encodeURIComponent(file);
+      link.href = "https://download.webcool.cn/download/files/" + encodeURIComponent(file);
+      //link.href = "./files/" + encodeURIComponent(file);
       link.setAttribute("download", file);
     });
   }

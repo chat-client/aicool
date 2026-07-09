@@ -1,16 +1,16 @@
 {
-  "version": "1.3.5",
+  "version": "1.6.x",
   "release": "1",
-  "updated": "2026-06-23",
+  "updated": "2026-07-08",
   "files": {
-    "macos_arm64": "webcool-1.3.5-macos-arm64.pkg",
-    "macos_x64": "",
-    "deb_amd64": "webcool_1.3.5-1_amd64.deb",
+    "macos_arm64": "webcool-1.6.3-macos-universal.pkg",
+    "macos_x64": "webcool-1.6.3-macos-universal.pkg",
+    "deb_amd64": "webcool_1.6.3-1_amd64.deb",
     "deb_arm64": "",
     "rpm_x86_64": "",
     "rpm_aarch64": "",
-    "windows_setup": "webcool-1.3.5-windows-x64-release-setup.zip",
-    "windows_zip": "",
-    "android": "webcool-v1.0.0-arm64-release.apk"
+    "windows_setup": "webcool-1.6.4-windows-x64-release-setup.exe",
+    "windows_zip": "webcool-1.6.4-windows-x64-release-setup.zip",
+    "android": "webcool-v1.4.0-arm64-release.apk"
   }
 }
