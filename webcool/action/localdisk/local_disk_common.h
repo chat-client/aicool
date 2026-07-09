@@ -95,7 +95,7 @@ static std::string windows_last_error_message(DWORD code)
 static std::wstring windows_dir_pattern_from_utf8(const std::string& path)
 {
 	std::wstring pattern;
-	if (!webcool_utf8_to_wide(path.c_str(), pattern)) {
+	if (!webcool_utf8_path_to_wide(path.c_str(), pattern)) {
 		return std::wstring();
 	}
 	const wchar_t tail = pattern.empty() ? L'\0' : pattern[pattern.size() - 1];
@@ -161,7 +161,8 @@ static void json_locked_dir_error(response_t& res, const char* msg,
 	root.add_bool("ok", false);
 	root.add_text("error", msg ? msg : "directory is locked");
 	root.add_text("path", display_path.c_str());
-	root.add_text("parent_path", parent_path(display_path).c_str());
+	const std::string parent = parent_path(display_path);
+	root.add_text("parent_path", parent.c_str());
 	sendJson(res, 403, root, keep_alive);
 }
 
@@ -1166,6 +1167,14 @@ static bool copy_regular_file_with_progress(const std::string& source,
 static bool copy_regular_file_plain(const std::string& source,
 	const std::string& dest, mode_t mode, std::string& err)
 {
+#ifdef _WIN32
+	if (webcool_copy_file(source.c_str(), dest.c_str(), true)) {
+		(void) chmod(dest.c_str(), mode & 0777);
+		return true;
+	}
+	err = strerror(errno);
+	return false;
+#else
 	FILE* in = fopen(source.c_str(), "rb");
 	if (in == NULL) {
 		err = strerror(errno);
@@ -1206,6 +1215,7 @@ static bool copy_regular_file_plain(const std::string& source,
 	}
 	(void) chmod(dest.c_str(), mode & 0777);
 	return true;
+#endif
 }
 
 static bool remove_local_path_recursive(const std::string& path,

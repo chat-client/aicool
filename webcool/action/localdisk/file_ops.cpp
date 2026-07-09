@@ -528,7 +528,7 @@ bool LocalDiskCopyAction::run(request_t& req, response_t& res,
 
 	if (async) {
 		const std::string task_id = start_remote_copy_task(source, dest, dest,
-			source_is_dir, upload_dir);
+			source_is_dir, "");
 		acl::json json;
 		acl::json_node& root = json.create_node();
 		root.add_bool("ok", true);
@@ -694,7 +694,7 @@ bool LocalDiskCopyFromRemoteAction::run(request_t& req, response_t& res,
 	}
 
 	const std::string task_id = start_remote_copy_task(source_full, dest, dest,
-		source_is_dir, upload_dir);
+		source_is_dir, "");
 	acl::json json;
 	acl::json_node& root = json.create_node();
 	root.add_bool("ok", true);

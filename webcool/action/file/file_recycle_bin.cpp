@@ -552,6 +552,14 @@ bool remove_upload_path_recursive(const std::string& full_path,
 bool copy_regular_file_plain(const std::string& source,
 	const std::string& dest, mode_t mode, std::string& err)
 {
+#ifdef _WIN32
+	if (webcool_copy_file(source.c_str(), dest.c_str(), true)) {
+		(void) chmod(dest.c_str(), mode & 0777);
+		return true;
+	}
+	err = strerror(errno);
+	return false;
+#else
 	FILE* in = fopen(source.c_str(), "rb");
 	if (in == NULL) {
 		err = strerror(errno);
@@ -592,6 +600,7 @@ bool copy_regular_file_plain(const std::string& source,
 	}
 	(void) chmod(dest.c_str(), mode & 0777);
 	return true;
+#endif
 }
 
 bool soft_delete_to_recycle(const std::string& upload_dir,

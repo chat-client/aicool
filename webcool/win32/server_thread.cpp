@@ -87,7 +87,7 @@ void *server_thread::run() {
 				delete conn;
 				fibers_.erase(acl::fiber::self());
 				stop_wait_group_.done();
-			}, g_stack_size);
+			}, normalize_fiber_stack_size(g_stack_size));
 
 			fibers_.insert({ fb->get_id(), fb });
 			stop_wait_group_.add(1);

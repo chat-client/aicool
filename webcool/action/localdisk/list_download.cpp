@@ -129,10 +129,11 @@ bool LocalDiskListAction::run(request_t& req, response_t& res,
 	root.add_text("path", path.c_str());
 	const std::string parent = virtual_root ? "/" : parent_path(path);
 	root.add_text("parent_path", parent.c_str());
-	root.add_text("home_path", current_home_path().c_str());
+	const std::string home = current_home_path();
+	root.add_text("home_path", home.c_str());
 	root.add_bool("virtual_root", virtual_root);
 	std::string trash_path;
-	if (current_trash_files_path(trash_path, err)) {
+	if (!virtual_root && current_trash_files_path(trash_path, err)) {
 		root.add_text("trash_path", trash_path.c_str());
 	}
 	acl::json_node& items = json.create_array();
@@ -143,7 +144,9 @@ bool LocalDiskListAction::run(request_t& req, response_t& res,
 		item.add_text("path", entries[i].path.c_str());
 		item.add_bool("directory", entries[i].directory);
 		item.add_bool("empty_directory", entries[i].empty_directory);
-		if (entries[i].directory && !virtual_root) {
+		if (virtual_root) {
+			item.add_bool("locked", false);
+		} else if (entries[i].directory) {
 			bool locked = false;
 			std::string lock_err;
 			if (local_dir_lock_path_has_lock(upload_dir, entries[i].path, locked, lock_err)) {

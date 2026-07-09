@@ -11,6 +11,9 @@ extern char                  g_sqlite_lib[4096];
 extern char                  g_ffmpeg_path[4096];
 extern std::atomic<bool>     g_service_stopping;
 
+size_t default_fiber_stack_size();
+size_t minimum_fiber_stack_size();
+size_t normalize_fiber_stack_size(size_t stack_size);
 bool set_config_text(char* dst, size_t dst_size,
 	const std::string& value, const char* label, std::string& err);
 std::string join_config_path(const std::string& parent, const char* name);

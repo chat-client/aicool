@@ -7,7 +7,17 @@
 #include "platform_compat.h"
 #include "config.h"
 
-size_t                g_stack_size = 128000;
+namespace {
+#ifdef _WIN32
+const size_t k_default_fiber_stack_size = 512 * 1024;
+const size_t k_minimum_fiber_stack_size = 256 * 1024;
+#else
+const size_t k_default_fiber_stack_size = 256000;
+const size_t k_minimum_fiber_stack_size = 256000;
+#endif
+}
+
+size_t                g_stack_size = k_default_fiber_stack_size;
 int                   g_rw_timeout = 0;
 #ifdef _WIN32
 acl::fiber_event_t    g_event_type = acl::FIBER_EVENT_T_POLL;
@@ -131,6 +141,24 @@ void apply_default_upload_dir() {
 }
 
 } // namespace
+
+size_t default_fiber_stack_size() {
+	return k_default_fiber_stack_size;
+}
+
+size_t minimum_fiber_stack_size() {
+	return k_minimum_fiber_stack_size;
+}
+
+size_t normalize_fiber_stack_size(size_t stack_size) {
+	if (stack_size == 0) {
+		return default_fiber_stack_size();
+	}
+	if (stack_size < minimum_fiber_stack_size()) {
+		return minimum_fiber_stack_size();
+	}
+	return stack_size;
+}
 
 // 连接读写超时（秒）：0 表示不限制，适用于大文件慢速上传。
 // 优先级：webcool.cf io_timeout > 命令行 -r > 0（无超时）

@@ -109,30 +109,106 @@ inline bool webcool_wide_to_utf8(const wchar_t* text, std::string& out)
 	return true;
 }
 
+inline bool webcool_is_windows_extended_path(const std::wstring& path)
+{
+	return path.compare(0, 4, L"\\\\?\\") == 0
+		|| path.compare(0, 4, L"\\??\\") == 0;
+}
+
+inline bool webcool_is_windows_drive_absolute(const std::wstring& path)
+{
+	return path.size() >= 3
+		&& ((path[0] >= L'A' && path[0] <= L'Z')
+			|| (path[0] >= L'a' && path[0] <= L'z'))
+		&& path[1] == L':' && (path[2] == L'\\' || path[2] == L'/');
+}
+
+inline bool webcool_utf8_path_to_wide(const char* path, std::wstring& out)
+{
+	if (!webcool_utf8_to_wide(path, out)) {
+		return false;
+	}
+	for (size_t i = 0; i < out.size(); ++i) {
+		if (out[i] == L'/') {
+			out[i] = L'\\';
+		}
+	}
+	if (out.empty() || webcool_is_windows_extended_path(out)) {
+		return true;
+	}
+
+	std::wstring full_path;
+	if (webcool_is_windows_drive_absolute(out)
+		|| (out.size() >= 2 && out[0] == L'\\' && out[1] == L'\\')) {
+		full_path = out;
+	} else {
+		wchar_t buffer[32768];
+		const DWORD n = GetFullPathNameW(out.c_str(),
+			(DWORD) (sizeof(buffer) / sizeof(buffer[0])), buffer, NULL);
+		if (n == 0 || n >= sizeof(buffer) / sizeof(buffer[0])) {
+			errno = ENAMETOOLONG;
+			return false;
+		}
+		full_path.assign(buffer);
+		for (size_t i = 0; i < full_path.size(); ++i) {
+			if (full_path[i] == L'/') {
+				full_path[i] = L'\\';
+			}
+		}
+	}
+
+	if (full_path.size() >= 2 && full_path[0] == L'\\'
+		&& full_path[1] == L'\\') {
+		out = L"\\\\?\\UNC\\" + full_path.substr(2);
+	} else if (webcool_is_windows_drive_absolute(full_path)) {
+		out = L"\\\\?\\" + full_path;
+	} else {
+		out = full_path;
+	}
+	return true;
+}
+
+inline void webcool_strip_extended_path_prefix(std::wstring& path)
+{
+	const std::wstring unc_prefix = L"\\\\?\\UNC\\";
+	const std::wstring drive_prefix = L"\\\\?\\";
+	const std::wstring nt_unc_prefix = L"\\??\\UNC\\";
+	const std::wstring nt_drive_prefix = L"\\??\\";
+	if (path.compare(0, unc_prefix.size(), unc_prefix) == 0) {
+		path = L"\\\\" + path.substr(unc_prefix.size());
+	} else if (path.compare(0, drive_prefix.size(), drive_prefix) == 0) {
+		path = path.substr(drive_prefix.size());
+	} else if (path.compare(0, nt_unc_prefix.size(), nt_unc_prefix) == 0) {
+		path = L"\\\\" + path.substr(nt_unc_prefix.size());
+	} else if (path.compare(0, nt_drive_prefix.size(), nt_drive_prefix) == 0) {
+		path = path.substr(nt_drive_prefix.size());
+	}
+}
+
 inline int webcool_mkdir(const char* path, int)
 {
 	std::wstring wpath;
-	return webcool_utf8_to_wide(path, wpath) ? _wmkdir(wpath.c_str()) : -1;
+	return webcool_utf8_path_to_wide(path, wpath) ? _wmkdir(wpath.c_str()) : -1;
 }
 
 inline int webcool_rmdir(const char* path)
 {
 	std::wstring wpath;
-	return webcool_utf8_to_wide(path, wpath) ? _wrmdir(wpath.c_str()) : -1;
+	return webcool_utf8_path_to_wide(path, wpath) ? _wrmdir(wpath.c_str()) : -1;
 }
 
 inline int webcool_unlink(const char* path)
 {
 	std::wstring wpath;
-	return webcool_utf8_to_wide(path, wpath) ? _wunlink(wpath.c_str()) : -1;
+	return webcool_utf8_path_to_wide(path, wpath) ? _wunlink(wpath.c_str()) : -1;
 }
 
 inline int webcool_rename(const char* old_path, const char* new_path)
 {
 	std::wstring wold_path;
 	std::wstring wnew_path;
-	if (!webcool_utf8_to_wide(old_path, wold_path)
-		|| !webcool_utf8_to_wide(new_path, wnew_path)) {
+	if (!webcool_utf8_path_to_wide(old_path, wold_path)
+		|| !webcool_utf8_path_to_wide(new_path, wnew_path)) {
 		return -1;
 	}
 	if (MoveFileExW(wold_path.c_str(), wnew_path.c_str(),
@@ -158,7 +234,7 @@ inline FILE* webcool_fopen(const char* path, const char* mode)
 {
 	std::wstring wpath;
 	std::wstring wmode;
-	if (!webcool_utf8_to_wide(path, wpath)
+	if (!webcool_utf8_path_to_wide(path, wpath)
 		|| !webcool_utf8_to_wide(mode, wmode)) {
 		return NULL;
 	}
@@ -168,7 +244,7 @@ inline FILE* webcool_fopen(const char* path, const char* mode)
 inline int webcool_stat(const char* path, struct stat* st)
 {
 	std::wstring wpath;
-	if (st == NULL || !webcool_utf8_to_wide(path, wpath)) {
+	if (st == NULL || !webcool_utf8_path_to_wide(path, wpath)) {
 		return -1;
 	}
 #ifdef _USE_32BIT_TIME_T
@@ -215,13 +291,46 @@ inline int webcool_stat(const char* path, struct stat* st)
 inline int webcool_access(const char* path, int mode)
 {
 	std::wstring wpath;
-	return webcool_utf8_to_wide(path, wpath) ? _waccess(wpath.c_str(), mode) : -1;
+	return webcool_utf8_path_to_wide(path, wpath) ? _waccess(wpath.c_str(), mode) : -1;
 }
 
 inline int webcool_chmod(const char* path, int mode)
 {
 	std::wstring wpath;
-	return webcool_utf8_to_wide(path, wpath) ? _wchmod(wpath.c_str(), mode) : -1;
+	return webcool_utf8_path_to_wide(path, wpath) ? _wchmod(wpath.c_str(), mode) : -1;
+}
+
+inline void webcool_set_errno_from_windows_error(DWORD err)
+{
+	if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+		errno = ENOENT;
+	} else if (err == ERROR_ACCESS_DENIED || err == ERROR_SHARING_VIOLATION) {
+		errno = EACCES;
+	} else if (err == ERROR_ALREADY_EXISTS || err == ERROR_FILE_EXISTS) {
+		errno = EEXIST;
+	} else if (err == ERROR_DISK_FULL || err == ERROR_HANDLE_DISK_FULL) {
+		errno = ENOSPC;
+	} else if (err == ERROR_NOT_SAME_DEVICE) {
+		errno = EXDEV;
+	} else {
+		errno = EINVAL;
+	}
+}
+
+inline bool webcool_copy_file(const char* source, const char* dest,
+	bool overwrite)
+{
+	std::wstring wsource;
+	std::wstring wdest;
+	if (!webcool_utf8_path_to_wide(source, wsource)
+		|| !webcool_utf8_path_to_wide(dest, wdest)) {
+		return false;
+	}
+	if (CopyFileW(wsource.c_str(), wdest.c_str(), overwrite ? FALSE : TRUE)) {
+		return true;
+	}
+	webcool_set_errno_from_windows_error(GetLastError());
+	return false;
 }
 
 inline bool webcool_make_dirs_utf8(const char* path, int mode)
@@ -327,7 +436,7 @@ inline char* webcool_realpath(const char* path, char* resolved)
 		return NULL;
 	}
 	std::wstring wpath;
-	if (!webcool_utf8_to_wide(path, wpath)) {
+	if (!webcool_utf8_path_to_wide(path, wpath)) {
 		return NULL;
 	}
 	wchar_t wresolved[32768];
@@ -337,8 +446,11 @@ inline char* webcool_realpath(const char* path, char* resolved)
 		errno = ENOENT;
 		return NULL;
 	}
+	std::wstring display_path(wresolved);
+	webcool_strip_extended_path_prefix(display_path);
 	std::string utf8;
-	if (!webcool_wide_to_utf8(wresolved, utf8) || utf8.size() >= PATH_MAX) {
+	if (!webcool_wide_to_utf8(display_path.c_str(), utf8)
+		|| utf8.size() >= PATH_MAX) {
 		errno = ENAMETOOLONG;
 		return NULL;
 	}
@@ -374,7 +486,7 @@ inline std::wstring webcool_dir_pattern(const char* path)
 {
 	std::string text = path && *path ? path : ".";
 	std::wstring pattern;
-	if (!webcool_utf8_to_wide(text.c_str(), pattern)) {
+	if (!webcool_utf8_path_to_wide(text.c_str(), pattern)) {
 		return std::wstring();
 	}
 	const wchar_t tail = pattern.empty() ? L'\0' : pattern[pattern.size() - 1];

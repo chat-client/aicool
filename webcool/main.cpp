@@ -8,7 +8,7 @@
 #include "http_router.h"
 #include "master_service.h"
 
-static auto g_webcool_version = "1.6.3";
+static auto g_webcool_version = "1.6.4";
 
 static const char* event_type_name(acl::fiber_event_t event_type) {
 	switch (event_type) {
@@ -130,7 +130,7 @@ static void usage(const char* prog) {
 		"  -F ffmpeg_path  ffmpeg 可执行文件路径 (例如 /opt/webcool/bin/ffmpeg)\n"
 		"  -T threads      工作线程数 (默认 2)\n"
 		"  -r rw_timeout   读写超时秒数 (默认 0=无超时)\n"
-		"  -z stack_size   协程栈大小 (默认 128000)\n"
+		"  -z stack_size   协程栈大小 (默认 %zu，最小 %zu)\n"
 #ifdef _WIN32
 		"  -e event_type   事件引擎: kernel|poll|select (默认 poll)\n"
 		"  -C              进入 DOS 终端模式\n"
@@ -138,7 +138,7 @@ static void usage(const char* prog) {
 #else
 		"  -e event_type   事件引擎: kernel|poll|select (默认 kernel)\n",
 #endif
-		prog);
+		prog, default_fiber_stack_size(), minimum_fiber_stack_size());
 }
 
 // ───────────────────────────────────────
@@ -253,7 +253,8 @@ int main(int argc, char* argv[]) {
 			g_rw_timeout = atoi(acl_optarg);
 			break;
 		case 'z':
-			g_stack_size = atoi(acl_optarg);
+			g_stack_size = normalize_fiber_stack_size(
+				acl_optarg ? (size_t) strtoull(acl_optarg, NULL, 10) : 0);
 			break;
 		case 'e':
 			if (strcasecmp(acl_optarg, "poll") == 0) {

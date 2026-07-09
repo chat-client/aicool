@@ -132,16 +132,47 @@ acl::json_node* validate_expected_md5(acl::json& json,
 }
 
 bool md5_file_hex(const std::string& path, std::string& hex, std::string& err) {
-	char out[33] = {};
 	bool res = false;
 	acl::gofiber_wait_thread([&] {
-		if (acl::md5::md5_file(path.c_str(), nullptr, 0, out, sizeof(out)) < 0) {
-			err = "md5 compute failed";
+		FILE* fp = fopen(path.c_str(), "rb");
+		if (fp == nullptr) {
+			err = strerror(errno);
+			logger_error("md5 open failed, path=%s, error=%s",
+				path.c_str(), err.c_str());
 			res = false;
-		} else {
-			hex = out;
-			res = true;
+			return;
 		}
+
+		acl::md5 md5;
+		char buf[8192];
+		while (true) {
+			const size_t n = fread(buf, 1, sizeof(buf), fp);
+			if (n > 0) {
+				md5.update(buf, n);
+			}
+			if (n < sizeof(buf)) {
+				if (ferror(fp)) {
+					err = strerror(errno);
+					logger_error("md5 read failed, path=%s, error=%s",
+						path.c_str(), err.c_str());
+					fclose(fp);
+					res = false;
+					return;
+				}
+				break;
+			}
+		}
+		if (fclose(fp) != 0) {
+			err = strerror(errno);
+			logger_error("md5 close failed, path=%s, error=%s",
+				path.c_str(), err.c_str());
+			res = false;
+			return;
+		}
+
+		md5.finish();
+		hex = md5.get_string();
+		res = true;
 	});
 	return res;
 }
