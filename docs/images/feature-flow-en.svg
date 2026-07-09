@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="520" viewBox="0 0 1100 520" role="img" aria-labelledby="title desc">
+  <title id="title">webcool Feature Flow</title>
+  <desc id="desc">Shows how the browser console connects to the virtual disk, local disk, tag tree, system management, and security protection.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#3f6f9e"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#6d8dad" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="1100" height="520" rx="28" fill="#f5faff"/>
+  <text x="550" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#223f60">webcool Private File Workspace</text>
+
+  <g filter="url(#shadow)">
+    <rect x="420" y="100" width="260" height="82" rx="18" fill="#ffffff" stroke="#bfd7ef"/>
+    <text x="550" y="150" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#244b70">Browser Console</text>
+  </g>
+
+  <g font-family="Arial, sans-serif">
+    <rect x="92" y="250" width="180" height="72" rx="16" fill="#e7f4ff" stroke="#a9cdea"/>
+    <text x="182" y="294" text-anchor="middle" font-size="20" font-weight="700" fill="#234d74">Virtual Disk</text>
+
+    <rect x="322" y="250" width="180" height="72" rx="16" fill="#eaf8f0" stroke="#aedbc0"/>
+    <text x="412" y="294" text-anchor="middle" font-size="20" font-weight="700" fill="#245d3f">Local Disk</text>
+
+    <rect x="552" y="250" width="180" height="72" rx="16" fill="#fff4df" stroke="#eccb8f"/>
+    <text x="642" y="294" text-anchor="middle" font-size="20" font-weight="700" fill="#71501d">Tag Tree</text>
+
+    <rect x="782" y="250" width="210" height="72" rx="16" fill="#f0edff" stroke="#c9c0f2"/>
+    <text x="887" y="294" text-anchor="middle" font-size="20" font-weight="700" fill="#4b4384">System Admin</text>
+
+    <rect x="250" y="390" width="260" height="72" rx="16" fill="#ffffff" stroke="#c9dced"/>
+    <text x="380" y="420" text-anchor="middle" font-size="18" font-weight="700" fill="#25476a">Preview / Download</text>
+    <text x="380" y="445" text-anchor="middle" font-size="15" fill="#597792">Copy / Move</text>
+
+    <rect x="602" y="390" width="250" height="72" rx="16" fill="#ffffff" stroke="#c9dced"/>
+    <text x="727" y="420" text-anchor="middle" font-size="18" font-weight="700" fill="#25476a">Migration / Backup</text>
+    <text x="727" y="445" text-anchor="middle" font-size="15" fill="#597792">Users / Preferences</text>
+  </g>
+
+  <g stroke="#3f6f9e" stroke-width="3" fill="none" marker-end="url(#arrow)">
+    <path d="M500 182 C430 220 285 222 205 248"/>
+    <path d="M530 182 C500 218 455 225 420 248"/>
+    <path d="M575 182 C610 218 630 225 638 248"/>
+    <path d="M640 182 C725 220 820 225 880 248"/>
+    <path d="M185 322 C215 360 285 370 355 390"/>
+    <path d="M412 322 C410 350 395 365 385 390"/>
+    <path d="M642 322 C610 360 500 372 420 390"/>
+    <path d="M887 322 C850 360 790 370 742 390"/>
+  </g>
+
+  <text x="550" y="500" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#486987">Lock checks and recycle-bin protection apply across access, move, delete, preview, and admin operations.</text>
+</svg>

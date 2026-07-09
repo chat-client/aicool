@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="420" viewBox="0 0 1100 420" role="img" aria-labelledby="title desc">
+  <title id="title">webcool 上传与转码流程图</title>
+  <desc id="desc">展示文件选择、目标目录、上传进度、视频兼容性探测、直接播放或用户确认转码的流程。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#3f6f9e"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#6d8dad" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1100" height="420" rx="28" fill="#f5faff"/>
+  <text x="550" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#233f5f">上传、探测与转码流程</text>
+
+  <g font-family="Arial, sans-serif" filter="url(#shadow)">
+    <rect x="54" y="155" width="150" height="70" rx="16" fill="#ffffff" stroke="#c9dced"/>
+    <text x="129" y="185" text-anchor="middle" font-size="17" font-weight="700" fill="#244b70">选择 / 拖拽</text>
+    <text x="129" y="210" text-anchor="middle" font-size="14" fill="#67809a">文件</text>
+
+    <rect x="252" y="155" width="160" height="70" rx="16" fill="#e7f4ff" stroke="#a9cdea"/>
+    <text x="332" y="185" text-anchor="middle" font-size="17" font-weight="700" fill="#244b70">选择远程</text>
+    <text x="332" y="210" text-anchor="middle" font-size="14" fill="#67809a">目标目录</text>
+
+    <rect x="460" y="155" width="140" height="70" rx="16" fill="#eaf8f0" stroke="#aedbc0"/>
+    <text x="530" y="198" text-anchor="middle" font-size="18" font-weight="700" fill="#245d3f">上传进度</text>
+
+    <rect x="648" y="145" width="170" height="90" rx="18" fill="#fff4df" stroke="#eccb8f"/>
+    <text x="733" y="181" text-anchor="middle" font-size="17" font-weight="700" fill="#71501d">视频兼容性</text>
+    <text x="733" y="207" text-anchor="middle" font-size="17" font-weight="700" fill="#71501d">探测</text>
+
+    <rect x="900" y="92" width="150" height="64" rx="16" fill="#eaf8f0" stroke="#aedbc0"/>
+    <text x="975" y="132" text-anchor="middle" font-size="18" font-weight="700" fill="#245d3f">直接播放</text>
+
+    <rect x="890" y="224" width="170" height="64" rx="16" fill="#eef0ff" stroke="#c9c0f2"/>
+    <text x="975" y="263" text-anchor="middle" font-size="18" font-weight="700" fill="#4b4384">用户确认转码</text>
+
+    <rect x="690" y="314" width="170" height="60" rx="16" fill="#ffffff" stroke="#c9dced"/>
+    <text x="775" y="351" text-anchor="middle" font-size="17" font-weight="700" fill="#244b70">后台转码与进度</text>
+
+    <rect x="450" y="314" width="170" height="60" rx="16" fill="#ffffff" stroke="#c9dced"/>
+    <text x="535" y="351" text-anchor="middle" font-size="17" font-weight="700" fill="#244b70">完成后预览 / 续播</text>
+  </g>
+
+  <g stroke="#3f6f9e" stroke-width="3" fill="none" marker-end="url(#arrow)">
+    <path d="M204 190 L252 190"/>
+    <path d="M412 190 L460 190"/>
+    <path d="M600 190 L648 190"/>
+    <path d="M818 176 C850 145 872 130 900 124"/>
+    <path d="M818 207 C850 230 864 248 890 256"/>
+    <path d="M975 288 C940 326 890 342 860 344"/>
+    <path d="M690 344 L620 344"/>
+  </g>
+
+  <text x="850" y="112" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#4c7c55">兼容</text>
+  <text x="850" y="250" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#755aa5">不兼容</text>
+</svg>
