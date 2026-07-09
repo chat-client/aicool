@@ -1,5 +1,0 @@
-# 将构建好的安装包放到此目录
-# Place built installer packages in this directory.
-#
-# 文件名需与 ../releases.json 中 files 字段一致
-# Filenames must match the "files" entries in ../releases.json
