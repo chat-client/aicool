@@ -90,7 +90,6 @@ bool master_service::prepare_runtime(bool& upload_dir_specified) {
 	}
 
 	action::runtime_upload_dir_init(g_upload_dir);
-
 	std::string err;
 
 	if (!action::storage_prepare_startup_primary(g_upload_dir,
@@ -219,7 +218,7 @@ void master_service::on_accept(acl::socket_stream& conn) {
 }
 
 void master_service::proc_pre_jail() {
-	logger(">>>proc_pre_jail<<<");
+	//logger(">>>proc_pre_jail<<<");
 }
 
 void master_service::proc_on_listen(acl::server_socket& ss) {
