@@ -475,6 +475,16 @@ public:
 		const std::string& upload_dir);
 };
 
+class LocalDiskAudioExtractAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+	static bool progress(request_t& req, response_t& res,
+		const std::string& upload_dir);
+	static bool cancel(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
 class VideoConvertProgressAction {
 public:
 	static bool run(request_t& req, response_t& res,

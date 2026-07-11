@@ -83,6 +83,9 @@ private:
 	static bool routeLocalDiskImportProgress(request_t& req, response_t& res);
 	static bool routeLocalDiskImportControl(request_t& req, response_t& res);
 	static bool routeLocalDiskVideoConvert(request_t& req, response_t& res);
+	static bool routeLocalDiskAudioExtract(request_t& req, response_t& res);
+	static bool routeLocalDiskAudioExtractProgress(request_t& req, response_t& res);
+	static bool routeLocalDiskAudioExtractCancel(request_t& req, response_t& res);
 	static bool routeLocalDiskVideoStream(request_t& req, response_t& res);
 	static bool routeLocalDiskVideoStreamState(request_t& req, response_t& res);
 	static bool routeVideoConvert(request_t& req, response_t& res);

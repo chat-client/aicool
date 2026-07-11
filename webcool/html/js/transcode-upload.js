@@ -1298,20 +1298,24 @@ function deleteUnlockedFolderPassword(path) {
           const progressView = openAudioExtractProgress(fileLabel);
           try {
             const started = await fetchJson(
-              api.extractAudio + '?file=' + encodeURIComponent(path),
+              (local
+                ? (api.localDiskAudioExtract + '?path=')
+                : (api.extractAudio + '?file=')) + encodeURIComponent(path),
               { method: 'POST' }
             );
             if (!started.task_id) {
               throw new Error(started.message || t('无法启动音频提取'));
             }
             const taskId = String(started.task_id);
+            const progressApi = local ? api.localDiskAudioExtractProgress : api.extractAudioProgress;
+            const cancelApi = local ? api.localDiskAudioExtractCancel : api.extractAudioCancel;
             progressView.setCancelHandler(function () {
-              fetchJson(api.extractAudioCancel + '?task_id=' + encodeURIComponent(taskId), { method: 'POST' })
+              fetchJson(cancelApi + '?task_id=' + encodeURIComponent(taskId), { method: 'POST' })
                 .then(function () { progressView.update(null, t('取消中')); })
                 .catch(function (err) { progressView.update(null, t('取消失败：') + err.message, 'failed'); });
             });
             const poll = async function () {
-              const data = await fetchJson(api.extractAudioProgress + '?task_id=' + encodeURIComponent(taskId));
+              const data = await fetchJson(progressApi + '?task_id=' + encodeURIComponent(taskId));
               const progress = Math.max(0, Math.min(100, Math.round(Number(data.progress || 0))));
               if (!data.done) {
                 progressView.update(progress, data.message || t('正在提取音频：'));
@@ -1330,7 +1334,11 @@ function deleteUnlockedFolderPassword(path) {
                 throw new Error(data.error || data.message || t('未知错误'));
               }
               progressView.update(100, t('音频提取完成：') + String(data.name || ''), 'done');
-              await loadFiles();
+              if (local) {
+                await loadLocalDisk(activeLocalDiskPath || localDiskParentPath(path) || '');
+              } else {
+                await loadFiles();
+              }
               showStatus(t('音频提取完成：') + String(data.name || ''), 'ok');
             };
             await poll();

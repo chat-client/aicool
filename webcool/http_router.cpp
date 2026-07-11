@@ -327,6 +327,9 @@ void http_router::setup() const {
 		.Get("/api/v1/local-disk/import/progress", &http_router::routeLocalDiskImportProgress)
 		.Get("/api/v1/local-disk/import/control", &http_router::routeLocalDiskImportControl)
 		.Get("/api/v1/local-disk/video/convert", &http_router::routeLocalDiskVideoConvert)
+		.Get("/api/v1/local-disk/video/audio/extract", &http_router::routeLocalDiskAudioExtract)
+		.Get("/api/v1/local-disk/video/audio/extract/progress", &http_router::routeLocalDiskAudioExtractProgress)
+		.Get("/api/v1/local-disk/video/audio/extract/cancel", &http_router::routeLocalDiskAudioExtractCancel)
 		.Get("/api/v1/local-disk/video/stream", &http_router::routeLocalDiskVideoStream)
 		.Get("/api/v1/local-disk/video/stream-state", &http_router::routeLocalDiskVideoStreamState)
 		.Get("/api/v1/video/convert", &http_router::routeVideoConvert)
@@ -428,6 +431,9 @@ void http_router::setup() const {
 		.Post("/api/v1/local-disk/import/control", &http_router::routeLocalDiskImportControl)
 		.Post("/api/v1/local-disk/import/progress", &http_router::routeLocalDiskImportProgress)
 		.Post("/api/v1/local-disk/video/convert", &http_router::routeLocalDiskVideoConvert)
+		.Post("/api/v1/local-disk/video/audio/extract", &http_router::routeLocalDiskAudioExtract)
+		.Post("/api/v1/local-disk/video/audio/extract/progress", &http_router::routeLocalDiskAudioExtractProgress)
+		.Post("/api/v1/local-disk/video/audio/extract/cancel", &http_router::routeLocalDiskAudioExtractCancel)
 		.Post("/api/v1/local-disk/video/stream-state", &http_router::routeLocalDiskVideoStreamState)
 		.Post("/api/v1/tags/create", &http_router::routeTagCreate)
 		.Post("/api/v1/tags/rename", &http_router::routeTagRename)
@@ -768,6 +774,18 @@ bool http_router::routeLocalDiskImportControl(request_t& req, response_t& res) {
 
 bool http_router::routeLocalDiskVideoConvert(request_t& req, response_t& res) {
 	return action::LocalDiskVideoConvertAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_router::routeLocalDiskAudioExtract(request_t& req, response_t& res) {
+	return action::LocalDiskAudioExtractAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_router::routeLocalDiskAudioExtractProgress(request_t& req, response_t& res) {
+	return action::LocalDiskAudioExtractAction::progress(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_router::routeLocalDiskAudioExtractCancel(request_t& req, response_t& res) {
+	return action::LocalDiskAudioExtractAction::cancel(req, res, action::runtime_upload_dir_get());
 }
 
 bool http_router::routeLocalDiskVideoStream(request_t& req, response_t& res) {

@@ -180,4 +180,140 @@ bool AudioExtractAction::cancel(request_t& req, response_t& res,
 	return sendJson(res, 200, root, req.isKeepAlive());
 }
 
+bool LocalDiskAudioExtractAction::run(request_t& req, response_t& res,
+	const std::string& upload_dir)
+{
+	std::string input_path;
+	std::string err;
+	if (!normalize_local_video_path(req.getParameter("path"), input_path, err)) {
+		json_error(res, 400, err.c_str(), req.isKeepAlive());
+		return true;
+	}
+	struct stat st{};
+	if (stat(input_path.c_str(), &st) != 0 || !S_ISREG(st.st_mode)
+		|| !is_video_name(local_base_name(input_path).c_str())) {
+		json_error(res, 404, "source video not found", req.isKeepAlive());
+		return true;
+	}
+	int lock_status = 500;
+	if (!ensure_local_video_transcode_lock_policy(upload_dir, input_path, err, lock_status)) {
+		json_error(res, lock_status, err.c_str(), req.isKeepAlive());
+		return true;
+	}
+	const std::string ffmpeg = choose_ffmpeg_path();
+	if (ffmpeg.empty()) {
+		json_error(res, 500, "ffmpeg not found", req.isKeepAlive());
+		return true;
+	}
+	const std::string task_file = "audio-extract-local:" + input_path;
+	const std::string task_key = scoped_task_key(upload_dir, task_file);
+	{
+		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
+		const auto running = g_running_task_by_file.find(task_key);
+		if (running != g_running_task_by_file.end()) {
+			const auto found = g_transcode_tasks.find(running->second);
+			if (found != g_transcode_tasks.end() && !found->second->done) {
+				acl::json json;
+				acl::json_node& root = json.create_node();
+				root.add_bool("ok", true);
+				root.add_bool("started", false);
+				root.add_text("task_id", found->second->id.c_str());
+				root.add_text("name", found->second->output_name.c_str());
+				return sendJson(res, 200, root, req.isKeepAlive());
+			}
+		}
+	}
+	const std::string parent = local_parent_path(input_path);
+	const std::string stem = replace_ext(local_base_name(input_path), "");
+	std::string output_path;
+	for (int i = 1; i < 10000; ++i) {
+		const std::string suffix = i == 1 ? "" : ("_" + std::to_string(i));
+		const std::string candidate = local_join_path(parent,
+			(stem + "_audio" + suffix + ".mp3").c_str());
+		if (!path_exists(candidate)) {
+			output_path = candidate;
+			break;
+		}
+	}
+	if (output_path.empty()) {
+		output_path = local_join_path(parent,
+			(stem + "_audio_" + std::to_string(g_transcode_seq.load()) + ".mp3").c_str());
+	}
+	acl::string temp_path;
+	temp_path.format("%s/.audio_extract_tmp.%u.%lu.mp3", parent.c_str(),
+		static_cast<unsigned>(getpid()), static_cast<unsigned long>(g_transcode_seq.load()));
+	auto task = std::make_shared<transcode_task_t>();
+	task->id = make_task_id();
+	task->scope = upload_dir;
+	task->file_name = task_file;
+	task->output_name = output_path;
+	task->message = "等待提取音频";
+	task->local = true;
+	{
+		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
+		g_transcode_tasks[task->id] = task;
+		g_running_task_by_file[task_key] = task->id;
+	}
+	const std::string temporary_path = temp_path.c_str();
+	go[task, ffmpeg, input_path, temporary_path, output_path] {
+		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary_path, output_path] {
+			run_audio_extract(task, ffmpeg, input_path, temporary_path, output_path);
+		});
+	};
+	acl::json json;
+	acl::json_node& root = json.create_node();
+	root.add_bool("ok", true);
+	root.add_bool("started", true);
+	root.add_text("task_id", task->id.c_str());
+	root.add_text("name", output_path.c_str());
+	return sendJson(res, 200, root, req.isKeepAlive());
+}
+
+bool LocalDiskAudioExtractAction::progress(request_t& req, response_t& res,
+	const std::string& upload_dir)
+{
+	transcode_task_snapshot_t task;
+	if (!snapshot_task_by_id(req.getParameter("task_id"), upload_dir, task)
+		|| task.file_name.compare(0, 20, "audio-extract-local:") != 0) {
+		json_error(res, 404, "local audio extraction task not found", req.isKeepAlive());
+		return true;
+	}
+	acl::json json;
+	acl::json_node& root = json.create_node();
+	root.add_bool("ok", true);
+	root.add_text("task_id", task.id.c_str());
+	root.add_text("name", task.output_name.c_str());
+	root.add_bool("done", task.done);
+	root.add_bool("success", task.success);
+	root.add_bool("cancel_requested", task.cancel_requested);
+	root.add_number("progress", static_cast<long long>(task.progress));
+	root.add_text("message", task.message.c_str());
+	if (!task.error.empty()) root.add_text("error", task.error.c_str());
+	return sendJson(res, 200, root, req.isKeepAlive());
+}
+
+bool LocalDiskAudioExtractAction::cancel(request_t& req, response_t& res,
+	const std::string& upload_dir)
+{
+	transcode_task_snapshot_t task;
+	if (!snapshot_task_by_id(req.getParameter("task_id"), upload_dir, task)
+		|| task.file_name.compare(0, 20, "audio-extract-local:") != 0) {
+		json_error(res, 404, "local audio extraction task not found", req.isKeepAlive());
+		return true;
+	}
+	bool signal_sent = false;
+	if (!request_cancel_task(task.id.c_str(), upload_dir, task, signal_sent)) {
+		json_error(res, 404, "local audio extraction task not found", req.isKeepAlive());
+		return true;
+	}
+	acl::json json;
+	acl::json_node& root = json.create_node();
+	root.add_bool("ok", true);
+	root.add_text("task_id", task.id.c_str());
+	root.add_bool("done", task.done);
+	root.add_bool("cancel_requested", true);
+	root.add_bool("signal_sent", signal_sent);
+	return sendJson(res, 200, root, req.isKeepAlive());
+}
+
 } // namespace action
