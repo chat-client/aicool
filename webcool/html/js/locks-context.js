@@ -810,6 +810,7 @@ function loadUnlockedFilePasswords() {
           return;
         }
         const opts = options || {};
+        const isAudio = isAudioName(filePath);
         const isUnlocked = !!getFilePassword(filePath, local);
         const menu = document.createElement('div');
         menu.className = 'folder-context-menu file-context-menu';
@@ -849,8 +850,10 @@ function loadUnlockedFilePasswords() {
           html += '<button type="button" class="folder-context-item" data-file-menu-action="open-local-player">' + t('使用本地播放器播放') + '</button>';
           html += '<button type="button" class="folder-context-item" data-file-menu-action="choose-local-player">' + t('选择本地播放器') + '</button>';
         }
-        if (!isMultiList && isVideo && !opts.recycleMode) {
+        if (!isMultiList && (isVideo || isAudio) && !opts.recycleMode) {
           html += '<button type="button" class="folder-context-item" data-file-menu-action="video-properties">' + t('属性') + '</button>';
+        }
+        if (!isMultiList && isVideo && !opts.recycleMode) {
           html += '<button type="button" class="folder-context-item" data-file-menu-action="extract-audio">' + t('提取音频') + '</button>';
         }
         menu.innerHTML = html;

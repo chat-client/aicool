@@ -1310,7 +1310,7 @@ function deleteUnlockedFolderPassword(path) {
       async function showVideoProperties(path, local) {
         const loading = document.createElement('div');
         loading.className = 'video-properties-dialog';
-        loading.innerHTML = '<div class="video-properties-card"><div class="video-properties-loading">' + t('正在读取视频属性...') + '</div></div>';
+        loading.innerHTML = '<div class="video-properties-card"><div class="video-properties-loading">' + t('正在读取媒体属性...') + '</div></div>';
         document.body.appendChild(loading);
         try {
           const endpoint = local ? api.localDiskVideoProperties : api.videoProperties;
@@ -1320,19 +1320,26 @@ function deleteUnlockedFolderPassword(path) {
             [t('文件名'), data.name || path],
             [t('文件大小'), formatVideoPropertySize(data.size)],
             [t('时长'), formatVideoPropertyDuration(data.duration_ms)],
-            [t('总码率'), data.bitrate_kbps == null ? '-' : (data.bitrate_kbps + ' kb/s')],
-            [t('视频编码'), data.video_codec || '-'],
-            [t('分辨率'), data.width && data.height ? (data.width + ' × ' + data.height) : '-'],
-            [t('帧率'), data.fps == null ? '-' : (Number(data.fps).toFixed(2) + ' fps')],
-            [t('视频码率'), data.video_bitrate_kbps == null ? '-' : (data.video_bitrate_kbps + ' kb/s')],
+            [t('总码率'), data.bitrate_kbps == null ? '-' : (data.bitrate_kbps + ' kb/s')]
+          ];
+          if (data.has_video) {
+            rows.push(
+              [t('视频编码'), data.video_codec || '-'],
+              [t('分辨率'), data.width && data.height ? (data.width + ' × ' + data.height) : '-'],
+              [t('帧率'), data.fps == null ? '-' : (Number(data.fps).toFixed(2) + ' fps')],
+              [t('视频码率'), data.video_bitrate_kbps == null ? '-' : (data.video_bitrate_kbps + ' kb/s')]
+            );
+          }
+          rows.push(
             [t('音频编码'), data.has_audio ? (data.audio_codec || '-') : t('无音轨')],
             [t('采样率'), data.sample_rate_hz == null ? '-' : (data.sample_rate_hz + ' Hz')],
             [t('声道'), data.audio_channels || '-'],
             [t('音频码率'), data.audio_bitrate_kbps == null ? '-' : (data.audio_bitrate_kbps + ' kb/s')]
-          ];
+          );
+          const propertiesTitle = data.has_video ? t('视频属性') : t('音频属性');
           loading.innerHTML =
-            '<div class="video-properties-card" role="dialog" aria-modal="true" aria-label="' + t('视频属性') + '">' +
-              '<div class="video-properties-head"><strong>' + t('视频属性') + '</strong><div class="video-properties-window-actions">' +
+            '<div class="video-properties-card" role="dialog" aria-modal="true" aria-label="' + propertiesTitle + '">' +
+              '<div class="video-properties-head"><strong>' + propertiesTitle + '</strong><div class="video-properties-window-actions">' +
                 '<button type="button" data-video-properties-minimize aria-label="' + t('最小化') + '">−</button>' +
                 '<button type="button" data-video-properties-close aria-label="' + t('关闭') + '">×</button>' +
               '</div></div>' +
