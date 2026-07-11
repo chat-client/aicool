@@ -5038,3 +5038,102 @@
       cursor: default;
       opacity: 0.6;
     }
+
+    .video-properties-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 4700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(20, 36, 52, 0.42);
+    }
+
+    .video-properties-card {
+      width: min(620px, 100%);
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 18px 52px rgba(16, 38, 60, 0.3);
+    }
+
+    .video-properties-card.is-minimized {
+      width: min(300px, 100%);
+      overflow: hidden;
+    }
+
+    .video-properties-card.is-minimized .video-properties-body {
+      display: none;
+    }
+
+    .video-properties-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid #dce6ef;
+      color: #173a5e;
+      cursor: move;
+      user-select: none;
+    }
+
+    .video-properties-window-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .video-properties-head button {
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: #647b91;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .video-properties-head button:hover {
+      background: #edf3f9;
+    }
+
+    .video-properties-grid {
+      display: grid;
+      grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
+      padding: 8px 20px;
+    }
+
+    .video-properties-label,
+    .video-properties-value {
+      padding: 9px 8px;
+      border-bottom: 1px solid #edf2f7;
+    }
+
+    .video-properties-label { color: #63798e; }
+    .video-properties-value {
+      overflow-wrap: anywhere;
+      color: #203b55;
+    }
+
+    .video-properties-actions {
+      display: flex;
+      justify-content: flex-end;
+      padding: 12px 20px 18px;
+    }
+
+    .video-properties-actions button {
+      padding: 7px 18px;
+      border: 1px solid #2a7ae4;
+      border-radius: 6px;
+      background: #2a7ae4;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .video-properties-loading {
+      padding: 28px;
+      color: #526b82;
+      text-align: center;
+    }

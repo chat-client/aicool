@@ -330,6 +330,7 @@ void http_router::setup() const {
 		.Get("/api/v1/local-disk/video/audio/extract", &http_router::routeLocalDiskAudioExtract)
 		.Get("/api/v1/local-disk/video/audio/extract/progress", &http_router::routeLocalDiskAudioExtractProgress)
 		.Get("/api/v1/local-disk/video/audio/extract/cancel", &http_router::routeLocalDiskAudioExtractCancel)
+		.Get("/api/v1/local-disk/video/properties", &http_router::routeLocalDiskVideoProperties)
 		.Get("/api/v1/local-disk/video/stream", &http_router::routeLocalDiskVideoStream)
 		.Get("/api/v1/local-disk/video/stream-state", &http_router::routeLocalDiskVideoStreamState)
 		.Get("/api/v1/video/convert", &http_router::routeVideoConvert)
@@ -340,6 +341,7 @@ void http_router::setup() const {
 		.Get("/api/v1/video/convert/progress", &http_router::routeVideoConvertProgress)
 		.Get("/api/v1/video/convert/tasks", &http_router::routeVideoConvertTasks)
 		.Get("/api/v1/video/probe", &http_router::routeVideoProbe)
+		.Get("/api/v1/video/properties", &http_router::routeVideoProperties)
 		.Get("/api/v1/video/resume", &http_router::routeVideoResumeGet)
 		.Get("/api/v1/video/resume/save", &http_router::routeVideoResumeSet)
 		.Get("/api/v1/folders", &http_router::routeFolderList)
@@ -404,6 +406,7 @@ void http_router::setup() const {
 		.Post("/api/v1/video/convert/progress", &http_router::routeVideoConvertProgress)
 		.Post("/api/v1/video/convert/tasks", &http_router::routeVideoConvertTasks)
 		.Post("/api/v1/video/probe", &http_router::routeVideoProbe)
+		.Post("/api/v1/video/properties", &http_router::routeVideoProperties)
 		.Post("/api/v1/video/resume/save", &http_router::routeVideoResumeSet)
 		.Post("/api/v1/folders", &http_router::routeFolderList)
 		.Post("/api/v1/folders/create", &http_router::routeFolderCreate)
@@ -434,6 +437,7 @@ void http_router::setup() const {
 		.Post("/api/v1/local-disk/video/audio/extract", &http_router::routeLocalDiskAudioExtract)
 		.Post("/api/v1/local-disk/video/audio/extract/progress", &http_router::routeLocalDiskAudioExtractProgress)
 		.Post("/api/v1/local-disk/video/audio/extract/cancel", &http_router::routeLocalDiskAudioExtractCancel)
+		.Post("/api/v1/local-disk/video/properties", &http_router::routeLocalDiskVideoProperties)
 		.Post("/api/v1/local-disk/video/stream-state", &http_router::routeLocalDiskVideoStreamState)
 		.Post("/api/v1/tags/create", &http_router::routeTagCreate)
 		.Post("/api/v1/tags/rename", &http_router::routeTagRename)
@@ -849,6 +853,15 @@ bool http_router::routeVideoConvertCancel(request_t& req, response_t& res) {
 bool http_router::routeVideoProbe(request_t& req, response_t& res) {
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::VideoProbeAction::run(req, res, dir);
+}
+
+bool http_router::routeVideoProperties(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::VideoPropertiesAction::run(req, res, dir);
+}
+
+bool http_router::routeLocalDiskVideoProperties(request_t& req, response_t& res) {
+	return action::VideoPropertiesAction::runLocal(req, res, action::runtime_upload_dir_get());
 }
 
 bool http_router::routeVideoResumeGet(request_t& req, response_t& res) {

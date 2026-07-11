@@ -101,6 +101,8 @@ function selectRenameInputText(input) {
         convertProgress: '/api/v1/video/convert/progress',
         convertTasks: '/api/v1/video/convert/tasks',
         probeVideo: '/api/v1/video/probe',
+        videoProperties: '/api/v1/video/properties',
+        localDiskVideoProperties: '/api/v1/local-disk/video/properties',
         videoResume: '/api/v1/video/resume',
         videoResumeSave: '/api/v1/video/resume/save'
       };

@@ -1289,11 +1289,114 @@ function deleteUnlockedFolderPassword(path) {
         };
       }
 
+      function formatVideoPropertySize(bytes) {
+        const value = Number(bytes);
+        if (!Number.isFinite(value) || value < 0) return '-';
+        if (value >= 1073741824) return (value / 1073741824).toFixed(2) + ' GB';
+        if (value >= 1048576) return (value / 1048576).toFixed(2) + ' MB';
+        if (value >= 1024) return (value / 1024).toFixed(2) + ' KB';
+        return value + ' B';
+      }
+
+      function formatVideoPropertyDuration(milliseconds) {
+        const total = Math.max(0, Math.round(Number(milliseconds || 0) / 1000));
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const seconds = total % 60;
+        return (hours ? (String(hours).padStart(2, '0') + ':') : '')
+          + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+      }
+
+      async function showVideoProperties(path, local) {
+        const loading = document.createElement('div');
+        loading.className = 'video-properties-dialog';
+        loading.innerHTML = '<div class="video-properties-card"><div class="video-properties-loading">' + t('正在读取视频属性...') + '</div></div>';
+        document.body.appendChild(loading);
+        try {
+          const endpoint = local ? api.localDiskVideoProperties : api.videoProperties;
+          const parameter = local ? 'path' : 'file';
+          const data = await fetchJson(endpoint + '?' + parameter + '=' + encodeURIComponent(path));
+          const rows = [
+            [t('文件名'), data.name || path],
+            [t('文件大小'), formatVideoPropertySize(data.size)],
+            [t('时长'), formatVideoPropertyDuration(data.duration_ms)],
+            [t('总码率'), data.bitrate_kbps == null ? '-' : (data.bitrate_kbps + ' kb/s')],
+            [t('视频编码'), data.video_codec || '-'],
+            [t('分辨率'), data.width && data.height ? (data.width + ' × ' + data.height) : '-'],
+            [t('帧率'), data.fps == null ? '-' : (Number(data.fps).toFixed(2) + ' fps')],
+            [t('视频码率'), data.video_bitrate_kbps == null ? '-' : (data.video_bitrate_kbps + ' kb/s')],
+            [t('音频编码'), data.has_audio ? (data.audio_codec || '-') : t('无音轨')],
+            [t('采样率'), data.sample_rate_hz == null ? '-' : (data.sample_rate_hz + ' Hz')],
+            [t('声道'), data.audio_channels || '-'],
+            [t('音频码率'), data.audio_bitrate_kbps == null ? '-' : (data.audio_bitrate_kbps + ' kb/s')]
+          ];
+          loading.innerHTML =
+            '<div class="video-properties-card" role="dialog" aria-modal="true" aria-label="' + t('视频属性') + '">' +
+              '<div class="video-properties-head"><strong>' + t('视频属性') + '</strong><div class="video-properties-window-actions">' +
+                '<button type="button" data-video-properties-minimize aria-label="' + t('最小化') + '">−</button>' +
+                '<button type="button" data-video-properties-close aria-label="' + t('关闭') + '">×</button>' +
+              '</div></div>' +
+              '<div class="video-properties-body">' +
+                '<div class="video-properties-grid">' + rows.map(function (row) {
+                  return '<div class="video-properties-label">' + escapeHtml(String(row[0])) + '</div><div class="video-properties-value">' + escapeHtml(String(row[1])) + '</div>';
+                }).join('') + '</div>' +
+                '<div class="video-properties-actions"><button type="button" data-video-properties-close>' + t('关闭') + '</button></div>' +
+              '</div>' +
+            '</div>';
+          const card = loading.querySelector('.video-properties-card');
+          const head = loading.querySelector('.video-properties-head');
+          const minimizeButton = loading.querySelector('[data-video-properties-minimize]');
+          let minimized = false;
+          loading.querySelectorAll('[data-video-properties-close]').forEach(function (button) {
+            button.addEventListener('click', function () { loading.remove(); });
+          });
+          minimizeButton.addEventListener('click', function () {
+            minimized = !minimized;
+            card.classList.toggle('is-minimized', minimized);
+            minimizeButton.textContent = minimized ? '□' : '−';
+            minimizeButton.setAttribute('aria-label', minimized ? t('恢复') : t('最小化'));
+          });
+          head.addEventListener('mousedown', function (event) {
+            if (event.button !== 0 || event.target.closest('button')) return;
+            const rect = card.getBoundingClientRect();
+            const offsetX = event.clientX - rect.left;
+            const offsetY = event.clientY - rect.top;
+            card.style.position = 'fixed';
+            card.style.margin = '0';
+            card.style.left = rect.left + 'px';
+            card.style.top = rect.top + 'px';
+            const move = function (moveEvent) {
+              const maxLeft = Math.max(0, window.innerWidth - card.offsetWidth);
+              const maxTop = Math.max(0, window.innerHeight - card.offsetHeight);
+              card.style.left = Math.max(0, Math.min(maxLeft, moveEvent.clientX - offsetX)) + 'px';
+              card.style.top = Math.max(0, Math.min(maxTop, moveEvent.clientY - offsetY)) + 'px';
+            };
+            const stop = function () {
+              document.removeEventListener('mousemove', move);
+              document.removeEventListener('mouseup', stop);
+            };
+            document.addEventListener('mousemove', move);
+            document.addEventListener('mouseup', stop);
+            event.preventDefault();
+          });
+          loading.addEventListener('click', function (event) {
+            if (event.target === loading) loading.remove();
+          });
+        } catch (err) {
+          loading.remove();
+          throw err;
+        }
+      }
+
       async function handleFileContextAction(action, path, local) {
         if (!action || !path) {
           return;
         }
         const fileLabel = local ? path : path;
+        if (action === 'video-properties') {
+          await showVideoProperties(path, local);
+          return;
+        }
         if (action === 'extract-audio') {
           const progressView = openAudioExtractProgress(fileLabel);
           try {

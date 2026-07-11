@@ -96,6 +96,8 @@ private:
 	static bool routeVideoConvertTasks(request_t& req, response_t& res);
 	static bool routeVideoConvertCancel(request_t& req, response_t& res);
 	static bool routeVideoProbe(request_t& req, response_t& res);
+	static bool routeVideoProperties(request_t& req, response_t& res);
+	static bool routeLocalDiskVideoProperties(request_t& req, response_t& res);
 	static bool routeVideoResumeGet(request_t& req, response_t& res);
 	static bool routeVideoResumeSet(request_t& req, response_t& res);
 	static bool routeFolderList(request_t& req, response_t& res);

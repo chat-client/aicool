@@ -509,6 +509,14 @@ public:
 		const std::string& upload_dir);
 };
 
+class VideoPropertiesAction {
+public:
+	static bool run(request_t& req, response_t& res,
+		const std::string& upload_dir);
+	static bool runLocal(request_t& req, response_t& res,
+		const std::string& upload_dir);
+};
+
 class VideoResumeGetAction {
 public:
 	static bool run(request_t& req, response_t& res,
