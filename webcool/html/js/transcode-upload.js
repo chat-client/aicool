@@ -1374,14 +1374,26 @@ function deleteUnlockedFolderPassword(path) {
                 '<label>' + t('目标宽度') + '<input type="number" data-enhance-width min="320" max="3840" step="2" value="' + suggested.width + '"></label>' +
                 '<label>' + t('目标高度') + '<input type="number" data-enhance-height min="240" max="2160" step="2" value="' + suggested.height + '"></label>' +
                 '<label>' + t('视频码率') + ' (kb/s)<input type="number" data-enhance-bitrate min="300" max="50000" step="100" value="' + Math.round(suggested.bitrate) + '"></label>' +
+                '<label>' + t('降噪强度') + '<select data-enhance-denoise><option value="0">' + t('关闭') + '</option><option value="1" selected>' + t('轻度') + '</option><option value="2">' + t('中度') + '</option></select></label>' +
+                '<label>' + t('锐化强度') + '<input type="range" data-enhance-sharpen min="0" max="100" step="10" value="30"><span class="video-enhance-range-value" data-enhance-sharpen-value>30%</span></label>' +
+                '<label class="video-enhance-check"><input type="checkbox" data-enhance-deinterlace> ' + t('去隔行（仅老式隔行视频建议开启）') + '</label>' +
+                '<label>' + t('运动补帧') + '<select data-enhance-fps><option value="0" selected>' + t('保持原帧率') + '</option><option value="30">30 FPS</option><option value="50">50 FPS</option><option value="60">60 FPS</option></select><small>' + t('补帧可以改善运动流畅度，但会显著增加处理时间。') + '</small></label>' +
                 '<div class="video-enhance-actions"><button type="button" data-enhance-cancel>' + t('取消') + '</button><button type="button" data-enhance-confirm>' + t('开始提升') + '</button></div></div>';
               document.body.appendChild(form);
+              const sharpenInput = form.querySelector('[data-enhance-sharpen]');
+              sharpenInput.addEventListener('input', function () {
+                form.querySelector('[data-enhance-sharpen-value]').textContent = sharpenInput.value + '%';
+              });
               form.querySelector('[data-enhance-cancel]').addEventListener('click', function () { form.remove(); });
               form.querySelector('[data-enhance-confirm]').addEventListener('click', function () {
                 const options = {
                   width: Number(form.querySelector('[data-enhance-width]').value),
                   height: Number(form.querySelector('[data-enhance-height]').value),
-                  bitrate: Number(form.querySelector('[data-enhance-bitrate]').value)
+                  bitrate: Number(form.querySelector('[data-enhance-bitrate]').value),
+                  denoise: Number(form.querySelector('[data-enhance-denoise]').value),
+                  sharpen: Number(sharpenInput.value),
+                  deinterlace: form.querySelector('[data-enhance-deinterlace]').checked,
+                  targetFps: Number(form.querySelector('[data-enhance-fps]').value)
                 };
                 if (!Number.isInteger(options.width) || !Number.isInteger(options.height)
                     || options.width < 320 || options.width > 3840 || options.width % 2
@@ -1441,7 +1453,11 @@ function deleteUnlockedFolderPassword(path) {
         const parameter = local ? 'path' : 'file';
         const query = '?' + parameter + '=' + encodeURIComponent(path)
           + '&width=' + encodeURIComponent(options.width) + '&height=' + encodeURIComponent(options.height)
-          + '&bitrate_kbps=' + encodeURIComponent(options.bitrate);
+          + '&bitrate_kbps=' + encodeURIComponent(options.bitrate)
+          + '&denoise=' + encodeURIComponent(options.denoise)
+          + '&sharpen=' + encodeURIComponent(options.sharpen)
+          + '&deinterlace=' + (options.deinterlace ? '1' : '0')
+          + '&target_fps=' + encodeURIComponent(options.targetFps);
         const started = await fetchJson(startApi + query, { method: 'POST' });
         const taskId = String(started.task_id || '');
         if (!taskId) throw new Error(t('无法启动画质提升'));

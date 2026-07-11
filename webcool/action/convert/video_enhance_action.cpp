@@ -28,15 +28,22 @@ std::string unique_output(const std::string& source, int width, int height,
 
 void run_enhance(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input, const std::string& temp,
-	const std::string& output, int width, int height, int bitrate)
+	const std::string& output, int width, int height, int bitrate,
+	int denoise, bool deinterlace, int sharpen, int target_fps)
 {
 	unlink(temp.c_str());
 	const long long duration = probe_duration_ms(ffmpeg, input);
-	const std::string filter = "yadif,hqdn3d=1.5:1.5:6:6,scale="
-		+ std::to_string(width) + ":" + std::to_string(height)
+	std::string filter;
+	if (deinterlace) filter += "yadif,";
+	if (denoise == 1) filter += "hqdn3d=0.8:0.8:3:3,";
+	if (denoise == 2) filter += "hqdn3d=1.2:1.2:4:4,";
+	filter += "scale=" + std::to_string(width) + ":" + std::to_string(height)
 		+ ":force_original_aspect_ratio=decrease:flags=lanczos,pad="
 		+ std::to_string(width) + ":" + std::to_string(height)
-		+ ":(ow-iw)/2:(oh-ih)/2,unsharp=5:5:0.5";
+		+ ":(ow-iw)/2:(oh-ih)/2";
+	if (sharpen > 0) filter += ",unsharp=5:5:" + std::to_string(sharpen / 100.0);
+	if (target_fps > 0) filter += ",minterpolate=fps=" + std::to_string(target_fps)
+		+ ":mi_mode=mci:mc_mode=aobmc:me_mode=bidir";
 	const std::string rate = std::to_string(bitrate) + "k";
 	const std::string maxrate = std::to_string(bitrate * 3 / 2) + "k";
 	const std::string bufsize = std::to_string(bitrate * 2) + "k";
@@ -79,8 +86,14 @@ bool VideoEnhanceAction::run(request_t& req, response_t& res,
 	const int width = int_param(req, "width");
 	const int height = int_param(req, "height");
 	const int bitrate = int_param(req, "bitrate_kbps");
+	const int denoise = int_param(req, "denoise");
+	const int sharpen = int_param(req, "sharpen");
+	const int target_fps = int_param(req, "target_fps");
+	const bool deinterlace = int_param(req, "deinterlace") == 1;
 	if (width < 320 || width > 3840 || height < 240 || height > 2160
-		|| width % 2 || height % 2 || bitrate < 300 || bitrate > 50000) {
+		|| width % 2 || height % 2 || bitrate < 300 || bitrate > 50000
+		|| denoise < 0 || denoise > 2 || sharpen < 0 || sharpen > 100
+		|| (target_fps != 0 && target_fps != 30 && target_fps != 50 && target_fps != 60)) {
 		json_error(res, 400, "invalid width, height, or bitrate", req.isKeepAlive()); return true;
 	}
 	std::string source;
@@ -135,9 +148,10 @@ bool VideoEnhanceAction::run(request_t& req, response_t& res,
 	task->file_name = task_file; task->output_name = output_name; task->message = "等待提升画质"; task->local = local;
 	{ std::lock_guard<webcool::mutex> guard(g_transcode_mutex); g_transcode_tasks[task->id] = task; g_running_task_by_file[key] = task->id; }
 	const std::string temp_path = tmp.c_str();
-	go[task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate] {
-			run_enhance(task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate);
+	go[task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate, denoise, deinterlace, sharpen, target_fps] {
+		acl::gofiber_wait_thread([task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate, denoise, deinterlace, sharpen, target_fps] {
+			run_enhance(task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate,
+				denoise, deinterlace, sharpen, target_fps);
 		});
 	};
 	acl::json json; acl::json_node& root = json.create_node(); root.add_bool("ok", true);
