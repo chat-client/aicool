@@ -330,6 +330,9 @@ void http_router::setup() const {
 		.Get("/api/v1/local-disk/video/stream", &http_router::routeLocalDiskVideoStream)
 		.Get("/api/v1/local-disk/video/stream-state", &http_router::routeLocalDiskVideoStreamState)
 		.Get("/api/v1/video/convert", &http_router::routeVideoConvert)
+		.Get("/api/v1/video/audio/extract", &http_router::routeAudioExtract)
+		.Get("/api/v1/video/audio/extract/progress", &http_router::routeAudioExtractProgress)
+		.Get("/api/v1/video/audio/extract/cancel", &http_router::routeAudioExtractCancel)
 		.Get("/api/v1/video/convert/cancel", &http_router::routeVideoConvertCancel)
 		.Get("/api/v1/video/convert/progress", &http_router::routeVideoConvertProgress)
 		.Get("/api/v1/video/convert/tasks", &http_router::routeVideoConvertTasks)
@@ -391,6 +394,9 @@ void http_router::setup() const {
 		.Post("/api/v1/remote-copy/cancel", &http_router::routeRemoteCopyCancel)
 		.Post("/api/v1/files/rename", &http_router::routeRenameFile)
 		.Post("/api/v1/video/convert", &http_router::routeVideoConvert)
+		.Post("/api/v1/video/audio/extract", &http_router::routeAudioExtract)
+		.Post("/api/v1/video/audio/extract/progress", &http_router::routeAudioExtractProgress)
+		.Post("/api/v1/video/audio/extract/cancel", &http_router::routeAudioExtractCancel)
 		.Post("/api/v1/video/convert/cancel", &http_router::routeVideoConvertCancel)
 		.Post("/api/v1/video/convert/progress", &http_router::routeVideoConvertProgress)
 		.Post("/api/v1/video/convert/tasks", &http_router::routeVideoConvertTasks)
@@ -790,6 +796,21 @@ bool http_router::routeUploadStreamStatus(request_t& req, response_t& res) {
 bool http_router::routeVideoConvert(request_t& req, response_t& res) {
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::VideoConvertAction::run(req, res, dir);
+}
+
+bool http_router::routeAudioExtract(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::AudioExtractAction::run(req, res, dir);
+}
+
+bool http_router::routeAudioExtractProgress(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::AudioExtractAction::progress(req, res, dir);
+}
+
+bool http_router::routeAudioExtractCancel(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::AudioExtractAction::cancel(req, res, dir);
 }
 
 bool http_router::routeVideoConvertProgress(request_t& req, response_t& res) {

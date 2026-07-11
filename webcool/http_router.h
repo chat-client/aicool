@@ -86,6 +86,9 @@ private:
 	static bool routeLocalDiskVideoStream(request_t& req, response_t& res);
 	static bool routeLocalDiskVideoStreamState(request_t& req, response_t& res);
 	static bool routeVideoConvert(request_t& req, response_t& res);
+	static bool routeAudioExtract(request_t& req, response_t& res);
+	static bool routeAudioExtractProgress(request_t& req, response_t& res);
+	static bool routeAudioExtractCancel(request_t& req, response_t& res);
 	static bool routeVideoConvertProgress(request_t& req, response_t& res);
 	static bool routeVideoConvertTasks(request_t& req, response_t& res);
 	static bool routeVideoConvertCancel(request_t& req, response_t& res);

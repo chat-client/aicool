@@ -1200,11 +1200,145 @@ function deleteUnlockedFolderPassword(path) {
         saveUnlockedFolderPasswords();
       }
 
+      function openAudioExtractProgress(fileName) {
+        const dialog = document.createElement('div');
+        dialog.className = 'audio-extract-progress-dialog';
+        dialog.innerHTML =
+          '<div class="audio-extract-progress-card" role="status" aria-live="polite">' +
+            '<div class="audio-extract-progress-head">' +
+              '<strong>' + t('提取音频') + '</strong>' +
+              '<div class="audio-extract-progress-window-actions">' +
+                '<button type="button" class="audio-extract-progress-minimize" aria-label="' + t('最小化') + '">−</button>' +
+                '<button type="button" class="audio-extract-progress-close" aria-label="' + t('关闭') + '">×</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="audio-extract-progress-body">' +
+              '<div class="audio-extract-progress-file">' + escapeHtml(String(fileName || '')) + '</div>' +
+              '<div class="audio-extract-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+                '<div class="audio-extract-progress-fill"></div>' +
+              '</div>' +
+              '<div class="audio-extract-progress-text">' + t('正在启动音频提取：') + '0%</div>' +
+              '<div class="audio-extract-progress-actions"><button type="button" class="audio-extract-progress-cancel">' + t('取消') + '</button></div>' +
+            '</div>' +
+          '</div>';
+        document.body.appendChild(dialog);
+        const fill = dialog.querySelector('.audio-extract-progress-fill');
+        const track = dialog.querySelector('.audio-extract-progress-track');
+        const textNode = dialog.querySelector('.audio-extract-progress-text');
+        const cancelButton = dialog.querySelector('.audio-extract-progress-cancel');
+        const minimizeButton = dialog.querySelector('.audio-extract-progress-minimize');
+        const head = dialog.querySelector('.audio-extract-progress-head');
+        let cancelHandler = null;
+        let minimized = false;
+        let currentProgress = 0;
+        dialog.querySelector('.audio-extract-progress-close').addEventListener('click', function () {
+          if (dialog.parentNode) dialog.parentNode.removeChild(dialog);
+        });
+        minimizeButton.addEventListener('click', function () {
+          minimized = !minimized;
+          dialog.classList.toggle('is-minimized', minimized);
+          minimizeButton.textContent = minimized ? '□' : '−';
+          minimizeButton.setAttribute('aria-label', minimized ? t('恢复') : t('最小化'));
+        });
+        cancelButton.addEventListener('click', function () {
+          if (!cancelHandler || cancelButton.disabled) return;
+          cancelButton.disabled = true;
+          cancelButton.textContent = t('取消中');
+          cancelHandler();
+        });
+        head.addEventListener('mousedown', function (event) {
+          if (event.button !== 0 || event.target.closest('button')) return;
+          const rect = dialog.getBoundingClientRect();
+          const offsetX = event.clientX - rect.left;
+          const offsetY = event.clientY - rect.top;
+          dialog.style.right = 'auto';
+          dialog.style.bottom = 'auto';
+          const move = function (moveEvent) {
+            const maxLeft = Math.max(0, window.innerWidth - dialog.offsetWidth);
+            const maxTop = Math.max(0, window.innerHeight - dialog.offsetHeight);
+            dialog.style.left = Math.max(0, Math.min(maxLeft, moveEvent.clientX - offsetX)) + 'px';
+            dialog.style.top = Math.max(0, Math.min(maxTop, moveEvent.clientY - offsetY)) + 'px';
+          };
+          const stop = function () {
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('mouseup', stop);
+          };
+          document.addEventListener('mousemove', move);
+          document.addEventListener('mouseup', stop);
+          event.preventDefault();
+        });
+        return {
+          setCancelHandler: function (handler) { cancelHandler = handler; },
+          update: function (progress, message, state) {
+            const value = progress == null
+              ? currentProgress
+              : Math.max(0, Math.min(100, Math.round(Number(progress || 0))));
+            currentProgress = value;
+            if (!dialog.parentNode) return;
+            fill.style.width = value + '%';
+            fill.classList.toggle('is-done', state === 'done');
+            fill.classList.toggle('is-failed', state === 'failed');
+            fill.classList.toggle('is-cancelled', state === 'cancelled');
+            track.setAttribute('aria-valuenow', String(value));
+            textNode.textContent = String(message || '') + (state ? '' : (' ' + value + '%'));
+            if (state) {
+              cancelButton.disabled = true;
+              cancelButton.hidden = true;
+            }
+          }
+        };
+      }
+
       async function handleFileContextAction(action, path, local) {
         if (!action || !path) {
           return;
         }
         const fileLabel = local ? path : path;
+        if (action === 'extract-audio') {
+          const progressView = openAudioExtractProgress(fileLabel);
+          try {
+            const started = await fetchJson(
+              api.extractAudio + '?file=' + encodeURIComponent(path),
+              { method: 'POST' }
+            );
+            if (!started.task_id) {
+              throw new Error(started.message || t('无法启动音频提取'));
+            }
+            const taskId = String(started.task_id);
+            progressView.setCancelHandler(function () {
+              fetchJson(api.extractAudioCancel + '?task_id=' + encodeURIComponent(taskId), { method: 'POST' })
+                .then(function () { progressView.update(null, t('取消中')); })
+                .catch(function (err) { progressView.update(null, t('取消失败：') + err.message, 'failed'); });
+            });
+            const poll = async function () {
+              const data = await fetchJson(api.extractAudioProgress + '?task_id=' + encodeURIComponent(taskId));
+              const progress = Math.max(0, Math.min(100, Math.round(Number(data.progress || 0))));
+              if (!data.done) {
+                progressView.update(progress, data.message || t('正在提取音频：'));
+                window.setTimeout(function () {
+                  poll().catch(function (err) {
+                    progressView.update(progress, t('音频提取失败：') + err.message, 'failed');
+                  });
+                }, 800);
+                return;
+              }
+              if (!data.success) {
+                if (data.cancel_requested) {
+                  progressView.update(progress, t('已取消'), 'cancelled');
+                  return;
+                }
+                throw new Error(data.error || data.message || t('未知错误'));
+              }
+              progressView.update(100, t('音频提取完成：') + String(data.name || ''), 'done');
+              await loadFiles();
+              showStatus(t('音频提取完成：') + String(data.name || ''), 'ok');
+            };
+            await poll();
+          } catch (err) {
+            progressView.update(0, t('音频提取失败：') + err.message, 'failed');
+          }
+          return;
+        }
         if (action === 'lock') {
           const password = await askLockPassword({
             title: t('加锁文件'),

@@ -4924,3 +4924,117 @@
       font-size: calc(14px * var(--font-scale));
       padding: 20px 0;
     }
+
+    .audio-extract-progress-dialog {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 4600;
+      width: min(420px, calc(100vw - 32px));
+    }
+
+    .audio-extract-progress-dialog.is-minimized {
+      width: min(280px, calc(100vw - 32px));
+    }
+
+    .audio-extract-progress-dialog.is-minimized .audio-extract-progress-body {
+      display: none;
+    }
+
+    .audio-extract-progress-card {
+      padding: 16px;
+      border: 1px solid #cddcec;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 12px 36px rgba(28, 57, 86, 0.24);
+    }
+
+    .audio-extract-progress-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #173a5e;
+      cursor: move;
+      user-select: none;
+    }
+
+    .audio-extract-progress-window-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .audio-extract-progress-close,
+    .audio-extract-progress-minimize {
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: #647b91;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .audio-extract-progress-close:hover,
+    .audio-extract-progress-minimize:hover {
+      background: #edf3f9;
+    }
+
+    .audio-extract-progress-file {
+      margin-top: 8px;
+      overflow: hidden;
+      color: #526b82;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .audio-extract-progress-track {
+      height: 10px;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e7eef6;
+    }
+
+    .audio-extract-progress-fill {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: #2a7ae4;
+      transition: width 0.25s ease;
+    }
+
+    .audio-extract-progress-fill.is-done { background: #1f9d62; }
+    .audio-extract-progress-fill.is-failed { background: #d84a4a; }
+    .audio-extract-progress-fill.is-cancelled { background: #d28a24; }
+
+    .audio-extract-progress-text {
+      margin-top: 8px;
+      color: #526b82;
+      font-size: calc(13px * var(--font-scale));
+    }
+
+    .audio-extract-progress-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
+    .audio-extract-progress-cancel {
+      padding: 6px 15px;
+      border: 1px solid #d84a4a;
+      border-radius: 6px;
+      background: #fff;
+      color: #c53d3d;
+      cursor: pointer;
+    }
+
+    .audio-extract-progress-cancel:hover:not(:disabled) {
+      background: #fff0f0;
+    }
+
+    .audio-extract-progress-cancel:disabled {
+      cursor: default;
+      opacity: 0.6;
+    }
