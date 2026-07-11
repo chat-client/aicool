@@ -5121,6 +5121,7 @@
       display: flex;
       justify-content: flex-end;
       padding: 12px 20px 18px;
+      gap: 8px;
     }
 
     .video-properties-actions button {
@@ -5131,6 +5132,46 @@
       color: #fff;
       cursor: pointer;
     }
+
+    .video-properties-actions .video-properties-enhance {
+      margin-right: auto;
+      border-color: #1f9d62;
+      background: #1f9d62;
+    }
+
+    .video-enhance-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 4800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(20, 36, 52, 0.46);
+    }
+
+    .video-enhance-card {
+      width: min(460px, 100%);
+      padding: 20px;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 18px 52px rgba(16, 38, 60, 0.3);
+    }
+
+    .video-enhance-card h3 { margin: 0 0 8px; color: #173a5e; }
+    .video-enhance-card p { color: #63798e; }
+    .video-enhance-card label { display: block; margin-top: 12px; color: #526b82; }
+    .video-enhance-card input {
+      box-sizing: border-box;
+      width: 100%;
+      margin-top: 5px;
+      padding: 8px 10px;
+      border: 1px solid #cddcec;
+      border-radius: 6px;
+    }
+    .video-enhance-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .video-enhance-actions button { padding: 7px 16px; border: 1px solid #b9c9d8; border-radius: 6px; cursor: pointer; }
+    .video-enhance-actions [data-enhance-confirm] { border-color: #2a7ae4; background: #2a7ae4; color: #fff; }
 
     .video-properties-loading {
       padding: 28px;

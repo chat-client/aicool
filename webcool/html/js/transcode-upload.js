@@ -1200,13 +1200,13 @@ function deleteUnlockedFolderPassword(path) {
         saveUnlockedFolderPasswords();
       }
 
-      function openAudioExtractProgress(fileName) {
+      function openAudioExtractProgress(fileName, windowTitle) {
         const dialog = document.createElement('div');
         dialog.className = 'audio-extract-progress-dialog';
         dialog.innerHTML =
           '<div class="audio-extract-progress-card" role="status" aria-live="polite">' +
             '<div class="audio-extract-progress-head">' +
-              '<strong>' + t('提取音频') + '</strong>' +
+              '<strong>' + (windowTitle || t('提取音频')) + '</strong>' +
               '<div class="audio-extract-progress-window-actions">' +
                 '<button type="button" class="audio-extract-progress-minimize" aria-label="' + t('最小化') + '">−</button>' +
                 '<button type="button" class="audio-extract-progress-close" aria-label="' + t('关闭') + '">×</button>' +
@@ -1347,7 +1347,9 @@ function deleteUnlockedFolderPassword(path) {
                 '<div class="video-properties-grid">' + rows.map(function (row) {
                   return '<div class="video-properties-label">' + escapeHtml(String(row[0])) + '</div><div class="video-properties-value">' + escapeHtml(String(row[1])) + '</div>';
                 }).join('') + '</div>' +
-                '<div class="video-properties-actions"><button type="button" data-video-properties-close>' + t('关闭') + '</button></div>' +
+                '<div class="video-properties-actions">' +
+                  (data.has_video ? '<button type="button" class="video-properties-enhance" data-video-properties-enhance>' + t('提升码率和分辨率') + '</button>' : '') +
+                  '<button type="button" data-video-properties-close>' + t('关闭') + '</button></div>' +
               '</div>' +
             '</div>';
           const card = loading.querySelector('.video-properties-card');
@@ -1357,6 +1359,42 @@ function deleteUnlockedFolderPassword(path) {
           loading.querySelectorAll('[data-video-properties-close]').forEach(function (button) {
             button.addEventListener('click', function () { loading.remove(); });
           });
+          const enhanceButton = loading.querySelector('[data-video-properties-enhance]');
+          if (enhanceButton) {
+            enhanceButton.addEventListener('click', async function () {
+              const currentHeight = Number(data.height || 0);
+              const currentBitrate = Number(data.video_bitrate_kbps || data.bitrate_kbps || 0);
+              const suggested = currentHeight < 720
+                ? { width: 1280, height: 720, bitrate: Math.max(2500, currentBitrate * 2) }
+                : { width: 1920, height: 1080, bitrate: Math.max(5000, currentBitrate * 2) };
+              const form = document.createElement('div');
+              form.className = 'video-enhance-dialog';
+              form.innerHTML = '<div class="video-enhance-card"><h3>' + t('提升码率和分辨率') + '</h3>' +
+                '<p>' + t('建议值可根据需要手工修改。普通转码无法恢复源视频已经丢失的真实细节。') + '</p>' +
+                '<label>' + t('目标宽度') + '<input type="number" data-enhance-width min="320" max="3840" step="2" value="' + suggested.width + '"></label>' +
+                '<label>' + t('目标高度') + '<input type="number" data-enhance-height min="240" max="2160" step="2" value="' + suggested.height + '"></label>' +
+                '<label>' + t('视频码率') + ' (kb/s)<input type="number" data-enhance-bitrate min="300" max="50000" step="100" value="' + Math.round(suggested.bitrate) + '"></label>' +
+                '<div class="video-enhance-actions"><button type="button" data-enhance-cancel>' + t('取消') + '</button><button type="button" data-enhance-confirm>' + t('开始提升') + '</button></div></div>';
+              document.body.appendChild(form);
+              form.querySelector('[data-enhance-cancel]').addEventListener('click', function () { form.remove(); });
+              form.querySelector('[data-enhance-confirm]').addEventListener('click', function () {
+                const options = {
+                  width: Number(form.querySelector('[data-enhance-width]').value),
+                  height: Number(form.querySelector('[data-enhance-height]').value),
+                  bitrate: Number(form.querySelector('[data-enhance-bitrate]').value)
+                };
+                if (!Number.isInteger(options.width) || !Number.isInteger(options.height)
+                    || options.width < 320 || options.width > 3840 || options.width % 2
+                    || options.height < 240 || options.height > 2160 || options.height % 2
+                    || !Number.isFinite(options.bitrate) || options.bitrate < 300 || options.bitrate > 50000) {
+                  showStatus(t('请输入有效的偶数宽高和视频码率'), 'err');
+                  return;
+                }
+                form.remove(); loading.remove();
+                startVideoEnhance(path, local, options).catch(function (err) { showStatus(t('画质提升失败：') + err.message, 'err'); });
+              });
+            });
+          }
           minimizeButton.addEventListener('click', function () {
             minimized = !minimized;
             card.classList.toggle('is-minimized', minimized);
@@ -1393,6 +1431,41 @@ function deleteUnlockedFolderPassword(path) {
           loading.remove();
           throw err;
         }
+      }
+
+      async function startVideoEnhance(path, local, options) {
+        const progressView = openAudioExtractProgress(path, t('提升码率和分辨率'));
+        const startApi = local ? api.localDiskVideoEnhance : api.videoEnhance;
+        const progressApi = local ? api.localDiskVideoEnhanceProgress : api.videoEnhanceProgress;
+        const cancelApi = local ? api.localDiskVideoEnhanceCancel : api.videoEnhanceCancel;
+        const parameter = local ? 'path' : 'file';
+        const query = '?' + parameter + '=' + encodeURIComponent(path)
+          + '&width=' + encodeURIComponent(options.width) + '&height=' + encodeURIComponent(options.height)
+          + '&bitrate_kbps=' + encodeURIComponent(options.bitrate);
+        const started = await fetchJson(startApi + query, { method: 'POST' });
+        const taskId = String(started.task_id || '');
+        if (!taskId) throw new Error(t('无法启动画质提升'));
+        progressView.setCancelHandler(function () {
+          fetchJson(cancelApi + '?task_id=' + encodeURIComponent(taskId), { method: 'POST' })
+            .then(function () { progressView.update(null, t('取消中')); })
+            .catch(function (err) { progressView.update(null, t('取消失败：') + err.message, 'failed'); });
+        });
+        const poll = async function () {
+          const data = await fetchJson(progressApi + '?task_id=' + encodeURIComponent(taskId));
+          const value = Number(data.progress || 0);
+          if (!data.done) {
+            progressView.update(value, data.message || t('正在提升画质'));
+            window.setTimeout(function () { poll().catch(function (err) { progressView.update(null, err.message, 'failed'); }); }, 800);
+            return;
+          }
+          if (!data.success) {
+            progressView.update(value, data.cancel_requested ? t('已取消') : (data.error || t('画质提升失败')), data.cancel_requested ? 'cancelled' : 'failed');
+            return;
+          }
+          progressView.update(100, t('画质提升完成：') + data.name, 'done');
+          if (local) await loadLocalDisk(activeLocalDiskPath || localDiskParentPath(path) || ''); else await loadFiles();
+        };
+        await poll();
       }
 
       async function handleFileContextAction(action, path, local) {

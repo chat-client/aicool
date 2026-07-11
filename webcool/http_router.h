@@ -98,6 +98,12 @@ private:
 	static bool routeVideoProbe(request_t& req, response_t& res);
 	static bool routeVideoProperties(request_t& req, response_t& res);
 	static bool routeLocalDiskVideoProperties(request_t& req, response_t& res);
+	static bool routeVideoEnhance(request_t& req, response_t& res);
+	static bool routeVideoEnhanceProgress(request_t& req, response_t& res);
+	static bool routeVideoEnhanceCancel(request_t& req, response_t& res);
+	static bool routeLocalDiskVideoEnhance(request_t& req, response_t& res);
+	static bool routeLocalDiskVideoEnhanceProgress(request_t& req, response_t& res);
+	static bool routeLocalDiskVideoEnhanceCancel(request_t& req, response_t& res);
 	static bool routeVideoResumeGet(request_t& req, response_t& res);
 	static bool routeVideoResumeSet(request_t& req, response_t& res);
 	static bool routeFolderList(request_t& req, response_t& res);
