@@ -162,6 +162,11 @@ Source: "$source\webcool.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "$source\sqlite.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "$source\zlib.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "$source\ffmpeg.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "$source\realesrgan-ncnn-vulkan.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "$source\vcomp140.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "$source\vcomp140d.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "$source\models\realesrgan\*"; DestDir: "{app}\models\realesrgan"; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
+Source: "$source\REALESRGAN-LICENSE"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "$source\run-webcool.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "$source\install.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "$source\uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
@@ -227,7 +232,7 @@ $ErrorActionPreference = "Stop"
 $SourceDir = Split-Path -Parent $PSCommandPath
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-$items = @("webcool.exe", "sqlite.dll", "zlib.dll", "ffmpeg.exe", "html", "run-webcool.ps1", "uninstall.ps1")
+$items = @("webcool.exe", "sqlite.dll", "zlib.dll", "ffmpeg.exe", "realesrgan-ncnn-vulkan.exe", "vcomp140.dll", "vcomp140d.dll", "models", "REALESRGAN-LICENSE", "html", "run-webcool.ps1", "uninstall.ps1")
 foreach ($item in $items) {
     $src = Join-Path $SourceDir $item
     if (Test-Path -LiteralPath $src) {
@@ -424,6 +429,20 @@ Copy-Item -LiteralPath (Join-Path $webcoolRoot "res\webcool.ico") -Destination (
 Copy-Item -LiteralPath $sqliteDll -Destination (Join-Path $appRoot "sqlite.dll") -Force
 Copy-Item -LiteralPath $zlibDll -Destination (Join-Path $appRoot "zlib.dll") -Force
 Copy-Item -LiteralPath $FfmpegPath -Destination (Join-Path $appRoot "ffmpeg.exe") -Force
+$realEsrganExe = Join-Path $repoRoot "tools\windows\realesrgan-ncnn-vulkan.exe"
+if (Test-Path -LiteralPath $realEsrganExe) {
+    Copy-Item -LiteralPath $realEsrganExe -Destination (Join-Path $appRoot "realesrgan-ncnn-vulkan.exe") -Force
+    foreach ($dll in @("vcomp140.dll", "vcomp140d.dll")) {
+        $dllPath = Join-Path $repoRoot "tools\windows\$dll"
+        if (Test-Path -LiteralPath $dllPath) { Copy-Item -LiteralPath $dllPath -Destination (Join-Path $appRoot $dll) -Force }
+    }
+    $modelPath = Join-Path $repoRoot "tools\windows\realesrgan-models"
+    if (Test-Path -LiteralPath $modelPath) { Copy-DirectoryContent -Source $modelPath -Destination (Join-Path $appRoot "models\realesrgan") }
+    $licensePath = Join-Path $repoRoot "tools\REALESRGAN-LICENSE"
+    if (Test-Path -LiteralPath $licensePath) { Copy-Item -LiteralPath $licensePath -Destination (Join-Path $appRoot "REALESRGAN-LICENSE") -Force }
+} else {
+    Log "warning: Real-ESRGAN runtime not found; AI enhancement will be unavailable"
+}
 Copy-DirectoryContent -Source (Join-Path $webcoolRoot "html") -Destination (Join-Path $appRoot "html")
 Write-PackageScripts -PackageRoot $appRoot
 

@@ -109,6 +109,12 @@ function selectRenameInputText(input) {
         localDiskVideoEnhance: '/api/v1/local-disk/video/enhance',
         localDiskVideoEnhanceProgress: '/api/v1/local-disk/video/enhance/progress',
         localDiskVideoEnhanceCancel: '/api/v1/local-disk/video/enhance/cancel',
+        aiVideoEnhance: '/api/v1/video/ai-enhance',
+        aiVideoEnhanceProgress: '/api/v1/video/ai-enhance/progress',
+        aiVideoEnhanceCancel: '/api/v1/video/ai-enhance/cancel',
+        localDiskAiVideoEnhance: '/api/v1/local-disk/video/ai-enhance',
+        localDiskAiVideoEnhanceProgress: '/api/v1/local-disk/video/ai-enhance/progress',
+        localDiskAiVideoEnhanceCancel: '/api/v1/local-disk/video/ai-enhance/cancel',
         videoResume: '/api/v1/video/resume',
         videoResumeSave: '/api/v1/video/resume/save'
       };

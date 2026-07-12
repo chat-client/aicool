@@ -334,6 +334,9 @@ void http_router::setup() const {
 		.Get("/api/v1/local-disk/video/enhance", &http_router::routeLocalDiskVideoEnhance)
 		.Get("/api/v1/local-disk/video/enhance/progress", &http_router::routeLocalDiskVideoEnhanceProgress)
 		.Get("/api/v1/local-disk/video/enhance/cancel", &http_router::routeLocalDiskVideoEnhanceCancel)
+		.Get("/api/v1/local-disk/video/ai-enhance", &http_router::routeLocalDiskAiVideoEnhance)
+		.Get("/api/v1/local-disk/video/ai-enhance/progress", &http_router::routeLocalDiskAiVideoEnhanceProgress)
+		.Get("/api/v1/local-disk/video/ai-enhance/cancel", &http_router::routeLocalDiskAiVideoEnhanceCancel)
 		.Get("/api/v1/local-disk/video/stream", &http_router::routeLocalDiskVideoStream)
 		.Get("/api/v1/local-disk/video/stream-state", &http_router::routeLocalDiskVideoStreamState)
 		.Get("/api/v1/video/convert", &http_router::routeVideoConvert)
@@ -348,6 +351,9 @@ void http_router::setup() const {
 		.Get("/api/v1/video/enhance", &http_router::routeVideoEnhance)
 		.Get("/api/v1/video/enhance/progress", &http_router::routeVideoEnhanceProgress)
 		.Get("/api/v1/video/enhance/cancel", &http_router::routeVideoEnhanceCancel)
+		.Get("/api/v1/video/ai-enhance", &http_router::routeAiVideoEnhance)
+		.Get("/api/v1/video/ai-enhance/progress", &http_router::routeAiVideoEnhanceProgress)
+		.Get("/api/v1/video/ai-enhance/cancel", &http_router::routeAiVideoEnhanceCancel)
 		.Get("/api/v1/video/resume", &http_router::routeVideoResumeGet)
 		.Get("/api/v1/video/resume/save", &http_router::routeVideoResumeSet)
 		.Get("/api/v1/folders", &http_router::routeFolderList)
@@ -416,6 +422,9 @@ void http_router::setup() const {
 		.Post("/api/v1/video/enhance", &http_router::routeVideoEnhance)
 		.Post("/api/v1/video/enhance/progress", &http_router::routeVideoEnhanceProgress)
 		.Post("/api/v1/video/enhance/cancel", &http_router::routeVideoEnhanceCancel)
+		.Post("/api/v1/video/ai-enhance", &http_router::routeAiVideoEnhance)
+		.Post("/api/v1/video/ai-enhance/progress", &http_router::routeAiVideoEnhanceProgress)
+		.Post("/api/v1/video/ai-enhance/cancel", &http_router::routeAiVideoEnhanceCancel)
 		.Post("/api/v1/video/resume/save", &http_router::routeVideoResumeSet)
 		.Post("/api/v1/folders", &http_router::routeFolderList)
 		.Post("/api/v1/folders/create", &http_router::routeFolderCreate)
@@ -450,6 +459,9 @@ void http_router::setup() const {
 		.Post("/api/v1/local-disk/video/enhance", &http_router::routeLocalDiskVideoEnhance)
 		.Post("/api/v1/local-disk/video/enhance/progress", &http_router::routeLocalDiskVideoEnhanceProgress)
 		.Post("/api/v1/local-disk/video/enhance/cancel", &http_router::routeLocalDiskVideoEnhanceCancel)
+		.Post("/api/v1/local-disk/video/ai-enhance", &http_router::routeLocalDiskAiVideoEnhance)
+		.Post("/api/v1/local-disk/video/ai-enhance/progress", &http_router::routeLocalDiskAiVideoEnhanceProgress)
+		.Post("/api/v1/local-disk/video/ai-enhance/cancel", &http_router::routeLocalDiskAiVideoEnhanceCancel)
 		.Post("/api/v1/local-disk/video/stream-state", &http_router::routeLocalDiskVideoStreamState)
 		.Post("/api/v1/tags/create", &http_router::routeTagCreate)
 		.Post("/api/v1/tags/rename", &http_router::routeTagRename)
@@ -882,6 +894,12 @@ bool http_router::routeVideoEnhanceCancel(request_t& req, response_t& res) { std
 bool http_router::routeLocalDiskVideoEnhance(request_t& req, response_t& res) { return action::VideoEnhanceAction::run(req, res, action::runtime_upload_dir_get(), true); }
 bool http_router::routeLocalDiskVideoEnhanceProgress(request_t& req, response_t& res) { return action::VideoEnhanceAction::progress(req, res, action::runtime_upload_dir_get(), true); }
 bool http_router::routeLocalDiskVideoEnhanceCancel(request_t& req, response_t& res) { return action::VideoEnhanceAction::cancel(req, res, action::runtime_upload_dir_get(), true); }
+bool http_router::routeAiVideoEnhance(request_t& req, response_t& res) { std::string d; return userUploadDir(req, res, d) && action::AiVideoEnhanceAction::run(req, res, d, false); }
+bool http_router::routeAiVideoEnhanceProgress(request_t& req, response_t& res) { std::string d; return userUploadDir(req, res, d) && action::AiVideoEnhanceAction::progress(req, res, d, false); }
+bool http_router::routeAiVideoEnhanceCancel(request_t& req, response_t& res) { std::string d; return userUploadDir(req, res, d) && action::AiVideoEnhanceAction::cancel(req, res, d, false); }
+bool http_router::routeLocalDiskAiVideoEnhance(request_t& req, response_t& res) { return action::AiVideoEnhanceAction::run(req, res, action::runtime_upload_dir_get(), true); }
+bool http_router::routeLocalDiskAiVideoEnhanceProgress(request_t& req, response_t& res) { return action::AiVideoEnhanceAction::progress(req, res, action::runtime_upload_dir_get(), true); }
+bool http_router::routeLocalDiskAiVideoEnhanceCancel(request_t& req, response_t& res) { return action::AiVideoEnhanceAction::cancel(req, res, action::runtime_upload_dir_get(), true); }
 
 bool http_router::routeVideoResumeGet(request_t& req, response_t& res) {
 	std::string dir;

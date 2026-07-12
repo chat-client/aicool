@@ -39,6 +39,11 @@
 *.out
 *.app
 
+# Packaged Real-ESRGAN runtime dependencies
+!tools/windows/realesrgan-ncnn-vulkan.exe
+!tools/windows/vcomp140.dll
+!tools/windows/vcomp140d.dll
+
 # Build directories
 build/
 Build/

@@ -224,6 +224,28 @@ copy_ffmpeg_runtime_bin() {
   chmod 0755 "${bin_dst}/ffmpeg"
 }
 
+copy_realesrgan_runtime() {
+  local install_root="$1"
+  local platform=""
+  case "$(uname -s)" in
+    Darwin) platform="mac" ;;
+    Linux) platform="linux" ;;
+    *) return 0 ;;
+  esac
+  local source_root="${TOOLS_ROOT}/${platform}"
+  local executable="${source_root}/realesrgan-ncnn-vulkan"
+  local models="${source_root}/realesrgan-models"
+  if [ ! -x "$executable" ] || [ ! -d "$models" ]; then
+    log "warning: Real-ESRGAN runtime not found; AI enhancement will be unavailable"
+    return 0
+  fi
+  cp -a "$executable" "${install_root}/bin/realesrgan-ncnn-vulkan"
+  chmod 0755 "${install_root}/bin/realesrgan-ncnn-vulkan"
+  mkdir -p "${install_root}/models/realesrgan"
+  cp -a "${models}/." "${install_root}/models/realesrgan/"
+  copy_if_exists "${TOOLS_ROOT}/REALESRGAN-LICENSE" "${install_root}/"
+}
+
 stage_runtime_tree() {
   local stage_root="$1"
   local install_root="${stage_root}${INSTALL_PREFIX}"
@@ -256,6 +278,7 @@ stage_runtime_tree() {
   copy_acl_runtime_libs "$install_root/lib"
   copy_sqlite_runtime_lib "$install_root/lib"
   copy_ffmpeg_runtime_bin "$install_root/bin"
+  copy_realesrgan_runtime "$install_root"
 
   create_launcher_script "${stage_root}/usr/local/bin/webcool"
 }
