@@ -32,24 +32,37 @@ func pixelBuffer(from pool: CVPixelBufferPool) throws -> CVPixelBuffer {
 }
 
 func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
-                  inputPool: CVPixelBufferPool) throws -> CIImage {
+                  inputPool: CVPixelBufferPool, inputName: String,
+                  outputName: String, tileSize: Int, modelScale: Int) throws -> CIImage {
     let sourceRect = source.extent.integral
-    let outputWidth = Int(sourceRect.width) * 4
-    let outputHeight = Int(sourceRect.height) * 4
+    let outputWidth = Int(sourceRect.width) * modelScale
+    let outputHeight = Int(sourceRect.height) * modelScale
     var result = CIImage(color: .black).cropped(to: CGRect(x: 0, y: 0,
                                                            width: outputWidth,
                                                            height: outputHeight))
-    let tileSize = 512
-    for y in stride(from: 0, to: Int(sourceRect.height), by: tileSize) {
-        for x in stride(from: 0, to: Int(sourceRect.width), by: tileSize) {
-            let width = min(tileSize, Int(sourceRect.width) - x)
-            let height = min(tileSize, Int(sourceRect.height) - y)
-            let cropRect = CGRect(x: sourceRect.minX + CGFloat(x),
-                                  y: sourceRect.minY + CGFloat(y),
-                                  width: CGFloat(width), height: CGFloat(height))
+    // Keep only the context-rich center of each prediction. Adjacent tiles
+    // overlap in the source but never blend generated pixels, avoiding the
+    // grid seams that are especially visible with the x2 RRDB model.
+    let margin = max(8, tileSize / 16)
+    let coreSize = tileSize - margin * 2
+    for y in stride(from: 0, to: Int(sourceRect.height), by: coreSize) {
+        for x in stride(from: 0, to: Int(sourceRect.width), by: coreSize) {
+            let sampleX = max(0, x - margin)
+            let sampleY = max(0, y - margin)
+            let padX = max(0, margin - x)
+            let padY = max(0, margin - y)
+            let sampleWidth = min(tileSize - padX, Int(sourceRect.width) - sampleX)
+            let sampleHeight = min(tileSize - padY, Int(sourceRect.height) - sampleY)
+            let outputCoreWidth = min(coreSize, Int(sourceRect.width) - x)
+            let outputCoreHeight = min(coreSize, Int(sourceRect.height) - y)
+            let cropRect = CGRect(x: sourceRect.minX + CGFloat(sampleX),
+                                  y: sourceRect.minY + CGFloat(sampleY),
+                                  width: CGFloat(sampleWidth), height: CGFloat(sampleHeight))
             let tile = source.cropped(to: cropRect)
                 .transformed(by: CGAffineTransform(translationX: -cropRect.minX,
                                                    y: -cropRect.minY))
+                .transformed(by: CGAffineTransform(translationX: CGFloat(padX),
+                                                   y: CGFloat(padY)))
             let background = CIImage(color: .black).cropped(to: CGRect(x: 0, y: 0,
                                                                         width: tileSize,
                                                                         height: tileSize))
@@ -59,14 +72,18 @@ func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
                            bounds: CGRect(x: 0, y: 0, width: tileSize, height: tileSize),
                            colorSpace: CGColorSpaceCreateDeviceRGB())
             let provider = try MLDictionaryFeatureProvider(
-                dictionary: ["input": MLFeatureValue(pixelBuffer: inputBuffer)])
+                dictionary: [inputName: MLFeatureValue(pixelBuffer: inputBuffer)])
             let prediction = try model.prediction(from: provider)
-            guard let enhancedBuffer = prediction.featureValue(for: "activation_out")?.imageBufferValue
+            guard let enhancedBuffer = prediction.featureValue(for: outputName)?.imageBufferValue
             else { throw RunnerError.prediction }
             let enhanced = CIImage(cvPixelBuffer: enhancedBuffer)
-                .cropped(to: CGRect(x: 0, y: 0, width: width * 4, height: height * 4))
-                .transformed(by: CGAffineTransform(translationX: CGFloat(x * 4),
-                                                   y: CGFloat(y * 4)))
+                .cropped(to: CGRect(x: margin * modelScale, y: margin * modelScale,
+                                    width: outputCoreWidth * modelScale,
+                                    height: outputCoreHeight * modelScale))
+                .transformed(by: CGAffineTransform(translationX: CGFloat(-margin * modelScale),
+                                                   y: CGFloat(-margin * modelScale)))
+                .transformed(by: CGAffineTransform(translationX: CGFloat(x * modelScale),
+                                                   y: CGFloat(y * modelScale)))
             result = enhanced.composited(over: result)
         }
     }
@@ -74,10 +91,14 @@ func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
 }
 
 func processImage(_ inputURL: URL, outputURL: URL, model: MLModel,
-                  context: CIContext, inputPool: CVPixelBufferPool) throws {
+                  context: CIContext, inputPool: CVPixelBufferPool,
+                  inputName: String, outputName: String,
+                  tileSize: Int, modelScale: Int) throws {
     guard let source = CIImage(contentsOf: inputURL) else { throw RunnerError.imageLoad }
     let result = try enhanceImage(source, model: model, context: context,
-                                  inputPool: inputPool)
+                                  inputPool: inputPool, inputName: inputName,
+                                  outputName: outputName, tileSize: tileSize,
+                                  modelScale: modelScale)
     try context.writePNGRepresentation(of: result,
                                        to: outputURL,
                                        format: .RGBA8,
@@ -111,15 +132,32 @@ final class InferenceWorker {
     let inputPool: CVPixelBufferPool
     let outputPool: CVPixelBufferPool?
     let queue: DispatchQueue
+    let inputName: String
+    let outputName: String
+    let tileSize: Int
+    let modelScale: Int
 
     init(index: Int, outputWidth: Int? = nil, outputHeight: Int? = nil) throws {
         // Apple requires an MLModel instance to be used on only one thread or
         // dispatch queue at a time. Each worker therefore owns its complete
         // inference state instead of contending on one shared model instance.
         model = try MLModel(contentsOf: compiledURL, configuration: configuration)
+        guard let input = model.modelDescription.inputDescriptionsByName.first(where: { $0.value.imageConstraint != nil }),
+              let output = model.modelDescription.outputDescriptionsByName.first(where: { $0.value.imageConstraint != nil }),
+              let inputConstraint = input.value.imageConstraint,
+              let outputConstraint = output.value.imageConstraint,
+              inputConstraint.pixelsWide > 0,
+              outputConstraint.pixelsWide % inputConstraint.pixelsWide == 0 else {
+            throw RunnerError.prediction
+        }
+        inputName = input.key
+        outputName = output.key
+        tileSize = inputConstraint.pixelsWide
+        modelScale = outputConstraint.pixelsWide / inputConstraint.pixelsWide
         context = CIContext(options: [.cacheIntermediates: false,
                                       .priorityRequestLow: false])
-        inputPool = try makePixelBufferPool(width: 512, height: 512)
+        inputPool = try makePixelBufferPool(width: inputConstraint.pixelsWide,
+                                            height: inputConstraint.pixelsHigh)
         if let width = outputWidth, let height = outputHeight {
             outputPool = try makePixelBufferPool(width: width, height: height)
         } else {
@@ -149,7 +187,9 @@ func renderVideoFrame(_ sourceBuffer: CVPixelBuffer, time: CMTime,
     source = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX,
                                                        y: -source.extent.minY))
     let enhanced = try enhanceImage(source, model: worker.model,
-                                    context: worker.context, inputPool: worker.inputPool)
+                                    context: worker.context, inputPool: worker.inputPool,
+                                    inputName: worker.inputName, outputName: worker.outputName,
+                                    tileSize: worker.tileSize, modelScale: worker.modelScale)
     guard let pool = worker.outputPool else { throw RunnerError.pixelBufferPool }
     let destination = try pixelBuffer(from: pool)
     let scale = min(CGFloat(width) / enhanced.extent.width,
@@ -345,7 +385,9 @@ if CommandLine.arguments.contains("--video") {
                     try processImage(file,
                         outputURL: outputDirectory.appendingPathComponent(file.lastPathComponent),
                         model: worker.model, context: worker.context,
-                        inputPool: worker.inputPool)
+                        inputPool: worker.inputPool, inputName: worker.inputName,
+                        outputName: worker.outputName, tileSize: worker.tileSize,
+                        modelScale: worker.modelScale)
                 }
                 stateLock.lock()
                 completed += 1

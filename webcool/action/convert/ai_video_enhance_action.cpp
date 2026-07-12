@@ -11,17 +11,23 @@ struct coreml_runtime_t {
 	std::string model;
 };
 
-coreml_runtime_t choose_coreml_runtime() {
+coreml_runtime_t choose_coreml_runtime(const std::string& model_name) {
 	coreml_runtime_t runtime;
+	(void) model_name;
 #if defined(__APPLE__) && defined(__aarch64__)
 	const char* env_bin = getenv("AICOOL_COREML_REALESRGAN");
 	const char* env_model = getenv("AICOOL_COREML_REALESRGAN_MODEL");
 	const std::vector<std::string> bins = {
 		"/opt/soft/webcool/bin/coreml-realesrgan", "tools/mac/coreml-realesrgan", "../tools/mac/coreml-realesrgan"
 	};
+	std::string file_name = "realesrgan512.mlmodelc";
+	if (model_name == "coreml-x2plus") file_name = "realesrgan-x2plus.mlmodelc";
+	else if (model_name == "coreml-general-x4v3") file_name = "realesr-general-x4v3.mlmodelc";
+	else if (model_name == "coreml-x4plus-int8") file_name = "realesrgan-x4plus-int8.mlmodelc";
 	const std::vector<std::string> models = {
-		"/opt/soft/webcool/models/coreml/realesrgan512.mlmodelc",
-		"tools/mac/realesrgan512.mlmodelc", "../tools/mac/realesrgan512.mlmodelc"
+		"/opt/soft/webcool/models/coreml/" + file_name,
+		"tools/mac/coreml-models/" + file_name, "../tools/mac/coreml-models/" + file_name,
+		"tools/mac/" + file_name, "../tools/mac/" + file_name
 	};
 	runtime.executable = env_bin && *env_bin ? env_bin : "";
 	if (runtime.executable.empty()) {
@@ -256,7 +262,8 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	const std::string encode_preset = req.getParameter("encode_preset") ? req.getParameter("encode_preset") : "medium";
 	if (width < 320 || width > 3840 || height < 240 || height > 2160 || width % 2 || height % 2
 		|| bitrate < 300 || bitrate > 50000 || (scale != 2 && scale != 4) || fps <= 0 || fps > 120
-		|| (model != "realesrgan-x4plus" && model != "realesr-animevideov3")
+		|| (model != "realesrgan-x4plus" && model != "realesr-animevideov3"
+			&& model != "coreml-x2plus" && model != "coreml-general-x4v3" && model != "coreml-x4plus-int8")
 		|| (tile != 0 && tile != 128 && tile != 256 && tile != 512)
 		|| (threads != "1:2:2" && threads != "2:4:2" && threads != "4:4:4")
 		|| gpu < -1 || gpu > 15
@@ -274,14 +281,22 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 		json_error(res, 404, "source video not found", req.isKeepAlive()); return true;
 	} else { int status = 500; if (!ensure_remote_video_transcode_lock_policy(upload_dir, source, err, status)) { json_error(res, status, err.c_str(), req.isKeepAlive()); return true; } }
 	const std::string ffmpeg = choose_ffmpeg_path();
-	const coreml_runtime_t coreml = choose_coreml_runtime();
-	const bool use_coreml = model == "realesrgan-x4plus" && !coreml.executable.empty() && !coreml.model.empty();
+	const coreml_runtime_t coreml = choose_coreml_runtime(model);
+	const bool coreml_model = model == "realesrgan-x4plus" || model == "coreml-x2plus"
+		|| model == "coreml-general-x4v3" || model == "coreml-x4plus-int8";
+	const bool use_coreml = coreml_model && !coreml.executable.empty() && !coreml.model.empty();
+	const bool requires_coreml = model == "coreml-x2plus" || model == "coreml-general-x4v3"
+		|| model == "coreml-x4plus-int8";
 	std::string models;
-	std::string ai = use_coreml ? coreml.executable : choose_realesrgan(models);
-	if (ffmpeg.empty() || ai.empty() || (!use_coreml && models.empty())) { json_error(res, 503, "Real-ESRGAN runtime or models not installed", req.isKeepAlive()); return true; }
+	std::string ai = use_coreml ? coreml.executable : (requires_coreml ? "" : choose_realesrgan(models));
+	if (ffmpeg.empty() || ai.empty() || (!use_coreml && models.empty())) { json_error(res, 503, "selected Real-ESRGAN runtime or model is not installed", req.isKeepAlive()); return true; }
 	const int coreml_workers = threads == "4:4:4" ? 4 : (threads == "1:2:2" ? 1 : 2);
 	const std::string input = local ? source : join_upload_path(upload_dir, source);
-	std::string output_label = model == "realesr-animevideov3" ? "anime" : "general";
+	std::string output_label = "general";
+	if (model == "realesr-animevideov3") output_label = "anime";
+	else if (model == "coreml-x2plus") output_label = "x2plus";
+	else if (model == "coreml-general-x4v3") output_label = "light-x4";
+	else if (model == "coreml-x4plus-int8") output_label = "int8-x4";
 	if (preview_seconds > 0) output_label += "_preview" + std::to_string(preview_seconds) + "s";
 	const std::string output_name = ai_output_name(source, local, upload_dir, output_label, width, height);
 	const std::string output = local ? output_name : join_upload_path(upload_dir, output_name);

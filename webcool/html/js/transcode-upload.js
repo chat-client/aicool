@@ -1379,7 +1379,13 @@ function deleteUnlockedFolderPassword(path) {
                 '<label>' + t('锐化强度') + '<input type="range" data-enhance-sharpen min="0" max="100" step="10" value="30"><span class="video-enhance-range-value" data-enhance-sharpen-value>30%</span></label>' +
                 '<label class="video-enhance-check"><input type="checkbox" data-enhance-deinterlace> ' + t('去隔行（仅老式隔行视频建议开启）') + '</label>' +
                 '<label>' + t('运动补帧') + '<select data-enhance-fps><option value="0" selected>' + t('保持原帧率') + '</option><option value="30">30 FPS</option><option value="50">50 FPS</option><option value="60">60 FPS</option></select><small>' + t('补帧可以改善运动流畅度，但会显著增加处理时间。') + '</small></label></div>' +
-                '<div data-ai-enhance-options hidden><label>' + t('AI模型') + '<select data-enhance-ai-model><option value="realesrgan-x4plus">' + t('通用/真人') + '</option><option value="realesr-animevideov3">' + t('动漫') + '</option></select></label>' +
+                '<div data-ai-enhance-options hidden><label>' + t('AI模型') + '<select data-enhance-ai-model>' +
+                '<option value="coreml-x2plus">' + t('真实2×（高质量/较快）') + '</option>' +
+                '<option value="coreml-general-x4v3">' + t('轻量x4（速度优先）') + '</option>' +
+                '<option value="coreml-x4plus-int8">' + t('M4量化x4（质量优先）') + '</option>' +
+                '<option value="realesrgan-x4plus">' + t('原始x4（对照/最慢）') + '</option>' +
+                '<option value="realesr-animevideov3">' + t('动漫') + '</option></select>' +
+                '<small data-ai-model-description></small></label>' +
                 '<label>' + t('AI放大倍数') + '<select data-enhance-ai-scale><option value="2">2×</option><option value="4">4×</option></select></label>' +
                 '<label>' + t('性能档位') + '<select data-enhance-ai-performance><option value="fast">' + t('快速') + '</option><option value="balanced" selected>' + t('均衡') + '</option><option value="quality">' + t('高质量') + '</option></select></label>' +
                 '<details class="video-enhance-advanced"><summary>' + t('高级性能选项') + '</summary>' +
@@ -1399,10 +1405,19 @@ function deleteUnlockedFolderPassword(path) {
               const aiModelSelect = form.querySelector('[data-enhance-ai-model]');
               const aiScaleSelect = form.querySelector('[data-enhance-ai-scale]');
               const syncAiScaleAvailability = function () {
-                const generalModel = aiModelSelect.value === 'realesrgan-x4plus';
-                if (generalModel) aiScaleSelect.value = '4';
-                aiScaleSelect.disabled = generalModel;
-                aiScaleSelect.title = generalModel ? t('通用模型仅支持4×推理，最终仍会缩放到目标分辨率') : '';
+                const fixedScale = aiModelSelect.value === 'coreml-x2plus' ? '2'
+                  : (aiModelSelect.value === 'realesr-animevideov3' ? '' : '4');
+                if (fixedScale) aiScaleSelect.value = fixedScale;
+                aiScaleSelect.disabled = Boolean(fixedScale);
+                aiScaleSelect.title = fixedScale ? t('该模型使用固定推理倍数，最终仍会缩放到目标分辨率') : '';
+                const descriptions = {
+                  'coreml-x2plus': t('官方RealESRGAN_x2plus，保留真人细节，适合约2×放大。'),
+                  'coreml-general-x4v3': t('官方tiny通用模型，速度最快，适合先比较速度和可接受画质。'),
+                  'coreml-x4plus-int8': t('高质量x4网络的8位权重量化版，用于比较M4速度、体积和画质。'),
+                  'realesrgan-x4plus': t('原始高质量x4模型，模型最大且最慢，作为画质基准。'),
+                  'realesr-animevideov3': t('动漫视频专用模型，不建议用于真人视频。')
+                };
+                form.querySelector('[data-ai-model-description]').textContent = descriptions[aiModelSelect.value] || '';
               };
               aiModelSelect.addEventListener('change', syncAiScaleAvailability);
               syncAiScaleAvailability();
