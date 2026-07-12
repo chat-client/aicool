@@ -1671,6 +1671,16 @@ function deleteUnlockedFolderPassword(path) {
         });
       }
 
+      function formatEnhanceElapsed(seconds) {
+        const total = Math.max(0, Math.floor(Number(seconds) || 0));
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const secs = total % 60;
+        if (hours > 0) return hours + t('小时') + minutes + t('分钟');
+        if (minutes > 0) return minutes + t('分钟') + secs + t('秒');
+        return secs + t('秒');
+      }
+
       async function monitorVideoEnhanceTask(taskId, path, local, isAi, progressView, taskStartedAt) {
         const progressApi = local ? (isAi ? api.localDiskAiVideoEnhanceProgress : api.localDiskVideoEnhanceProgress) : (isAi ? api.aiVideoEnhanceProgress : api.videoEnhanceProgress);
         const cancelApi = local ? (isAi ? api.localDiskAiVideoEnhanceCancel : api.localDiskVideoEnhanceCancel) : (isAi ? api.aiVideoEnhanceCancel : api.videoEnhanceCancel);
@@ -1686,9 +1696,10 @@ function deleteUnlockedFolderPassword(path) {
           const value = Number(data.progress || 0);
           if (!data.done) {
             let message = data.message || t('正在提升画质');
+            const elapsedSeconds = Math.max(0, (Date.now() - taskStartedAt) / 1000);
+            message += ' · ' + t('已耗时') + formatEnhanceElapsed(elapsedSeconds);
             if (isAi && value > 13) {
-              const elapsedSeconds = Math.max(1, (Date.now() - taskStartedAt) / 1000);
-              const remainingSeconds = Math.max(0, elapsedSeconds * (100 - value) / value);
+              const remainingSeconds = Math.max(0, Math.max(1, elapsedSeconds) * (100 - value) / value);
               const remainingMinutes = Math.ceil(remainingSeconds / 60);
               message += ' · ' + t('预计剩余约') + remainingMinutes + t('分钟');
             }
