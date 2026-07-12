@@ -842,7 +842,7 @@
     }
 
     .right-pane {
-      padding: 24px;
+      padding: 12px 16px 16px;
       min-height: 0;
       overflow: auto;
     }
@@ -857,8 +857,9 @@
     }
 
     h1 {
-      margin: 0 0 10px;
-      font-size: clamp(calc(24px * var(--font-scale)), 3.4vw, calc(34px * var(--font-scale)));
+      margin: 0 0 8px;
+      font-size: clamp(calc(21px * var(--font-scale)), 2.4vw, calc(26px * var(--font-scale)));
+      line-height: 1.2;
       letter-spacing: 0.3px;
     }
 
@@ -887,7 +888,7 @@
       align-items: center;
       flex-wrap: wrap;
       gap: 12px;
-      margin: -4px 0 14px;
+      margin: 0 0 8px;
     }
 
     .file-view-toolbar .file-view-context {
@@ -901,7 +902,7 @@
     .explorer-shell {
       display: grid;
       grid-template-columns: minmax(240px, var(--folder-browser-width, 290px)) minmax(0, 1fr);
-      gap: 16px;
+      gap: 12px;
       align-items: start;
     }
 
@@ -2127,12 +2128,20 @@
 
     .local-disk-remote-upload-zone {
       margin-top: 0;
-      margin-bottom: 14px;
+      margin-bottom: 8px;
     }
 
     .remote-browser-upload-zone {
       margin-top: 0;
-      margin-bottom: 14px;
+      margin-bottom: 8px;
+    }
+
+    .local-disk-remote-upload-zone,
+    .remote-browser-upload-zone {
+      min-height: 38px;
+      padding: 7px 11px;
+      border-width: 1px;
+      border-radius: 10px;
     }
 
     .local-disk-remote-upload-zone.is-disabled,
@@ -2151,9 +2160,16 @@
     .local-disk-remote-upload-zone .upload-drop-copy,
     .remote-browser-upload-zone .upload-drop-copy {
       display: flex;
-      flex-direction: column;
-      gap: 6px;
-      align-items: flex-start;
+      flex-direction: row;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      line-height: 1.25;
+    }
+
+    .local-disk-remote-upload-zone .upload-drop-copy strong,
+    .remote-browser-upload-zone .upload-drop-copy strong {
+      font-size: calc(12px * var(--font-scale));
     }
 
     .upload-staging-actions {
@@ -2170,7 +2186,7 @@
     #local-disk-remote-upload-target,
     #remote-browser-upload-target {
       color: #4a647f;
-      font-size: calc(13px * var(--font-scale));
+      font-size: calc(11px * var(--font-scale));
       font-weight: 600;
     }
 
@@ -2562,8 +2578,14 @@
       display: flex;
       gap: 8px;
       align-items: center;
-      margin: 10px 0 12px;
+      margin: 0 0 8px;
       flex-wrap: wrap;
+    }
+
+    #local-disk-context {
+      margin: 0 0 6px;
+      min-height: 24px;
+      padding: 0 10px;
     }
 
     .local-disk-view-btn.active {
@@ -2575,7 +2597,7 @@
     .local-disk-explorer {
       display: grid;
       grid-template-columns: minmax(220px, var(--local-disk-dir-width, 270px)) minmax(0, 1fr);
-      gap: 16px;
+      gap: 12px;
       align-items: start;
     }
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>文件管理控制台</title>
   <link rel="icon" href="/webcool/html/icon/favicon.ico" type="image/vnd.microsoft.icon">
-  <link rel="stylesheet" href="/webcool/html/main.css?v=auth-20260617-02">
+  <link rel="stylesheet" href="/webcool/html/main.css?v=ui-compact-20260712-01">
   <style>
     html.auth-booting .shell,
     html.auth-booting .auth-gate {
@@ -87,7 +87,6 @@
     <section class="right-pane">
       <section class="panel section" id="panel-upload">
         <h1>上传文件</h1>
-        <p class="sub">支持最多五十个文件同时上传，并展示实时上传进度。</p>
         <form id="upload-form" enctype="multipart/form-data">
           <input type="hidden" id="upload-folder-path" name="folder" value="">
           <div class="upload-box" id="upload-drop-zone">
@@ -122,7 +121,6 @@
 
       <section class="panel section active" id="panel-files">
         <h1>虚拟磁盘</h1>
-        <p class="sub">像资源管理器一样浏览多级文件夹，支持建删目录、预览、下载、删除和拖拽移动文件。</p>
         <div class="file-view-toolbar">
           <div id="file-view-context" class="file-view-context">当前视图：全部文件</div>
           <label class="local-hidden-toggle remote-hidden-toggle">
@@ -226,7 +224,6 @@
 
       <section class="panel section" id="panel-local-disk">
         <h1>本地磁盘</h1>
-        <p class="sub">浏览服务器本机磁盘目录，支持图片预览、视频观影、音频听音和文本查看。</p>
         <div id="local-disk-context" class="file-view-context">当前路径：/</div>
         <div class="local-disk-toolbar">
           <button id="local-disk-home-btn" class="folder-action-btn icon-only" type="button" title="当前用户目录" aria-label="当前用户目录">⌂</button>
@@ -337,7 +334,6 @@
 
       <section class="panel section" id="panel-admin">
         <h1>系统设置</h1>
-        <p class="sub">管理服务运行参数与维护操作。</p>
         <div class="admin-shell">
           <aside class="admin-command-bar" aria-label="系统设置功能命令">
             <button id="admin-storage-tab" class="admin-command-btn active" type="button">存储路径</button>
@@ -405,7 +401,6 @@
 
       <section class="panel section" id="panel-users">
         <h1 data-i18n="用户管理">用户管理</h1>
-        <p class="sub" data-i18n="管理普通用户账号和密码。">管理普通用户账号和密码。</p>
         <section id="admin-users-view" class="admin-view">
           <h2 data-i18n="普通用户">普通用户</h2>
           <p class="admin-view-desc" data-i18n="管理员账号不会在此处修改或删除。">管理员账号不会在此处修改或删除。</p>
@@ -420,7 +415,6 @@
 
       <section class="panel section" id="panel-account">
         <h1 data-i18n="账号设置">账号设置</h1>
-        <p class="sub" data-i18n="修改当前登录用户的密码、界面语言与字体大小。">修改当前登录用户的密码、界面语言与字体大小。</p>
         <div class="admin-shell">
           <aside class="admin-command-bar" aria-label="账号设置功能命令" data-i18n-aria-label="账号设置功能命令">
             <button id="account-password-tab" class="admin-command-btn active" type="button" data-i18n="修改密码">修改密码</button>
@@ -627,6 +621,6 @@
     </div>
   </div>
 
-  <script src="/webcool/html/main.js?v=auth-20260617-02"></script>
+  <script src="/webcool/html/main.js?v=ai-progress-20260712-02"></script>
 </body>
 </html>

@@ -1513,8 +1513,6 @@ function deleteUnlockedFolderPassword(path) {
         const isAi = options.method === 'ai';
         const progressView = openAudioExtractProgress(path, isAi ? t('AI超分辨率') : t('提升码率和分辨率'));
         const startApi = local ? (isAi ? api.localDiskAiVideoEnhance : api.localDiskVideoEnhance) : (isAi ? api.aiVideoEnhance : api.videoEnhance);
-        const progressApi = local ? (isAi ? api.localDiskAiVideoEnhanceProgress : api.localDiskVideoEnhanceProgress) : (isAi ? api.aiVideoEnhanceProgress : api.videoEnhanceProgress);
-        const cancelApi = local ? (isAi ? api.localDiskAiVideoEnhanceCancel : api.localDiskVideoEnhanceCancel) : (isAi ? api.aiVideoEnhanceCancel : api.videoEnhanceCancel);
         const parameter = local ? 'path' : 'file';
         const query = '?' + parameter + '=' + encodeURIComponent(path)
           + '&width=' + encodeURIComponent(options.width) + '&height=' + encodeURIComponent(options.height)
@@ -1540,17 +1538,94 @@ function deleteUnlockedFolderPassword(path) {
         }
         const taskId = String(started.task_id || '');
         if (!taskId) throw new Error(t('无法启动画质提升'));
+        saveVideoEnhanceRecoveryTask({
+          taskId: taskId,
+          path: path,
+          local: local,
+          isAi: isAi,
+          startedAt: Date.now()
+        });
         if (isAi && started.backend === 'coreml') {
           progressView.update(0, t('已启用 M4 Core ML 加速'));
         }
-        const taskStartedAt = Date.now();
+        await monitorVideoEnhanceTask(taskId, path, local, isAi, progressView, Date.now());
+      }
+
+      function videoEnhanceTaskInfo(task) {
+        const file = String((task && task.file) || '');
+        const prefixes = [
+          { prefix: 'ai-enhance-local:', local: true, ai: true },
+          { prefix: 'ai-enhance:', local: false, ai: true },
+          { prefix: 'video-enhance-local:', local: true, ai: false },
+          { prefix: 'video-enhance:', local: false, ai: false }
+        ];
+        for (let i = 0; i < prefixes.length; i += 1) {
+          const item = prefixes[i];
+          if (file.indexOf(item.prefix) === 0) {
+            return { path: file.slice(item.prefix.length), local: item.local, isAi: item.ai };
+          }
+        }
+        return null;
+      }
+
+      const VIDEO_ENHANCE_RECOVERY_STORAGE_KEY = 'webcool.videoEnhanceRecoveryTasks.v1';
+
+      function loadVideoEnhanceRecoveryTasks() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(VIDEO_ENHANCE_RECOVERY_STORAGE_KEY) || '[]');
+          return Array.isArray(parsed) ? parsed.filter(function (item) {
+            return item && item.taskId && item.path;
+          }) : [];
+        } catch (_) {
+          return [];
+        }
+      }
+
+      function writeVideoEnhanceRecoveryTasks(tasks) {
+        try {
+          localStorage.setItem(VIDEO_ENHANCE_RECOVERY_STORAGE_KEY, JSON.stringify(tasks.slice(-20)));
+        } catch (_) {
+        }
+      }
+
+      function saveVideoEnhanceRecoveryTask(task) {
+        const tasks = loadVideoEnhanceRecoveryTasks().filter(function (item) {
+          return String(item.taskId) !== String(task.taskId);
+        });
+        tasks.push(task);
+        writeVideoEnhanceRecoveryTasks(tasks);
+      }
+
+      function removeVideoEnhanceRecoveryTask(taskId) {
+        writeVideoEnhanceRecoveryTasks(loadVideoEnhanceRecoveryTasks().filter(function (item) {
+          return String(item.taskId) !== String(taskId);
+        }));
+      }
+
+      function restorePersistedVideoEnhanceTasks() {
+        loadVideoEnhanceRecoveryTasks().forEach(function (task) {
+          const taskId = String(task.taskId || '');
+          if (!taskId || activeVideoEnhanceProgressTasks.has(taskId)) return;
+          const progressView = openAudioExtractProgress(String(task.path || ''),
+            task.isAi ? t('AI超分辨率') : t('提升码率和分辨率'));
+          progressView.update(0, t('正在恢复转换进度'));
+          monitorVideoEnhanceTask(taskId, String(task.path || ''), Boolean(task.local),
+            Boolean(task.isAi), progressView, Number(task.startedAt || Date.now()));
+        });
+      }
+
+      async function monitorVideoEnhanceTask(taskId, path, local, isAi, progressView, taskStartedAt) {
+        const progressApi = local ? (isAi ? api.localDiskAiVideoEnhanceProgress : api.localDiskVideoEnhanceProgress) : (isAi ? api.aiVideoEnhanceProgress : api.videoEnhanceProgress);
+        const cancelApi = local ? (isAi ? api.localDiskAiVideoEnhanceCancel : api.localDiskVideoEnhanceCancel) : (isAi ? api.aiVideoEnhanceCancel : api.videoEnhanceCancel);
+        const id = String(taskId || '');
+        activeVideoEnhanceProgressTasks.set(id, progressView);
         progressView.setCancelHandler(function () {
-          fetchJson(cancelApi + '?task_id=' + encodeURIComponent(taskId), { method: 'POST' })
+          fetchJson(cancelApi + '?task_id=' + encodeURIComponent(id), { method: 'POST' })
             .then(function () { progressView.update(null, t('取消中')); })
             .catch(function (err) { progressView.update(null, t('取消失败：') + err.message, 'failed'); });
         });
         const poll = async function () {
-          const data = await fetchJson(progressApi + '?task_id=' + encodeURIComponent(taskId));
+          const data = await fetchJson(progressApi + '?task_id=' + encodeURIComponent(id));
           const value = Number(data.progress || 0);
           if (!data.done) {
             let message = data.message || t('正在提升画质');
@@ -1561,9 +1636,17 @@ function deleteUnlockedFolderPassword(path) {
               message += ' · ' + t('预计剩余约') + remainingMinutes + t('分钟');
             }
             progressView.update(value, message);
-            window.setTimeout(function () { poll().catch(function (err) { progressView.update(null, err.message, 'failed'); }); }, 800);
+            window.setTimeout(function () {
+              poll().catch(function (err) {
+                activeVideoEnhanceProgressTasks.delete(id);
+                removeVideoEnhanceRecoveryTask(id);
+                progressView.update(null, t('进度查询失败：') + err.message, 'failed');
+              });
+            }, 800);
             return;
           }
+          activeVideoEnhanceProgressTasks.delete(id);
+          removeVideoEnhanceRecoveryTask(id);
           if (!data.success) {
             progressView.update(value, data.cancel_requested ? t('已取消') : (data.error || t('画质提升失败')), data.cancel_requested ? 'cancelled' : 'failed');
             return;
@@ -1571,7 +1654,13 @@ function deleteUnlockedFolderPassword(path) {
           progressView.update(100, t('画质提升完成：') + data.name, 'done');
           if (local) await loadLocalDisk(activeLocalDiskPath || localDiskParentPath(path) || ''); else await loadFiles();
         };
-        await poll();
+        try {
+          await poll();
+        } catch (err) {
+          activeVideoEnhanceProgressTasks.delete(id);
+          removeVideoEnhanceRecoveryTask(id);
+          progressView.update(null, t('进度查询失败：') + err.message, 'failed');
+        }
       }
 
       async function handleFileContextAction(action, path, local) {
@@ -2102,12 +2191,32 @@ function deleteUnlockedFolderPassword(path) {
       }
 
       async function recoverRunningTranscodeTasks() {
+        restorePersistedVideoEnhanceTasks();
         try {
           const data = await fetchJson(api.convertTasks);
           const tasks = Array.isArray(data.tasks) ? data.tasks : [];
           for (let i = 0; i < tasks.length; i += 1) {
             const task = tasks[i];
             if (!task || !task.task_id || !task.name) {
+              continue;
+            }
+            const enhanceInfo = videoEnhanceTaskInfo(task);
+            if (enhanceInfo) {
+              const enhanceTaskId = String(task.task_id);
+              if (!activeVideoEnhanceProgressTasks.has(enhanceTaskId)) {
+                saveVideoEnhanceRecoveryTask({
+                  taskId: enhanceTaskId,
+                  path: enhanceInfo.path,
+                  local: enhanceInfo.local,
+                  isAi: enhanceInfo.isAi,
+                  startedAt: Date.now()
+                });
+                const progressView = openAudioExtractProgress(enhanceInfo.path,
+                  enhanceInfo.isAi ? t('AI超分辨率') : t('提升码率和分辨率'));
+                progressView.update(Number(task.progress || 0), task.message || t('正在恢复转换进度'));
+                monitorVideoEnhanceTask(enhanceTaskId, enhanceInfo.path, enhanceInfo.local,
+                  enhanceInfo.isAi, progressView, Date.now());
+              }
               continue;
             }
             upsertTranscodeTaskItem(task);

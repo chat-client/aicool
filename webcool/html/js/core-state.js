@@ -119,6 +119,10 @@ function selectRenameInputText(input) {
         videoResumeSave: '/api/v1/video/resume/save'
       };
 
+      // Keeps one floating progress window/poller per running enhancement task.
+      // The server task list is the source of truth after a page refresh.
+      var activeVideoEnhanceProgressTasks = new Map();
+
       var uploadForm = document.getElementById('upload-form');
 
       var reloadBtn = document.getElementById('reload-template-btn');

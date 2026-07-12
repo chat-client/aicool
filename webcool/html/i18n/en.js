@@ -488,6 +488,8 @@
     ,'AI放大倍数': 'AI upscale factor'
     ,'AI会推测并生成纹理细节，结果不一定与原始真实内容完全一致。': 'AI estimates and generates texture details; results may not exactly match the original real content.'
     ,'AI超分辨率启动失败：': 'Failed to start AI super-resolution: '
+    ,'正在恢复转换进度': 'Restoring conversion progress'
+    ,'进度查询失败：': 'Failed to query progress: '
     ,'性能档位': 'Performance profile'
     ,'快速': 'Fast'
     ,'均衡': 'Balanced'
