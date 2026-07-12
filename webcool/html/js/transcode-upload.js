@@ -1394,7 +1394,7 @@ function deleteUnlockedFolderPassword(path) {
                 '<label>' + t('Core ML并发') + '<select data-enhance-ai-workers><option value="0" selected>' + t('按模型自动') + '</option><option value="1">1</option><option value="2">2</option><option value="4">4</option></select><small>' + t('重模型通常1个更快，轻量模型通常2个更快。') + '</small></label>' +
                 '<label>' + t('Tile批量') + '<select data-enhance-ai-batch><option value="0" selected>' + t('按模型自动') + '</option><option value="1">1</option><option value="2">2</option><option value="4">4</option></select><small>' + t('批量可提高ANE吞吐，但会增加统一内存占用。') + '</small></label>' +
                 '<label>' + t('Tile重叠') + '<select data-enhance-ai-overlap><option value="low">' + t('较少（更快）') + '</option><option value="balanced" selected>' + t('均衡') + '</option><option value="quality">' + t('较多（减少接缝）') + '</option></select></label>' +
-                '<label>' + t('时序复用') + '<select data-enhance-ai-temporal><option value="1" selected>' + t('每帧推理（最佳画质）') + '</option><option value="2">' + t('每2帧推理（较快）') + '</option><option value="3">' + t('每3帧推理（最快）') + '</option></select><small>' + t('复用上一增强帧会提速，但快速运动可能出现轻微顿挫。') + '</small></label>' +
+                '<label>' + t('时序复用') + '<select data-enhance-ai-temporal><option value="1">' + t('每帧推理（最佳画质）') + '</option><option value="0" selected>' + t('自适应静态帧（推荐）') + '</option><option value="2">' + t('每2帧推理（较快）') + '</option><option value="3">' + t('每3帧推理（最快）') + '</option></select><small>' + t('自适应模式仅复用静态或近似静态画面，并定期强制刷新。') + '</small></label>' +
                 '<label>Tile<select data-enhance-ai-tile><option value="0">' + t('自动') + '</option><option value="128">128</option><option value="256">256</option><option value="512">512</option></select><small>' + t('显存不足时选择较小值；较大值通常更快。') + '</small></label>' +
                 '<label>' + t('推理线程') + '<select data-enhance-ai-threads><option value="1:2:2">1:2:2</option><option value="2:4:2" selected>2:4:2</option><option value="4:4:4">4:4:4</option></select></label>' +
                 '<label>' + t('计算单元') + '<select data-enhance-ai-compute><option value="auto" selected>' + t('自动（CPU/GPU/ANE）') + '</option><option value="gpu">' + t('GPU优先') + '</option><option value="ane">' + t('Neural Engine优先') + '</option><option value="cpu">' + t('仅CPU（对照）') + '</option></select><small>' + t('仅Core ML模型有效；建议用相同短片段分别测试耗时。') + '</small></label>' +
@@ -1472,7 +1472,7 @@ function deleteUnlockedFolderPassword(path) {
               performanceSelect.addEventListener('change', function () {
                 const presets = {
                   fast: { scale: '2', tile: '256', threads: '4:4:4', encode: 'fast', overlap: 'low', temporal: '2' },
-                  balanced: { scale: '2', tile: '0', threads: '2:4:2', encode: 'medium', overlap: 'balanced', temporal: '1' },
+                  balanced: { scale: '2', tile: '0', threads: '2:4:2', encode: 'medium', overlap: 'balanced', temporal: '0' },
                   quality: { scale: '4', tile: '128', threads: '1:2:2', encode: 'slow', overlap: 'quality', temporal: '1' }
                 };
                 const preset = presets[performanceSelect.value];
@@ -1582,7 +1582,7 @@ function deleteUnlockedFolderPassword(path) {
           + '&coreml_workers=' + encodeURIComponent(options.aiWorkers || 0)
           + '&tile_batch=' + encodeURIComponent(options.aiTileBatch || 0)
           + '&overlap_mode=' + encodeURIComponent(options.aiOverlap || 'balanced')
-          + '&temporal_step=' + encodeURIComponent(options.aiTemporalStep || 1)
+          + '&temporal_step=' + encodeURIComponent(Number.isFinite(options.aiTemporalStep) ? options.aiTemporalStep : 1)
           + '&gpu=' + encodeURIComponent(options.aiGpu)
           + '&encode_preset=' + encodeURIComponent(options.aiEncodePreset)
           + '&preview_seconds=' + encodeURIComponent(options.previewSeconds);
@@ -1719,7 +1719,9 @@ function deleteUnlockedFolderPassword(path) {
             progressView.update(value, data.cancel_requested ? t('已取消') : (data.error || t('画质提升失败')), data.cancel_requested ? 'cancelled' : 'failed');
             return;
           }
-          progressView.update(100, t('画质提升完成：') + data.name, 'done');
+          const totalElapsedSeconds = Math.max(0, (Date.now() - taskStartedAt) / 1000);
+          progressView.update(100, t('画质提升完成：') + data.name
+            + ' · ' + t('总耗时') + formatEnhanceElapsed(totalElapsedSeconds), 'done');
           if (local) await loadLocalDisk(activeLocalDiskPath || localDiskParentPath(path) || ''); else await loadFiles();
         };
         try {

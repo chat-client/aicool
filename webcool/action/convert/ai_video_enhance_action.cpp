@@ -11,10 +11,10 @@ struct coreml_runtime_t {
 	std::string model;
 };
 
-coreml_runtime_t choose_coreml_runtime(const std::string& model_name) {
+coreml_runtime_t choose_coreml_runtime(const std::string& model_name, int target_width, int target_height) {
 	coreml_runtime_t runtime;
 	(void) model_name;
-#if defined(__APPLE__) && defined(__aarch64__)
+#if defined(__APPLE__) && (defined(__arm64__) || defined(__aarch64__))
 	const char* env_bin = getenv("AICOOL_COREML_REALESRGAN");
 	const char* env_model = getenv("AICOOL_COREML_REALESRGAN_MODEL");
 	const std::vector<std::string> bins = {
@@ -25,11 +25,24 @@ coreml_runtime_t choose_coreml_runtime(const std::string& model_name) {
 	else if (model_name == "coreml-general-x4v3") file_name = "realesr-general-x4v3.mlmodelc";
 	else if (model_name == "coreml-general-x4v3-w8a8") file_name = "realesr-general-x4v3-w8a8.mlmodelc";
 	else if (model_name == "coreml-x4plus-int8") file_name = "realesrgan-x4plus-int8.mlmodelc";
-	const std::vector<std::string> models = {
-		"/opt/soft/webcool/models/coreml/" + file_name,
-		"tools/mac/coreml-models/" + file_name, "../tools/mac/coreml-models/" + file_name,
-		"tools/mac/" + file_name, "../tools/mac/" + file_name
-	};
+	std::vector<std::string> file_names;
+	const size_t extension = file_name.rfind(".mlmodelc");
+	const int scale = model_name == "coreml-x2plus" ? 2 : 4;
+	const int required = std::max((target_width + scale - 1) / scale,
+		(target_height + scale - 1) / scale);
+	int preferred_tile = required <= 256 ? 256 : (required <= 384 ? 384 : 512);
+	if (extension != std::string::npos) {
+		file_names.push_back(file_name.substr(0, extension) + "-" + std::to_string(preferred_tile) + ".mlmodelc");
+	}
+	file_names.push_back(file_name);
+	std::vector<std::string> models;
+	for (const auto& candidate : file_names) {
+		models.push_back("/opt/soft/webcool/models/coreml/" + candidate);
+		models.push_back("tools/mac/coreml-models/" + candidate);
+		models.push_back("../tools/mac/coreml-models/" + candidate);
+		models.push_back("tools/mac/" + candidate);
+		models.push_back("../tools/mac/" + candidate);
+	}
 	runtime.executable = env_bin && *env_bin ? env_bin : "";
 	if (runtime.executable.empty()) {
 		for (const auto& item : bins) if (access(item.c_str(), X_OK) == 0) { runtime.executable = item; break; }
@@ -42,6 +55,8 @@ coreml_runtime_t choose_coreml_runtime(const std::string& model_name) {
 		}
 	}
 #endif
+	(void) target_width;
+	(void) target_height;
 	return runtime;
 }
 
@@ -288,7 +303,7 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 		|| (requested_coreml_workers != 0 && requested_coreml_workers != 1 && requested_coreml_workers != 2 && requested_coreml_workers != 4)
 		|| (requested_tile_batch != 0 && requested_tile_batch != 1 && requested_tile_batch != 2 && requested_tile_batch != 4)
 		|| (overlap_mode != "low" && overlap_mode != "balanced" && overlap_mode != "quality")
-		|| (temporal_step != 1 && temporal_step != 2 && temporal_step != 3)
+		|| (temporal_step != 0 && temporal_step != 1 && temporal_step != 2 && temporal_step != 3)
 		|| (preview_seconds != 0 && preview_seconds != 10 && preview_seconds != 30 && preview_seconds != 60)) {
 		json_error(res, 400, "invalid AI enhancement options", req.isKeepAlive()); return true;
 	}
@@ -302,7 +317,7 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 		json_error(res, 404, "source video not found", req.isKeepAlive()); return true;
 	} else { int status = 500; if (!ensure_remote_video_transcode_lock_policy(upload_dir, source, err, status)) { json_error(res, status, err.c_str(), req.isKeepAlive()); return true; } }
 	const std::string ffmpeg = choose_ffmpeg_path();
-	const coreml_runtime_t coreml = choose_coreml_runtime(model);
+	const coreml_runtime_t coreml = choose_coreml_runtime(model, width, height);
 	const bool coreml_model = model == "realesrgan-x4plus" || model == "coreml-x2plus"
 		|| model == "coreml-general-x4v3" || model == "coreml-general-x4v3-w8a8"
 		|| model == "coreml-x4plus-int8";
@@ -317,8 +332,14 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	const bool heavy_coreml = model == "realesrgan-x4plus" || model == "coreml-x4plus-int8";
 	const int coreml_workers = requested_coreml_workers > 0
 		? requested_coreml_workers : (heavy_coreml ? 1 : 2);
+	const int estimated_scale = model == "coreml-x2plus" ? 2 : 4;
+	const int estimated_tile = model == "coreml-x2plus" ? 256 : 512;
+	const int estimated_width = (width + estimated_scale - 1) / estimated_scale;
+	const int estimated_height = (height + estimated_scale - 1) / estimated_scale;
+	const int estimated_tiles = ((estimated_width + estimated_tile - 1) / estimated_tile)
+		* ((estimated_height + estimated_tile - 1) / estimated_tile);
 	const int tile_batch = requested_tile_batch > 0
-		? requested_tile_batch : (heavy_coreml ? 1 : 2);
+		? requested_tile_batch : (heavy_coreml || estimated_tiles <= 1 ? 1 : 2);
 	const std::string input = local ? source : join_upload_path(upload_dir, source);
 	std::string output_label = "general";
 	if (model == "realesr-animevideov3") output_label = "anime";
@@ -328,7 +349,8 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	else if (model == "coreml-x4plus-int8") output_label = "int8-x4";
 	if (coreml_model && compute_units != "auto") output_label += "-" + compute_units;
 	if (coreml_model && input_sizing == "target") output_label += "-target";
-	if (coreml_model && temporal_step > 1) output_label += "-step" + std::to_string(temporal_step);
+	if (coreml_model && temporal_step == 0) output_label += "-adaptive";
+	else if (coreml_model && temporal_step > 1) output_label += "-step" + std::to_string(temporal_step);
 	if (preview_seconds > 0) output_label += "_preview" + std::to_string(preview_seconds) + "s";
 	const std::string output_name = ai_output_name(source, local, upload_dir, output_label, width, height);
 	const std::string output = local ? output_name : join_upload_path(upload_dir, output_name);

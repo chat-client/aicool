@@ -127,10 +127,20 @@ def main():
     parser.add_argument("--kind", choices=("x2plus", "general-x4v3"), required=True)
     parser.add_argument("--weights", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--tile", type=int, default=512)
+    parser.add_argument("--tile", type=int, default=512,
+                        help="single fixed tile size")
+    parser.add_argument("--tiles", type=int, nargs="+",
+                        help="generate several fixed-size variants; output must contain {tile}")
     args = parser.parse_args()
-    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-    convert(args.kind, args.weights, args.output, args.tile)
+    tiles = args.tiles or [args.tile]
+    if len(tiles) > 1 and "{tile}" not in args.output:
+        parser.error("--output must contain {tile} when --tiles has multiple values")
+    for tile in tiles:
+        if tile not in (128, 192, 256, 384, 512):
+            parser.error("tile must be one of 128, 192, 256, 384, 512")
+        output = args.output.format(tile=tile)
+        Path(output).parent.mkdir(parents=True, exist_ok=True)
+        convert(args.kind, args.weights, output, tile)
 
 
 if __name__ == "__main__":
