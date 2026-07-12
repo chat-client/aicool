@@ -5178,6 +5178,8 @@
     .video-enhance-card .video-enhance-check { display: flex; align-items: center; gap: 7px; }
     .video-enhance-card .video-enhance-check input { width: auto; margin: 0; }
     .video-enhance-card small { display: block; margin-top: 5px; color: #7b8fa2; line-height: 1.45; }
+    .video-enhance-advanced { margin-top: 12px; padding: 9px 10px; border: 1px solid #dce6ef; border-radius: 7px; }
+    .video-enhance-advanced summary { color: #2a608f; cursor: pointer; }
     .video-enhance-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
     .video-enhance-actions button { padding: 7px 16px; border: 1px solid #b9c9d8; border-radius: 6px; cursor: pointer; }
     .video-enhance-actions [data-enhance-confirm] { border-color: #2a7ae4; background: #2a7ae4; color: #fff; }

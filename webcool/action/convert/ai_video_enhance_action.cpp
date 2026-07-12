@@ -6,6 +6,38 @@
 namespace action {
 namespace {
 
+struct coreml_runtime_t {
+	std::string executable;
+	std::string model;
+};
+
+coreml_runtime_t choose_coreml_runtime() {
+	coreml_runtime_t runtime;
+#if defined(__APPLE__) && defined(__aarch64__)
+	const char* env_bin = getenv("AICOOL_COREML_REALESRGAN");
+	const char* env_model = getenv("AICOOL_COREML_REALESRGAN_MODEL");
+	const std::vector<std::string> bins = {
+		"/opt/soft/webcool/bin/coreml-realesrgan", "tools/mac/coreml-realesrgan", "../tools/mac/coreml-realesrgan"
+	};
+	const std::vector<std::string> models = {
+		"/opt/soft/webcool/models/coreml/realesrgan512.mlmodelc",
+		"tools/mac/realesrgan512.mlmodelc", "../tools/mac/realesrgan512.mlmodelc"
+	};
+	runtime.executable = env_bin && *env_bin ? env_bin : "";
+	if (runtime.executable.empty()) {
+		for (const auto& item : bins) if (access(item.c_str(), X_OK) == 0) { runtime.executable = item; break; }
+	}
+	runtime.model = env_model && *env_model ? env_model : "";
+	if (runtime.model.empty()) {
+		for (const auto& item : models) {
+			struct stat st{};
+			if (stat(item.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) { runtime.model = item; break; }
+		}
+	}
+#endif
+	return runtime;
+}
+
 std::string choose_realesrgan(std::string& models) {
 	const char* env = getenv("AICOOL_REALESRGAN");
 	const char* env_models = getenv("AICOOL_REALESRGAN_MODELS");
@@ -86,8 +118,11 @@ bool run_stage(const std::shared_ptr<transcode_task_t>& task, ACL_ARGV* args,
 
 void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& ai, const std::string& models,
+	bool use_coreml, const std::string& coreml_model, int coreml_workers,
 	const std::string& input, const std::string& output, const std::string& temp_root,
-	const std::string& model, int scale, int width, int height, int bitrate, double fps)
+	const std::string& model, int scale, int width, int height, int bitrate, double fps,
+	int tile, const std::string& threads, int gpu, const std::string& encode_preset,
+	int preview_seconds)
 {
 	const std::string frames_in = temp_root + "/input";
 	const std::string frames_out = temp_root + "/output";
@@ -98,33 +133,51 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	const std::string input_pattern = frames_in + "/%08d.png";
 	ACL_ARGV* extract = acl_argv_alloc(20);
 	acl_argv_add(extract, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", "-i", input.c_str(),
-		"-map", "0:v:0", "-vsync", "0", "-progress", "pipe:1", "-nostats", input_pattern.c_str(), nullptr);
+		"-map", "0:v:0", nullptr);
+	const std::string preview_text = std::to_string(preview_seconds);
+	if (preview_seconds > 0) acl_argv_add(extract, "-t", preview_text.c_str(), nullptr);
+	acl_argv_add(extract, "-vsync", "0", "-progress", "pipe:1", "-nostats", input_pattern.c_str(), nullptr);
 	if (!run_stage(task, extract, duration, 1, 10, "正在解码视频帧", 12, "准备AI推理")) {
 		cleanup_temp(temp_root); finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "frame extraction failed", -1); return;
 	}
 	ACL_ARGV* inference = acl_argv_alloc(24);
-	const std::string scale_text = std::to_string(scale);
-	acl_argv_add(inference, ai.c_str(), "-i", frames_in.c_str(), "-o", frames_out.c_str(), "-n", model.c_str(),
-		"-s", scale_text.c_str(), "-m", models.c_str(), "-t", "0", "-f", "png", nullptr);
+	// realesrgan-x4plus only ships x4 NCNN weights. Passing x2 makes the
+	// runtime interpret the x4 tensor with an incompatible output scale and
+	// can produce corrupted frames. AnimeVideo-v3 has scale-specific weights.
+	const int inference_scale = model == "realesrgan-x4plus" ? 4 : scale;
+	if (use_coreml) {
+		const std::string workers_text = std::to_string(coreml_workers);
+		acl_argv_add(inference, ai.c_str(), "--model", coreml_model.c_str(), "--input", frames_in.c_str(),
+			"--output", frames_out.c_str(), "--workers", workers_text.c_str(), nullptr);
+	} else {
+		const std::string scale_text = std::to_string(inference_scale);
+		const std::string tile_text = std::to_string(tile);
+		acl_argv_add(inference, ai.c_str(), "-i", frames_in.c_str(), "-o", frames_out.c_str(), "-n", model.c_str(),
+			"-s", scale_text.c_str(), "-m", models.c_str(), "-t", tile_text.c_str(), "-j", threads.c_str(), nullptr);
+		const std::string gpu_text = std::to_string(gpu);
+		if (gpu >= 0) acl_argv_add(inference, "-g", gpu_text.c_str(), nullptr);
+		acl_argv_add(inference, "-f", "png", "-v", nullptr);
+	}
 	const long long total_frames = count_directory_files(frames_in);
 	std::atomic<bool> inference_done(false);
-	std::thread monitor([task, frames_out, total_frames, &inference_done] {
+	std::thread monitor([task, frames_out, total_frames, use_coreml, &inference_done] {
 		while (!inference_done.load()) {
 			if (total_frames > 0) {
 				const long long completed = count_directory_files(frames_out);
 				update_task_progress(task, 12.0 + std::min(72.0,
 					72.0 * static_cast<double>(completed) / static_cast<double>(total_frames)),
-					"AI正在恢复纹理与细节");
+					use_coreml ? "Core ML正在调用M4恢复纹理与细节" : "AI正在恢复纹理与细节");
 			}
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));
 		}
 	});
 	const bool inference_ok = run_stage(task, inference, 0, 12, 72,
-		"AI正在恢复纹理与细节", 85, "AI推理完成");
+		use_coreml ? "Core ML正在调用M4恢复纹理与细节" : "AI正在恢复纹理与细节", 85, "AI推理完成");
 	inference_done.store(true);
 	monitor.join();
 	if (!inference_ok) {
-		cleanup_temp(temp_root); finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "Real-ESRGAN inference failed", -1); return;
+		cleanup_temp(temp_root); finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI增强失败",
+			use_coreml ? "Core ML Real-ESRGAN inference failed" : "Real-ESRGAN inference failed", -1); return;
 	}
 	const std::string fps_text = std::to_string(fps > 0 ? fps : 25.0);
 	const std::string output_pattern = frames_out + "/%08d.png";
@@ -134,9 +187,18 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	const std::string rate = std::to_string(bitrate) + "k";
 	ACL_ARGV* encode = acl_argv_alloc(40);
 	acl_argv_add(encode, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", "-framerate", fps_text.c_str(),
-		"-i", output_pattern.c_str(), "-i", input.c_str(), "-map", "0:v:0", "-map", "1:a?", "-vf", filter.c_str(),
-		"-c:v", "libx264", "-preset", "slow", "-b:v", rate.c_str(), "-pix_fmt", "yuv420p", "-c:a", "aac",
-		"-b:a", "192k", "-shortest", "-movflags", "+faststart", "-progress", "pipe:1", "-nostats", output.c_str(), nullptr);
+		"-start_number", "1", "-i", output_pattern.c_str(), "-i", input.c_str(), "-map", "0:v:0", "-map", "1:a?", "-vf", filter.c_str(),
+		nullptr);
+#ifdef __APPLE__
+	if (use_coreml) {
+		acl_argv_add(encode, "-c:v", "h264_videotoolbox", "-b:v", rate.c_str(), "-pix_fmt", "yuv420p", nullptr);
+	} else
+#endif
+	{
+		acl_argv_add(encode, "-c:v", "libx264", "-preset", encode_preset.c_str(), "-b:v", rate.c_str(), "-pix_fmt", "yuv420p", nullptr);
+	}
+	acl_argv_add(encode, "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart",
+		"-progress", "pipe:1", "-nostats", output.c_str(), nullptr);
 	if (!run_stage(task, encode, duration, 85, 13, "正在合成视频与原音轨", 99, "正在完成AI视频")) {
 		unlink(output.c_str()); cleanup_temp(temp_root); finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "video encoding failed", -1); return;
 	}
@@ -153,11 +215,21 @@ bool ai_snapshot(const request_t& req, const std::string& scope, bool local, tra
 bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::string& upload_dir, bool local) {
 	const int width = safe_atoi(req.getParameter("width"), 0), height = safe_atoi(req.getParameter("height"), 0);
 	const int bitrate = safe_atoi(req.getParameter("bitrate_kbps"), 0), scale = safe_atoi(req.getParameter("scale"), 2);
+	const int tile = safe_atoi(req.getParameter("tile"), 0);
+	const int gpu = safe_atoi(req.getParameter("gpu"), -1);
+	const int preview_seconds = safe_atoi(req.getParameter("preview_seconds"), 0);
 	const double fps = req.getParameter("fps") ? atof(req.getParameter("fps")) : 25.0;
 	const std::string model = req.getParameter("model") ? req.getParameter("model") : "realesrgan-x4plus";
+	const std::string threads = req.getParameter("threads") ? req.getParameter("threads") : "1:2:2";
+	const std::string encode_preset = req.getParameter("encode_preset") ? req.getParameter("encode_preset") : "medium";
 	if (width < 320 || width > 3840 || height < 240 || height > 2160 || width % 2 || height % 2
 		|| bitrate < 300 || bitrate > 50000 || (scale != 2 && scale != 4) || fps <= 0 || fps > 120
-		|| (model != "realesrgan-x4plus" && model != "realesr-animevideov3")) {
+		|| (model != "realesrgan-x4plus" && model != "realesr-animevideov3")
+		|| (tile != 0 && tile != 128 && tile != 256 && tile != 512)
+		|| (threads != "1:2:2" && threads != "2:4:2" && threads != "4:4:4")
+		|| gpu < -1 || gpu > 15
+		|| (encode_preset != "fast" && encode_preset != "medium" && encode_preset != "slow")
+		|| (preview_seconds != 0 && preview_seconds != 10 && preview_seconds != 30 && preview_seconds != 60)) {
 		json_error(res, 400, "invalid AI enhancement options", req.isKeepAlive()); return true;
 	}
 	std::string source, err;
@@ -169,19 +241,32 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 		|| !resolve_upload_regular_file_path(upload_dir, source, source) || !is_video_name(base_name_from_relative_path(source).c_str())) {
 		json_error(res, 404, "source video not found", req.isKeepAlive()); return true;
 	} else { int status = 500; if (!ensure_remote_video_transcode_lock_policy(upload_dir, source, err, status)) { json_error(res, status, err.c_str(), req.isKeepAlive()); return true; } }
-	const std::string ffmpeg = choose_ffmpeg_path(); std::string models; const std::string ai = choose_realesrgan(models);
-	if (ffmpeg.empty() || ai.empty() || models.empty()) { json_error(res, 503, "Real-ESRGAN runtime or models not installed", req.isKeepAlive()); return true; }
+	const std::string ffmpeg = choose_ffmpeg_path();
+	const coreml_runtime_t coreml = choose_coreml_runtime();
+	const bool use_coreml = model == "realesrgan-x4plus" && !coreml.executable.empty() && !coreml.model.empty();
+	std::string models;
+	std::string ai = use_coreml ? coreml.executable : choose_realesrgan(models);
+	if (ffmpeg.empty() || ai.empty() || (!use_coreml && models.empty())) { json_error(res, 503, "Real-ESRGAN runtime or models not installed", req.isKeepAlive()); return true; }
+	const int coreml_workers = threads == "4:4:4" ? 4 : (threads == "1:2:2" ? 1 : 2);
 	const std::string input = local ? source : join_upload_path(upload_dir, source);
-	const std::string output_name = ai_output_name(source, local, upload_dir, model == "realesr-animevideov3" ? "anime" : "general", width, height);
+	std::string output_label = model == "realesr-animevideov3" ? "anime" : "general";
+	if (preview_seconds > 0) output_label += "_preview" + std::to_string(preview_seconds) + "s";
+	const std::string output_name = ai_output_name(source, local, upload_dir, output_label, width, height);
 	const std::string output = local ? output_name : join_upload_path(upload_dir, output_name);
 	const std::string task_file = (local ? "ai-enhance-local:" : "ai-enhance:") + source;
 	auto task = std::make_shared<transcode_task_t>(); task->id = make_task_id(); task->scope = upload_dir; task->file_name = task_file;
-	task->output_name = output_name; task->local = local; task->message = "等待AI超分辨率处理";
+	task->output_name = output_name; task->local = local;
+	task->message = use_coreml ? "等待M4 Core ML超分辨率处理" : "等待AI超分辨率处理";
 	const std::string key = scoped_task_key(upload_dir, task_file);
 	{ std::lock_guard<webcool::mutex> guard(g_transcode_mutex); const auto it = g_running_task_by_file.find(key); if (it != g_running_task_by_file.end()) { const auto old = g_transcode_tasks.find(it->second); if (old != g_transcode_tasks.end() && !old->second->done) { acl::json json; acl::json_node& root=json.create_node(); root.add_bool("ok",true); root.add_text("task_id",old->second->id.c_str()); root.add_text("name",old->second->output_name.c_str()); return sendJson(res,200,root,req.isKeepAlive()); } } g_transcode_tasks[task->id]=task; g_running_task_by_file[key]=task->id; }
 	const std::string temp_root = local_parent_path(output) + "/.ai_enhance_tmp." + task->id;
-	go[task, ffmpeg, ai, models, input, output, temp_root, model, scale, width, height, bitrate, fps] { acl::gofiber_wait_thread([task, ffmpeg, ai, models, input, output, temp_root, model, scale, width, height, bitrate, fps] { run_ai_task(task, ffmpeg, ai, models, input, output, temp_root, model, scale, width, height, bitrate, fps); }); };
-	acl::json json; acl::json_node& root=json.create_node(); root.add_bool("ok",true); root.add_text("task_id",task->id.c_str()); root.add_text("name",output_name.c_str()); return sendJson(res,200,root,req.isKeepAlive());
+	go[task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
+		acl::gofiber_wait_thread([task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
+			run_ai_task(task, ffmpeg, ai, models, use_coreml, coreml.model, coreml_workers, input, output, temp_root, model, scale, width, height, bitrate, fps,
+				tile, threads, gpu, encode_preset, preview_seconds);
+		});
+	};
+	acl::json json; acl::json_node& root=json.create_node(); root.add_bool("ok",true); root.add_text("task_id",task->id.c_str()); root.add_text("name",output_name.c_str()); root.add_text("backend", use_coreml ? "coreml" : "ncnn-vulkan"); return sendJson(res,200,root,req.isKeepAlive());
 }
 
 bool AiVideoEnhanceAction::progress(request_t& req, response_t& res, const std::string& scope, bool local) { transcode_task_snapshot_t t; if (!ai_snapshot(req,scope,local,t)) { json_error(res,404,"AI task not found",req.isKeepAlive()); return true; } acl::json j; acl::json_node& r=j.create_node(); r.add_bool("ok",true); r.add_text("name",t.output_name.c_str()); r.add_bool("done",t.done); r.add_bool("success",t.success); r.add_bool("cancel_requested",t.cancel_requested); r.add_number("progress",(long long)t.progress); r.add_text("message",t.message.c_str()); if(!t.error.empty())r.add_text("error",t.error.c_str()); return sendJson(res,200,r,req.isKeepAlive()); }

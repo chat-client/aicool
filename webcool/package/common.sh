@@ -244,6 +244,19 @@ copy_realesrgan_runtime() {
   mkdir -p "${install_root}/models/realesrgan"
   cp -a "${models}/." "${install_root}/models/realesrgan/"
   copy_if_exists "${TOOLS_ROOT}/REALESRGAN-LICENSE" "${install_root}/"
+
+  if [ "$platform" = "mac" ]; then
+    local coreml_executable="${source_root}/coreml-realesrgan"
+    local coreml_model="${source_root}/realesrgan512.mlmodelc"
+    if [ -x "$coreml_executable" ] && [ -d "$coreml_model" ]; then
+      cp -a "$coreml_executable" "${install_root}/bin/coreml-realesrgan"
+      chmod 0755 "${install_root}/bin/coreml-realesrgan"
+      mkdir -p "${install_root}/models/coreml"
+      cp -a "$coreml_model" "${install_root}/models/coreml/realesrgan512.mlmodelc"
+    else
+      log "warning: Core ML Real-ESRGAN runtime not found; Apple Silicon will use NCNN fallback"
+    fi
+  fi
 }
 
 stage_runtime_tree() {

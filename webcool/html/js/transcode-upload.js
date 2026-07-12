@@ -1381,6 +1381,13 @@ function deleteUnlockedFolderPassword(path) {
                 '<label>' + t('运动补帧') + '<select data-enhance-fps><option value="0" selected>' + t('保持原帧率') + '</option><option value="30">30 FPS</option><option value="50">50 FPS</option><option value="60">60 FPS</option></select><small>' + t('补帧可以改善运动流畅度，但会显著增加处理时间。') + '</small></label></div>' +
                 '<div data-ai-enhance-options hidden><label>' + t('AI模型') + '<select data-enhance-ai-model><option value="realesrgan-x4plus">' + t('通用/真人') + '</option><option value="realesr-animevideov3">' + t('动漫') + '</option></select></label>' +
                 '<label>' + t('AI放大倍数') + '<select data-enhance-ai-scale><option value="2">2×</option><option value="4">4×</option></select></label>' +
+                '<label>' + t('性能档位') + '<select data-enhance-ai-performance><option value="fast">' + t('快速') + '</option><option value="balanced" selected>' + t('均衡') + '</option><option value="quality">' + t('高质量') + '</option></select></label>' +
+                '<details class="video-enhance-advanced"><summary>' + t('高级性能选项') + '</summary>' +
+                '<label>Tile<select data-enhance-ai-tile><option value="0">' + t('自动') + '</option><option value="128">128</option><option value="256">256</option><option value="512">512</option></select><small>' + t('显存不足时选择较小值；较大值通常更快。') + '</small></label>' +
+                '<label>' + t('推理线程') + '<select data-enhance-ai-threads><option value="1:2:2">1:2:2</option><option value="2:4:2" selected>2:4:2</option><option value="4:4:4">4:4:4</option></select></label>' +
+                '<label>' + t('GPU编号') + '<select data-enhance-ai-gpu><option value="-1">' + t('自动') + '</option><option value="0">GPU 0</option><option value="1">GPU 1</option></select></label>' +
+                '<label>' + t('最终编码速度') + '<select data-enhance-ai-encode><option value="fast">Fast</option><option value="medium" selected>Medium</option><option value="slow">Slow</option></select></label></details>' +
+                '<label>' + t('试跑范围') + '<select data-enhance-ai-preview><option value="0">' + t('完整视频') + '</option><option value="10">' + t('仅前10秒') + '</option><option value="30">' + t('仅前30秒') + '</option><option value="60">' + t('仅前60秒') + '</option></select><small>' + t('建议先试跑短片段，确认模型和参数效果。') + '</small></label>' +
                 '<small>' + t('AI会推测并生成纹理细节，结果不一定与原始真实内容完全一致。') + '</small></div>' +
                 '<div class="video-enhance-actions"><button type="button" data-enhance-cancel>' + t('取消') + '</button><button type="button" data-enhance-confirm>' + t('开始提升') + '</button></div></div>';
               document.body.appendChild(form);
@@ -1389,9 +1396,33 @@ function deleteUnlockedFolderPassword(path) {
                 form.querySelector('[data-standard-enhance-options]').hidden = methodSelect.value === 'ai';
                 form.querySelector('[data-ai-enhance-options]').hidden = methodSelect.value !== 'ai';
               });
+              const aiModelSelect = form.querySelector('[data-enhance-ai-model]');
+              const aiScaleSelect = form.querySelector('[data-enhance-ai-scale]');
+              const syncAiScaleAvailability = function () {
+                const generalModel = aiModelSelect.value === 'realesrgan-x4plus';
+                if (generalModel) aiScaleSelect.value = '4';
+                aiScaleSelect.disabled = generalModel;
+                aiScaleSelect.title = generalModel ? t('通用模型仅支持4×推理，最终仍会缩放到目标分辨率') : '';
+              };
+              aiModelSelect.addEventListener('change', syncAiScaleAvailability);
+              syncAiScaleAvailability();
               const sharpenInput = form.querySelector('[data-enhance-sharpen]');
               sharpenInput.addEventListener('input', function () {
                 form.querySelector('[data-enhance-sharpen-value]').textContent = sharpenInput.value + '%';
+              });
+              const performanceSelect = form.querySelector('[data-enhance-ai-performance]');
+              performanceSelect.addEventListener('change', function () {
+                const presets = {
+                  fast: { scale: '2', tile: '256', threads: '4:4:4', encode: 'fast' },
+                  balanced: { scale: '2', tile: '0', threads: '2:4:2', encode: 'medium' },
+                  quality: { scale: '4', tile: '128', threads: '1:2:2', encode: 'slow' }
+                };
+                const preset = presets[performanceSelect.value];
+                form.querySelector('[data-enhance-ai-scale]').value = preset.scale;
+                form.querySelector('[data-enhance-ai-tile]').value = preset.tile;
+                form.querySelector('[data-enhance-ai-threads]').value = preset.threads;
+                form.querySelector('[data-enhance-ai-encode]').value = preset.encode;
+                syncAiScaleAvailability();
               });
               form.querySelector('[data-enhance-cancel]').addEventListener('click', function () { form.remove(); });
               form.querySelector('[data-enhance-confirm]').addEventListener('click', function () {
@@ -1406,7 +1437,12 @@ function deleteUnlockedFolderPassword(path) {
                   method: methodSelect.value,
                   aiModel: form.querySelector('[data-enhance-ai-model]').value,
                   aiScale: Number(form.querySelector('[data-enhance-ai-scale]').value),
-                  sourceFps: Number(data.fps || 25)
+                  sourceFps: Number(data.fps || 25),
+                  aiTile: Number(form.querySelector('[data-enhance-ai-tile]').value),
+                  aiThreads: form.querySelector('[data-enhance-ai-threads]').value,
+                  aiGpu: Number(form.querySelector('[data-enhance-ai-gpu]').value),
+                  aiEncodePreset: form.querySelector('[data-enhance-ai-encode]').value,
+                  previewSeconds: Number(form.querySelector('[data-enhance-ai-preview]').value)
                 };
                 if (!Number.isInteger(options.width) || !Number.isInteger(options.height)
                     || options.width < 320 || options.width > 3840 || options.width % 2
@@ -1474,7 +1510,12 @@ function deleteUnlockedFolderPassword(path) {
           + '&target_fps=' + encodeURIComponent(options.targetFps)
           + '&model=' + encodeURIComponent(options.aiModel)
           + '&scale=' + encodeURIComponent(options.aiScale)
-          + '&fps=' + encodeURIComponent(options.sourceFps);
+          + '&fps=' + encodeURIComponent(options.sourceFps)
+          + '&tile=' + encodeURIComponent(options.aiTile)
+          + '&threads=' + encodeURIComponent(options.aiThreads)
+          + '&gpu=' + encodeURIComponent(options.aiGpu)
+          + '&encode_preset=' + encodeURIComponent(options.aiEncodePreset)
+          + '&preview_seconds=' + encodeURIComponent(options.previewSeconds);
         let started;
         try {
           started = await fetchJson(startApi + query, { method: 'POST' });
@@ -1484,6 +1525,10 @@ function deleteUnlockedFolderPassword(path) {
         }
         const taskId = String(started.task_id || '');
         if (!taskId) throw new Error(t('无法启动画质提升'));
+        if (isAi && started.backend === 'coreml') {
+          progressView.update(0, t('已启用 M4 Core ML 加速'));
+        }
+        const taskStartedAt = Date.now();
         progressView.setCancelHandler(function () {
           fetchJson(cancelApi + '?task_id=' + encodeURIComponent(taskId), { method: 'POST' })
             .then(function () { progressView.update(null, t('取消中')); })
@@ -1493,7 +1538,14 @@ function deleteUnlockedFolderPassword(path) {
           const data = await fetchJson(progressApi + '?task_id=' + encodeURIComponent(taskId));
           const value = Number(data.progress || 0);
           if (!data.done) {
-            progressView.update(value, data.message || t('正在提升画质'));
+            let message = data.message || t('正在提升画质');
+            if (isAi && value > 13) {
+              const elapsedSeconds = Math.max(1, (Date.now() - taskStartedAt) / 1000);
+              const remainingSeconds = Math.max(0, elapsedSeconds * (100 - value) / value);
+              const remainingMinutes = Math.ceil(remainingSeconds / 60);
+              message += ' · ' + t('预计剩余约') + remainingMinutes + t('分钟');
+            }
+            progressView.update(value, message);
             window.setTimeout(function () { poll().catch(function (err) { progressView.update(null, err.message, 'failed'); }); }, 800);
             return;
           }
