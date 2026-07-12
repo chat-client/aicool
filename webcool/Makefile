@@ -11,6 +11,8 @@ PROG    = webcool
 # Disable with: make MACOS_UNIVERSAL=0
 MACOS_UNIVERSAL ?=
 MACOS_ARCHS     :=
+COREML_BUILD_TARGET :=
+COREML_CLEAN_TARGET :=
 
 ###########################################################
 # 系统类型检测
@@ -54,6 +56,13 @@ ifeq ($(findstring Darwin, $(UNIXNAME)), Darwin)
 		MACOS_ARCHS := -arch arm64 -arch x86_64
 		CFLAGS += $(MACOS_ARCHS)
 	endif
+	SWIFTC ?= xcrun swiftc
+	COREML_SWIFT_SRC := coreml/coreml_realesrgan.swift
+	COREML_RUNNER := ../tools/mac/coreml-realesrgan
+	COREML_SWIFT_FLAGS := -swift-version 5 -O -target arm64-apple-macosx13.0 \
+		-framework CoreML -framework CoreImage -framework CoreVideo -framework AVFoundation
+	COREML_BUILD_TARGET := $(COREML_RUNNER)
+	COREML_CLEAN_TARGET := $(COREML_RUNNER)
 endif
 
 # Linux
@@ -157,11 +166,23 @@ $(PROG): $(PROG_DEPS)
 %.o: %.cpp
 	$(CC) $(CFLAGS) $< -o $@
 
-.PHONY: all clean rebuild acl_libs mac-universal-acl
+ifeq ($(findstring Darwin, $(UNIXNAME)), Darwin)
+$(COREML_RUNNER): $(COREML_SWIFT_SRC)
+	@mkdir -p $(dir $@)
+	env CLANG_MODULE_CACHE_PATH=/tmp/webcool-clang-module-cache \
+		SWIFT_MODULECACHE_PATH=/tmp/webcool-swift-module-cache \
+		$(SWIFTC) $(COREML_SWIFT_FLAGS) $< -o $@
+	chmod 0755 $@
+	@echo "构建成功：$(COREML_RUNNER) (arm64)"
 
-all: $(PROG)
+coreml-runner: $(COREML_RUNNER)
+endif
+
+.PHONY: all clean rebuild acl_libs mac-universal-acl coreml-runner
+
+all: $(COREML_BUILD_TARGET) $(PROG)
 
 clean cl:
-	rm -f $(PROG) $(OBJ)
+	rm -f $(PROG) $(OBJ) $(COREML_CLEAN_TARGET)
 
 rebuild rb: clean all

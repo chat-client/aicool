@@ -1369,7 +1369,7 @@ function deleteUnlockedFolderPassword(path) {
                 : { width: 1920, height: 1080, bitrate: Math.max(5000, currentBitrate * 2) };
               const form = document.createElement('div');
               form.className = 'video-enhance-dialog';
-              form.innerHTML = '<div class="video-enhance-card"><h3>' + t('提升码率和分辨率') + '</h3>' +
+              form.innerHTML = '<div class="video-enhance-card"><div class="video-enhance-head"><h3>' + t('提升码率和分辨率') + '</h3></div>' +
                 '<p>' + t('建议值可根据需要手工修改。普通转码无法恢复源视频已经丢失的真实细节。') + '</p>' +
                 '<label>' + t('处理方式') + '<select data-enhance-method><option value="standard">' + t('普通增强（快速）') + '</option><option value="ai">' + t('AI超分辨率（高质量，耗时）') + '</option></select></label>' +
                 '<label>' + t('目标宽度') + '<input type="number" data-enhance-width min="320" max="3840" step="2" value="' + suggested.width + '"></label>' +
@@ -1391,12 +1391,44 @@ function deleteUnlockedFolderPassword(path) {
                 '<details class="video-enhance-advanced"><summary>' + t('高级性能选项') + '</summary>' +
                 '<label>Tile<select data-enhance-ai-tile><option value="0">' + t('自动') + '</option><option value="128">128</option><option value="256">256</option><option value="512">512</option></select><small>' + t('显存不足时选择较小值；较大值通常更快。') + '</small></label>' +
                 '<label>' + t('推理线程') + '<select data-enhance-ai-threads><option value="1:2:2">1:2:2</option><option value="2:4:2" selected>2:4:2</option><option value="4:4:4">4:4:4</option></select></label>' +
+                '<label>' + t('计算单元') + '<select data-enhance-ai-compute><option value="auto" selected>' + t('自动（CPU/GPU/ANE）') + '</option><option value="gpu">' + t('GPU优先') + '</option><option value="ane">' + t('Neural Engine优先') + '</option><option value="cpu">' + t('仅CPU（对照）') + '</option></select><small>' + t('仅Core ML模型有效；建议用相同短片段分别测试耗时。') + '</small></label>' +
                 '<label>' + t('GPU编号') + '<select data-enhance-ai-gpu><option value="-1">' + t('自动') + '</option><option value="0">GPU 0</option><option value="1">GPU 1</option></select></label>' +
                 '<label>' + t('最终编码速度') + '<select data-enhance-ai-encode><option value="fast">Fast</option><option value="medium" selected>Medium</option><option value="slow">Slow</option></select></label></details>' +
-                '<label>' + t('试跑范围') + '<select data-enhance-ai-preview><option value="0">' + t('完整视频') + '</option><option value="10">' + t('仅前10秒') + '</option><option value="30">' + t('仅前30秒') + '</option><option value="60">' + t('仅前60秒') + '</option></select><small>' + t('建议先试跑短片段，确认模型和参数效果。') + '</small></label>' +
                 '<small>' + t('AI会推测并生成纹理细节，结果不一定与原始真实内容完全一致。') + '</small></div>' +
+                '<label>' + t('试跑范围') + '<select data-enhance-ai-preview><option value="0">' + t('完整视频') + '</option><option value="10">' + t('仅前10秒') + '</option><option value="30">' + t('仅前30秒') + '</option><option value="60">' + t('仅前60秒') + '</option></select><small>' + t('可先转换短片段，确认参数和画面效果。') + '</small></label>' +
                 '<div class="video-enhance-actions"><button type="button" data-enhance-cancel>' + t('取消') + '</button><button type="button" data-enhance-confirm>' + t('开始提升') + '</button></div></div>';
               document.body.appendChild(form);
+              const enhanceCard = form.querySelector('.video-enhance-card');
+              const enhanceHead = form.querySelector('.video-enhance-head');
+              enhanceHead.addEventListener('pointerdown', function (event) {
+                if (event.button != null && event.button !== 0) return;
+                const rect = enhanceCard.getBoundingClientRect();
+                const offsetX = event.clientX - rect.left;
+                const offsetY = event.clientY - rect.top;
+                enhanceCard.style.position = 'fixed';
+                enhanceCard.style.left = rect.left + 'px';
+                enhanceCard.style.top = rect.top + 'px';
+                enhanceCard.style.width = rect.width + 'px';
+                enhanceCard.style.margin = '0';
+                enhanceHead.setPointerCapture(event.pointerId);
+                const move = function (moveEvent) {
+                  const maxLeft = Math.max(0, window.innerWidth - enhanceCard.offsetWidth);
+                  const maxTop = Math.max(0, window.innerHeight - 120);
+                  const nextTop = Math.max(0, Math.min(maxTop, moveEvent.clientY - offsetY));
+                  enhanceCard.style.left = Math.max(0, Math.min(maxLeft, moveEvent.clientX - offsetX)) + 'px';
+                  enhanceCard.style.top = nextTop + 'px';
+                  enhanceCard.style.maxHeight = Math.max(120, window.innerHeight - nextTop - 8) + 'px';
+                };
+                const stop = function () {
+                  enhanceHead.removeEventListener('pointermove', move);
+                  enhanceHead.removeEventListener('pointerup', stop);
+                  enhanceHead.removeEventListener('pointercancel', stop);
+                };
+                enhanceHead.addEventListener('pointermove', move);
+                enhanceHead.addEventListener('pointerup', stop);
+                enhanceHead.addEventListener('pointercancel', stop);
+                event.preventDefault();
+              });
               const methodSelect = form.querySelector('[data-enhance-method]');
               methodSelect.addEventListener('change', function () {
                 form.querySelector('[data-standard-enhance-options]').hidden = methodSelect.value === 'ai';
@@ -1404,6 +1436,7 @@ function deleteUnlockedFolderPassword(path) {
               });
               const aiModelSelect = form.querySelector('[data-enhance-ai-model]');
               const aiScaleSelect = form.querySelector('[data-enhance-ai-scale]');
+              const aiComputeSelect = form.querySelector('[data-enhance-ai-compute]');
               const syncAiScaleAvailability = function () {
                 const fixedScale = aiModelSelect.value === 'coreml-x2plus' ? '2'
                   : (aiModelSelect.value === 'realesr-animevideov3' ? '' : '4');
@@ -1418,6 +1451,9 @@ function deleteUnlockedFolderPassword(path) {
                   'realesr-animevideov3': t('动漫视频专用模型，不建议用于真人视频。')
                 };
                 form.querySelector('[data-ai-model-description]').textContent = descriptions[aiModelSelect.value] || '';
+                const coremlModel = aiModelSelect.value !== 'realesr-animevideov3';
+                aiComputeSelect.disabled = !coremlModel;
+                aiComputeSelect.title = coremlModel ? '' : t('动漫模型使用NCNN后端，计算单元选项不适用');
               };
               aiModelSelect.addEventListener('change', syncAiScaleAvailability);
               syncAiScaleAvailability();
@@ -1455,6 +1491,7 @@ function deleteUnlockedFolderPassword(path) {
                   sourceFps: Number(data.fps || 25),
                   aiTile: Number(form.querySelector('[data-enhance-ai-tile]').value),
                   aiThreads: form.querySelector('[data-enhance-ai-threads]').value,
+                  aiComputeUnits: aiComputeSelect.value,
                   aiGpu: Number(form.querySelector('[data-enhance-ai-gpu]').value),
                   aiEncodePreset: form.querySelector('[data-enhance-ai-encode]').value,
                   previewSeconds: Number(form.querySelector('[data-enhance-ai-preview]').value)
@@ -1526,6 +1563,7 @@ function deleteUnlockedFolderPassword(path) {
           + '&fps=' + encodeURIComponent(options.sourceFps)
           + '&tile=' + encodeURIComponent(options.aiTile)
           + '&threads=' + encodeURIComponent(options.aiThreads)
+          + '&compute_units=' + encodeURIComponent(options.aiComputeUnits || 'auto')
           + '&gpu=' + encodeURIComponent(options.aiGpu)
           + '&encode_preset=' + encodeURIComponent(options.aiEncodePreset)
           + '&preview_seconds=' + encodeURIComponent(options.previewSeconds);

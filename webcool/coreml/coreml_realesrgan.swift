@@ -123,7 +123,13 @@ if rawModelURL.pathExtension == "mlmodelc" {
     compiledURL = try MLModel.compileModel(at: rawModelURL)
 }
 let configuration = MLModelConfiguration()
-configuration.computeUnits = .all
+let computeUnits = (argument("--compute-units") ?? "auto").lowercased()
+switch computeUnits {
+case "gpu": configuration.computeUnits = .cpuAndGPU
+case "ane": configuration.computeUnits = .cpuAndNeuralEngine
+case "cpu": configuration.computeUnits = .cpuOnly
+default: configuration.computeUnits = .all
+}
 configuration.allowLowPrecisionAccumulationOnGPU = true
 let workerCount = max(1, min(4, Int(argument("--workers") ?? "2") ?? 2))
 final class InferenceWorker {

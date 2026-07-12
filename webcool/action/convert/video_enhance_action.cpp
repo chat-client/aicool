@@ -10,12 +10,13 @@ int int_param(const request_t& req, const char* name) {
 }
 
 std::string unique_output(const std::string& source, int width, int height,
-	int bitrate, bool local, const std::string& upload_dir)
+	int bitrate, int preview_seconds, bool local, const std::string& upload_dir)
 {
 	const std::string name = local ? local_base_name(source) : source;
 	const std::string stem = replace_ext(name, "");
 	const std::string tag = "_" + std::to_string(width) + "x" + std::to_string(height)
-		+ "_" + std::to_string(bitrate) + "k";
+		+ "_" + std::to_string(bitrate) + "k"
+		+ (preview_seconds > 0 ? "_preview" + std::to_string(preview_seconds) + "s" : "");
 	for (int i = 1; i < 10000; ++i) {
 		const std::string suffix = i == 1 ? "" : ("_" + std::to_string(i));
 		const std::string filename = stem + tag + suffix + ".mp4";
@@ -29,10 +30,13 @@ std::string unique_output(const std::string& source, int width, int height,
 void run_enhance(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input, const std::string& temp,
 	const std::string& output, int width, int height, int bitrate,
-	int denoise, bool deinterlace, int sharpen, int target_fps)
+	int denoise, bool deinterlace, int sharpen, int target_fps, int preview_seconds)
 {
 	unlink(temp.c_str());
 	const long long duration = probe_duration_ms(ffmpeg, input);
+	const long long preview_duration = static_cast<long long>(preview_seconds) * 1000LL;
+	const long long effective_duration = preview_seconds > 0
+		? (duration > 0 ? std::min(duration, preview_duration) : preview_duration) : duration;
 	std::string filter;
 	if (deinterlace) filter += "yadif,";
 	if (denoise == 1) filter += "hqdn3d=0.8:0.8:3:3,";
@@ -49,14 +53,17 @@ void run_enhance(const std::shared_ptr<transcode_task_t>& task,
 	const std::string bufsize = std::to_string(bitrate * 2) + "k";
 	ACL_ARGV* args = acl_argv_alloc(40);
 	acl_argv_add(args, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
-		"-i", input.c_str(), "-vf", filter.c_str(), "-c:v", "libx264",
+		"-i", input.c_str(), nullptr);
+	const std::string preview_text = std::to_string(preview_seconds);
+	if (preview_seconds > 0) acl_argv_add(args, "-t", preview_text.c_str(), nullptr);
+	acl_argv_add(args, "-vf", filter.c_str(), "-c:v", "libx264",
 		"-preset", "slow", "-b:v", rate.c_str(), "-maxrate", maxrate.c_str(),
 		"-bufsize", bufsize.c_str(), "-pix_fmt", "yuv420p", "-c:a", "aac",
 		"-b:a", "192k", "-movflags", "+faststart", "-progress", "pipe:1",
 		"-nostats", temp.c_str(), nullptr);
 	const ffmpeg_process_ptr process = start_ffmpeg_process(args);
 	if (!process) { finish_task(task, false, "画质提升失败", acl::last_serror(), -1); return; }
-	const int code = wait_transcode_progress(task, *process, duration, 2, 95,
+	const int code = wait_transcode_progress(task, *process, effective_duration, 2, 95,
 		"正在提升画质", 98, "正在写入MP4文件");
 	if (code != 0 || is_task_cancel_requested(task) || file_size_of(temp.c_str()) <= 0) {
 		unlink(temp.c_str());
@@ -89,10 +96,12 @@ bool VideoEnhanceAction::run(request_t& req, response_t& res,
 	const int denoise = int_param(req, "denoise");
 	const int sharpen = int_param(req, "sharpen");
 	const int target_fps = int_param(req, "target_fps");
+	const int preview_seconds = int_param(req, "preview_seconds");
 	const bool deinterlace = int_param(req, "deinterlace") == 1;
 	if (width < 320 || width > 3840 || height < 240 || height > 2160
 		|| width % 2 || height % 2 || bitrate < 300 || bitrate > 50000
 		|| denoise < 0 || denoise > 2 || sharpen < 0 || sharpen > 100
+		|| (preview_seconds != 0 && preview_seconds != 10 && preview_seconds != 30 && preview_seconds != 60)
 		|| (target_fps != 0 && target_fps != 30 && target_fps != 50 && target_fps != 60)) {
 		json_error(res, 400, "invalid width, height, or bitrate", req.isKeepAlive()); return true;
 	}
@@ -139,7 +148,7 @@ bool VideoEnhanceAction::run(request_t& req, response_t& res,
 			}
 		}
 	}
-	const std::string output_name = unique_output(source, width, height, bitrate, local, upload_dir);
+	const std::string output_name = unique_output(source, width, height, bitrate, preview_seconds, local, upload_dir);
 	const std::string input_path = local ? source : join_upload_path(upload_dir, source);
 	const std::string output_path = local ? output_name : join_upload_path(upload_dir, output_name);
 	acl::string tmp; tmp.format("%s/.video_enhance_tmp.%u.%lu.mp4", local_parent_path(output_path).c_str(),
@@ -148,10 +157,10 @@ bool VideoEnhanceAction::run(request_t& req, response_t& res,
 	task->file_name = task_file; task->output_name = output_name; task->message = "等待提升画质"; task->local = local;
 	{ std::lock_guard<webcool::mutex> guard(g_transcode_mutex); g_transcode_tasks[task->id] = task; g_running_task_by_file[key] = task->id; }
 	const std::string temp_path = tmp.c_str();
-	go[task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate, denoise, deinterlace, sharpen, target_fps] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate, denoise, deinterlace, sharpen, target_fps] {
+	go[task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate, denoise, deinterlace, sharpen, target_fps, preview_seconds] {
+		acl::gofiber_wait_thread([task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate, denoise, deinterlace, sharpen, target_fps, preview_seconds] {
 			run_enhance(task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate,
-				denoise, deinterlace, sharpen, target_fps);
+				denoise, deinterlace, sharpen, target_fps, preview_seconds);
 		});
 	};
 	acl::json json; acl::json_node& root = json.create_node(); root.add_bool("ok", true);

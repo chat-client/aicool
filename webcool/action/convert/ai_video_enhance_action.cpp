@@ -125,6 +125,7 @@ bool run_stage(const std::shared_ptr<transcode_task_t>& task, ACL_ARGV* args,
 void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& ai, const std::string& models,
 	bool use_coreml, const std::string& coreml_model, int coreml_workers,
+	const std::string& compute_units,
 	const std::string& input, const std::string& output, const std::string& temp_root,
 	const std::string& model, int scale, int width, int height, int bitrate, double fps,
 	int tile, const std::string& threads, int gpu, const std::string& encode_preset,
@@ -147,7 +148,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 		acl_argv_add(pipeline, ai.c_str(), "--video", "--model", coreml_model.c_str(),
 			"--input", input.c_str(), "--output", silent_video.c_str(), "--workers", workers_text.c_str(),
 			"--width", width_text.c_str(), "--height", height_text.c_str(), "--bitrate", bitrate_text.c_str(),
-			"--preview-seconds", preview_text.c_str(), nullptr);
+			"--preview-seconds", preview_text.c_str(), "--compute-units", compute_units.c_str(), nullptr);
 		const long long pipeline_duration = preview_seconds > 0
 			? std::min(duration, static_cast<long long>(preview_seconds) * 1000LL) : duration;
 		if (!run_stage(task, pipeline, pipeline_duration, 1, 84,
@@ -260,6 +261,7 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	const std::string model = req.getParameter("model") ? req.getParameter("model") : "realesrgan-x4plus";
 	const std::string threads = req.getParameter("threads") ? req.getParameter("threads") : "1:2:2";
 	const std::string encode_preset = req.getParameter("encode_preset") ? req.getParameter("encode_preset") : "medium";
+	const std::string compute_units = req.getParameter("compute_units") ? req.getParameter("compute_units") : "auto";
 	if (width < 320 || width > 3840 || height < 240 || height > 2160 || width % 2 || height % 2
 		|| bitrate < 300 || bitrate > 50000 || (scale != 2 && scale != 4) || fps <= 0 || fps > 120
 		|| (model != "realesrgan-x4plus" && model != "realesr-animevideov3"
@@ -268,6 +270,7 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 		|| (threads != "1:2:2" && threads != "2:4:2" && threads != "4:4:4")
 		|| gpu < -1 || gpu > 15
 		|| (encode_preset != "fast" && encode_preset != "medium" && encode_preset != "slow")
+		|| (compute_units != "auto" && compute_units != "gpu" && compute_units != "ane" && compute_units != "cpu")
 		|| (preview_seconds != 0 && preview_seconds != 10 && preview_seconds != 30 && preview_seconds != 60)) {
 		json_error(res, 400, "invalid AI enhancement options", req.isKeepAlive()); return true;
 	}
@@ -297,6 +300,7 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	else if (model == "coreml-x2plus") output_label = "x2plus";
 	else if (model == "coreml-general-x4v3") output_label = "light-x4";
 	else if (model == "coreml-x4plus-int8") output_label = "int8-x4";
+	if (coreml_model && compute_units != "auto") output_label += "-" + compute_units;
 	if (preview_seconds > 0) output_label += "_preview" + std::to_string(preview_seconds) + "s";
 	const std::string output_name = ai_output_name(source, local, upload_dir, output_label, width, height);
 	const std::string output = local ? output_name : join_upload_path(upload_dir, output_name);
@@ -307,13 +311,13 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	const std::string key = scoped_task_key(upload_dir, task_file);
 	{ std::lock_guard<webcool::mutex> guard(g_transcode_mutex); const auto it = g_running_task_by_file.find(key); if (it != g_running_task_by_file.end()) { const auto old = g_transcode_tasks.find(it->second); if (old != g_transcode_tasks.end() && !old->second->done) { acl::json json; acl::json_node& root=json.create_node(); root.add_bool("ok",true); root.add_text("task_id",old->second->id.c_str()); root.add_text("name",old->second->output_name.c_str()); return sendJson(res,200,root,req.isKeepAlive()); } } g_transcode_tasks[task->id]=task; g_running_task_by_file[key]=task->id; }
 	const std::string temp_root = local_parent_path(output) + "/.ai_enhance_tmp." + task->id;
-	go[task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
-		acl::gofiber_wait_thread([task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
-			run_ai_task(task, ffmpeg, ai, models, use_coreml, coreml.model, coreml_workers, input, output, temp_root, model, scale, width, height, bitrate, fps,
+	go[task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, compute_units, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
+		acl::gofiber_wait_thread([task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, compute_units, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
+			run_ai_task(task, ffmpeg, ai, models, use_coreml, coreml.model, coreml_workers, compute_units, input, output, temp_root, model, scale, width, height, bitrate, fps,
 				tile, threads, gpu, encode_preset, preview_seconds);
 		});
 	};
-	acl::json json; acl::json_node& root=json.create_node(); root.add_bool("ok",true); root.add_text("task_id",task->id.c_str()); root.add_text("name",output_name.c_str()); root.add_text("backend", use_coreml ? "coreml" : "ncnn-vulkan"); return sendJson(res,200,root,req.isKeepAlive());
+	acl::json json; acl::json_node& root=json.create_node(); root.add_bool("ok",true); root.add_text("task_id",task->id.c_str()); root.add_text("name",output_name.c_str()); root.add_text("backend", use_coreml ? "coreml" : "ncnn-vulkan"); root.add_text("compute_units", use_coreml ? compute_units.c_str() : "ncnn"); return sendJson(res,200,root,req.isKeepAlive());
 }
 
 bool AiVideoEnhanceAction::progress(request_t& req, response_t& res, const std::string& scope, bool local) { transcode_task_snapshot_t t; if (!ai_snapshot(req,scope,local,t)) { json_error(res,404,"AI task not found",req.isKeepAlive()); return true; } acl::json j; acl::json_node& r=j.create_node(); r.add_bool("ok",true); r.add_text("name",t.output_name.c_str()); r.add_bool("done",t.done); r.add_bool("success",t.success); r.add_bool("cancel_requested",t.cancel_requested); r.add_number("progress",(long long)t.progress); r.add_text("message",t.message.c_str()); if(!t.error.empty())r.add_text("error",t.error.c_str()); return sendJson(res,200,r,req.isKeepAlive()); }

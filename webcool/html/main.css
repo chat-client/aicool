@@ -5183,6 +5183,15 @@
     }
 
     .video-enhance-card h3 { margin: 0 0 8px; color: #173a5e; }
+    .video-enhance-head {
+      margin: -8px -8px 0;
+      padding: 8px 8px 10px;
+      border-bottom: 1px solid #e2ebf3;
+      cursor: move;
+      user-select: none;
+      touch-action: none;
+    }
+    .video-enhance-head h3 { margin: 0; }
     .video-enhance-card p { color: #63798e; }
     .video-enhance-card label { display: block; margin-top: 12px; color: #526b82; }
     .video-enhance-card input,
