@@ -130,6 +130,38 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 		finish_task(task, false, "AI增强失败", "cannot create temporary directories", -1); return;
 	}
 	const long long duration = probe_duration_ms(ffmpeg, input);
+	if (use_coreml) {
+		const std::string silent_video = temp_root + "/coreml-video.mp4";
+		const std::string workers_text = std::to_string(coreml_workers);
+		const std::string width_text = std::to_string(width);
+		const std::string height_text = std::to_string(height);
+		const std::string bitrate_text = std::to_string(static_cast<long long>(bitrate) * 1000LL);
+		const std::string preview_text = std::to_string(preview_seconds);
+		ACL_ARGV* pipeline = acl_argv_alloc(24);
+		acl_argv_add(pipeline, ai.c_str(), "--video", "--model", coreml_model.c_str(),
+			"--input", input.c_str(), "--output", silent_video.c_str(), "--workers", workers_text.c_str(),
+			"--width", width_text.c_str(), "--height", height_text.c_str(), "--bitrate", bitrate_text.c_str(),
+			"--preview-seconds", preview_text.c_str(), nullptr);
+		const long long pipeline_duration = preview_seconds > 0
+			? std::min(duration, static_cast<long long>(preview_seconds) * 1000LL) : duration;
+		if (!run_stage(task, pipeline, pipeline_duration, 1, 84,
+			"M4正在进行硬件解码、Core ML增强与VideoToolbox编码", 85, "Core ML视频流水线完成")) {
+			cleanup_temp(temp_root); finish_task(task, false,
+				is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "Core ML video pipeline failed", -1); return;
+		}
+		ACL_ARGV* mux = acl_argv_alloc(28);
+		acl_argv_add(mux, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
+			"-i", silent_video.c_str(), "-i", input.c_str(), "-map", "0:v:0", "-map", "1:a?",
+			"-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart",
+			"-progress", "pipe:1", "-nostats", output.c_str(), nullptr);
+		if (!run_stage(task, mux, pipeline_duration, 85, 14, "正在封装原音轨", 99, "正在完成AI视频")) {
+			unlink(output.c_str()); cleanup_temp(temp_root); finish_task(task, false,
+				is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "audio mux failed", -1); return;
+		}
+		cleanup_temp(temp_root);
+		finish_task(task, true, "M4 Core ML流水线处理完成", "", file_size_of(output.c_str()));
+		return;
+	}
 	const std::string input_pattern = frames_in + "/%08d.png";
 	ACL_ARGV* extract = acl_argv_alloc(20);
 	acl_argv_add(extract, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", "-i", input.c_str(),
