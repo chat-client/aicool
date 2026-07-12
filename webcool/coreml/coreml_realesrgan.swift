@@ -31,9 +31,19 @@ func pixelBuffer(from pool: CVPixelBufferPool) throws -> CVPixelBuffer {
     return result
 }
 
+struct TileJob {
+    let provider: MLFeatureProvider
+    let inputBuffer: CVPixelBuffer
+    let x: Int
+    let y: Int
+    let outputWidth: Int
+    let outputHeight: Int
+}
+
 func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
                   inputPool: CVPixelBufferPool, inputName: String,
-                  outputName: String, tileSize: Int, modelScale: Int) throws -> CIImage {
+                  outputName: String, tileSize: Int, modelScale: Int,
+                  batchSize: Int, overlapMode: String) throws -> CIImage {
     let sourceRect = source.extent.integral
     let outputWidth = Int(sourceRect.width) * modelScale
     let outputHeight = Int(sourceRect.height) * modelScale
@@ -43,8 +53,42 @@ func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
     // Keep only the context-rich center of each prediction. Adjacent tiles
     // overlap in the source but never blend generated pixels, avoiding the
     // grid seams that are especially visible with the x2 RRDB model.
-    let margin = max(8, tileSize / 16)
+    let margin: Int
+    switch overlapMode {
+    case "low": margin = max(4, tileSize / 32)
+    case "quality": margin = max(12, tileSize / 12)
+    default: margin = tileSize <= 256 ? max(8, tileSize / 16) : max(12, tileSize / 20)
+    }
     let coreSize = tileSize - margin * 2
+    var jobs: [TileJob] = []
+
+    func flushJobs() throws {
+        guard !jobs.isEmpty else { return }
+        let predictions: [MLFeatureProvider]
+        if jobs.count == 1 {
+            predictions = [try model.prediction(from: jobs[0].provider)]
+        } else {
+            let batch = MLArrayBatchProvider(array: jobs.map { $0.provider })
+            let outputBatch = try model.predictions(fromBatch: batch)
+            predictions = (0..<outputBatch.count).map { outputBatch.features(at: $0) }
+        }
+        for (index, prediction) in predictions.enumerated() {
+            let job = jobs[index]
+            guard let enhancedBuffer = prediction.featureValue(for: outputName)?.imageBufferValue
+            else { throw RunnerError.prediction }
+            let enhanced = CIImage(cvPixelBuffer: enhancedBuffer)
+                .cropped(to: CGRect(x: margin * modelScale, y: margin * modelScale,
+                                    width: job.outputWidth * modelScale,
+                                    height: job.outputHeight * modelScale))
+                .transformed(by: CGAffineTransform(translationX: CGFloat(-margin * modelScale),
+                                                   y: CGFloat(-margin * modelScale)))
+                .transformed(by: CGAffineTransform(translationX: CGFloat(job.x * modelScale),
+                                                   y: CGFloat(job.y * modelScale)))
+            result = enhanced.composited(over: result)
+        }
+        jobs.removeAll(keepingCapacity: true)
+    }
+
     for y in stride(from: 0, to: Int(sourceRect.height), by: coreSize) {
         for x in stride(from: 0, to: Int(sourceRect.width), by: coreSize) {
             let sampleX = max(0, x - margin)
@@ -73,32 +117,26 @@ func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
                            colorSpace: CGColorSpaceCreateDeviceRGB())
             let provider = try MLDictionaryFeatureProvider(
                 dictionary: [inputName: MLFeatureValue(pixelBuffer: inputBuffer)])
-            let prediction = try model.prediction(from: provider)
-            guard let enhancedBuffer = prediction.featureValue(for: outputName)?.imageBufferValue
-            else { throw RunnerError.prediction }
-            let enhanced = CIImage(cvPixelBuffer: enhancedBuffer)
-                .cropped(to: CGRect(x: margin * modelScale, y: margin * modelScale,
-                                    width: outputCoreWidth * modelScale,
-                                    height: outputCoreHeight * modelScale))
-                .transformed(by: CGAffineTransform(translationX: CGFloat(-margin * modelScale),
-                                                   y: CGFloat(-margin * modelScale)))
-                .transformed(by: CGAffineTransform(translationX: CGFloat(x * modelScale),
-                                                   y: CGFloat(y * modelScale)))
-            result = enhanced.composited(over: result)
+            jobs.append(TileJob(provider: provider, inputBuffer: inputBuffer, x: x, y: y,
+                                outputWidth: outputCoreWidth, outputHeight: outputCoreHeight))
+            if jobs.count >= batchSize { try flushJobs() }
         }
     }
+    try flushJobs()
     return result
 }
 
 func processImage(_ inputURL: URL, outputURL: URL, model: MLModel,
                   context: CIContext, inputPool: CVPixelBufferPool,
                   inputName: String, outputName: String,
-                  tileSize: Int, modelScale: Int) throws {
+                  tileSize: Int, modelScale: Int, batchSize: Int,
+                  overlapMode: String) throws {
     guard let source = CIImage(contentsOf: inputURL) else { throw RunnerError.imageLoad }
     let result = try enhanceImage(source, model: model, context: context,
                                   inputPool: inputPool, inputName: inputName,
                                   outputName: outputName, tileSize: tileSize,
-                                  modelScale: modelScale)
+                                  modelScale: modelScale, batchSize: batchSize,
+                                  overlapMode: overlapMode)
     try context.writePNGRepresentation(of: result,
                                        to: outputURL,
                                        format: .RGBA8,
@@ -132,6 +170,11 @@ default: configuration.computeUnits = .all
 }
 configuration.allowLowPrecisionAccumulationOnGPU = true
 let workerCount = max(1, min(4, Int(argument("--workers") ?? "2") ?? 2))
+let tileBatchSize = max(1, min(4, Int(argument("--tile-batch") ?? "1") ?? 1))
+let overlapMode: String = {
+    let value = (argument("--overlap") ?? "balanced").lowercased()
+    return value == "low" || value == "quality" ? value : "balanced"
+}()
 final class InferenceWorker {
     let model: MLModel
     let context: CIContext
@@ -174,7 +217,9 @@ final class InferenceWorker {
 }
 
 struct VideoFrame {
-    let buffer: CVPixelBuffer
+    // A nil buffer means reuse the most recent enhanced frame at this PTS.
+    // This is only produced when the user explicitly enables temporal reuse.
+    let buffer: CVPixelBuffer?
     let time: CMTime
 }
 
@@ -188,14 +233,26 @@ final class PipelineState {
 
 func renderVideoFrame(_ sourceBuffer: CVPixelBuffer, time: CMTime,
                       worker: InferenceWorker, width: Int, height: Int,
-                      preferredTransform: CGAffineTransform) throws -> VideoFrame {
+                      preferredTransform: CGAffineTransform,
+                      inputSizing: String, batchSize: Int,
+                      overlapMode: String) throws -> VideoFrame {
     var source = CIImage(cvPixelBuffer: sourceBuffer).transformed(by: preferredTransform)
     source = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX,
                                                        y: -source.extent.minY))
+    if inputSizing == "target" && source.extent.width > 0 && source.extent.height > 0 {
+        let outputFit = min(CGFloat(width) / source.extent.width,
+                            CGFloat(height) / source.extent.height)
+        let inferenceScale = min(1.0, outputFit / CGFloat(worker.modelScale))
+        if inferenceScale < 0.999 {
+            source = source.transformed(by: CGAffineTransform(scaleX: inferenceScale,
+                                                               y: inferenceScale))
+        }
+    }
     let enhanced = try enhanceImage(source, model: worker.model,
                                     context: worker.context, inputPool: worker.inputPool,
                                     inputName: worker.inputName, outputName: worker.outputName,
-                                    tileSize: worker.tileSize, modelScale: worker.modelScale)
+                                    tileSize: worker.tileSize, modelScale: worker.modelScale,
+                                    batchSize: batchSize, overlapMode: overlapMode)
     guard let pool = worker.outputPool else { throw RunnerError.pixelBufferPool }
     let destination = try pixelBuffer(from: pool)
     let scale = min(CGFloat(width) / enhanced.extent.width,
@@ -213,7 +270,9 @@ func renderVideoFrame(_ sourceBuffer: CVPixelBuffer, time: CMTime,
 }
 
 func runVideoPipeline(inputPath: String, outputPath: String, workers: [InferenceWorker],
-                      width: Int, height: Int, bitrate: Int, previewSeconds: Double) throws {
+                      width: Int, height: Int, bitrate: Int, previewSeconds: Double,
+                      inputSizing: String, batchSize: Int, overlapMode: String,
+                      temporalStep: Int) throws {
     let asset = AVURLAsset(url: URL(fileURLWithPath: inputPath))
     guard let track = asset.tracks(withMediaType: .video).first else { throw RunnerError.imageLoad }
     let preferredTransform = track.preferredTransform
@@ -256,6 +315,7 @@ func runVideoPipeline(inputPath: String, outputPath: String, workers: [Inference
     DispatchQueue(label: "webcool.coreml.video-writer", qos: .userInitiated).async {
         defer { writerGroup.leave() }
         var expected = 0
+        var lastEnhancedBuffer: CVPixelBuffer?
         while true {
             state.condition.lock()
             while state.frames[expected] == nil && state.error == nil
@@ -275,8 +335,17 @@ func runVideoPipeline(inputPath: String, outputPath: String, workers: [Inference
                 continue
             }
             state.condition.unlock()
+            guard let outputBuffer = frame.buffer ?? lastEnhancedBuffer else {
+                state.condition.lock()
+                state.error = RunnerError.output
+                state.condition.broadcast()
+                state.condition.unlock()
+                capacity.signal()
+                break
+            }
+            if let enhancedBuffer = frame.buffer { lastEnhancedBuffer = enhancedBuffer }
             while !writerInput.isReadyForMoreMediaData { Thread.sleep(forTimeInterval: 0.002) }
-            if !adaptor.append(frame.buffer, withPresentationTime: frame.time) {
+            if !adaptor.append(outputBuffer, withPresentationTime: frame.time) {
                 state.condition.lock()
                 state.error = writer.error ?? RunnerError.output
                 state.condition.broadcast()
@@ -320,6 +389,13 @@ func runVideoPipeline(inputPath: String, outputPath: String, workers: [Inference
         let frameIndex = index
         let worker = workers[index % workers.count]
         index += 1
+        if frameIndex % temporalStep != 0 {
+            state.condition.lock()
+            state.frames[frameIndex] = VideoFrame(buffer: nil, time: time)
+            state.condition.broadcast()
+            state.condition.unlock()
+            continue
+        }
         workGroup.enter()
         worker.queue.async {
             defer { workGroup.leave() }
@@ -327,7 +403,9 @@ func runVideoPipeline(inputPath: String, outputPath: String, workers: [Inference
                 let result = try autoreleasepool {
                     try renderVideoFrame(sourceBuffer, time: time, worker: worker,
                                          width: width, height: height,
-                                         preferredTransform: preferredTransform)
+                                         preferredTransform: preferredTransform,
+                                         inputSizing: inputSizing, batchSize: batchSize,
+                                         overlapMode: overlapMode)
                 }
                 state.condition.lock()
                 state.frames[frameIndex] = result
@@ -363,13 +441,17 @@ if CommandLine.arguments.contains("--video") {
     let height = Int(argument("--height") ?? "0") ?? 0
     let bitrate = Int(argument("--bitrate") ?? "8000000") ?? 8000000
     let preview = Double(argument("--preview-seconds") ?? "0") ?? 0
+    let inputSizing = argument("--input-sizing") == "source" ? "source" : "target"
+    let temporalStep = max(1, min(3, Int(argument("--temporal-step") ?? "1") ?? 1))
     guard width > 0, height > 0 else { throw RunnerError.usage }
     let workers = try (0..<workerCount).map {
         try InferenceWorker(index: $0, outputWidth: width, outputHeight: height)
     }
     try runVideoPipeline(inputPath: inputPath, outputPath: outputPath, workers: workers,
                          width: width, height: height, bitrate: bitrate,
-                         previewSeconds: preview)
+                         previewSeconds: preview, inputSizing: inputSizing,
+                         batchSize: tileBatchSize, overlapMode: overlapMode,
+                         temporalStep: temporalStep)
 } else {
     let inputDirectory = URL(fileURLWithPath: inputPath)
     let outputDirectory = URL(fileURLWithPath: outputPath)
@@ -393,7 +475,8 @@ if CommandLine.arguments.contains("--video") {
                         model: worker.model, context: worker.context,
                         inputPool: worker.inputPool, inputName: worker.inputName,
                         outputName: worker.outputName, tileSize: worker.tileSize,
-                        modelScale: worker.modelScale)
+                        modelScale: worker.modelScale, batchSize: tileBatchSize,
+                        overlapMode: overlapMode)
                 }
                 stateLock.lock()
                 completed += 1

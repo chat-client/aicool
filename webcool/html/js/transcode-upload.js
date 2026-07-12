@@ -1382,6 +1382,7 @@ function deleteUnlockedFolderPassword(path) {
                 '<div data-ai-enhance-options hidden><label>' + t('AI模型') + '<select data-enhance-ai-model>' +
                 '<option value="coreml-x2plus">' + t('真实2×（高质量/较快）') + '</option>' +
                 '<option value="coreml-general-x4v3">' + t('轻量x4（速度优先）') + '</option>' +
+                '<option value="coreml-general-x4v3-w8a8">' + t('轻量W8A8 x4（M4实验）') + '</option>' +
                 '<option value="coreml-x4plus-int8">' + t('M4量化x4（质量优先）') + '</option>' +
                 '<option value="realesrgan-x4plus">' + t('原始x4（对照/最慢）') + '</option>' +
                 '<option value="realesr-animevideov3">' + t('动漫') + '</option></select>' +
@@ -1389,6 +1390,11 @@ function deleteUnlockedFolderPassword(path) {
                 '<label>' + t('AI放大倍数') + '<select data-enhance-ai-scale><option value="2">2×</option><option value="4">4×</option></select></label>' +
                 '<label>' + t('性能档位') + '<select data-enhance-ai-performance><option value="fast">' + t('快速') + '</option><option value="balanced" selected>' + t('均衡') + '</option><option value="quality">' + t('高质量') + '</option></select></label>' +
                 '<details class="video-enhance-advanced"><summary>' + t('高级性能选项') + '</summary>' +
+                '<label>' + t('推理输入尺寸') + '<select data-enhance-ai-input-sizing><option value="target" selected>' + t('目标感知（推荐/更快）') + '</option><option value="source">' + t('保持源分辨率（最慢）') + '</option></select><small>' + t('目标感知会避免先过度放大再缩小，显著减少Tile数量。') + '</small></label>' +
+                '<label>' + t('Core ML并发') + '<select data-enhance-ai-workers><option value="0" selected>' + t('按模型自动') + '</option><option value="1">1</option><option value="2">2</option><option value="4">4</option></select><small>' + t('重模型通常1个更快，轻量模型通常2个更快。') + '</small></label>' +
+                '<label>' + t('Tile批量') + '<select data-enhance-ai-batch><option value="0" selected>' + t('按模型自动') + '</option><option value="1">1</option><option value="2">2</option><option value="4">4</option></select><small>' + t('批量可提高ANE吞吐，但会增加统一内存占用。') + '</small></label>' +
+                '<label>' + t('Tile重叠') + '<select data-enhance-ai-overlap><option value="low">' + t('较少（更快）') + '</option><option value="balanced" selected>' + t('均衡') + '</option><option value="quality">' + t('较多（减少接缝）') + '</option></select></label>' +
+                '<label>' + t('时序复用') + '<select data-enhance-ai-temporal><option value="1" selected>' + t('每帧推理（最佳画质）') + '</option><option value="2">' + t('每2帧推理（较快）') + '</option><option value="3">' + t('每3帧推理（最快）') + '</option></select><small>' + t('复用上一增强帧会提速，但快速运动可能出现轻微顿挫。') + '</small></label>' +
                 '<label>Tile<select data-enhance-ai-tile><option value="0">' + t('自动') + '</option><option value="128">128</option><option value="256">256</option><option value="512">512</option></select><small>' + t('显存不足时选择较小值；较大值通常更快。') + '</small></label>' +
                 '<label>' + t('推理线程') + '<select data-enhance-ai-threads><option value="1:2:2">1:2:2</option><option value="2:4:2" selected>2:4:2</option><option value="4:4:4">4:4:4</option></select></label>' +
                 '<label>' + t('计算单元') + '<select data-enhance-ai-compute><option value="auto" selected>' + t('自动（CPU/GPU/ANE）') + '</option><option value="gpu">' + t('GPU优先') + '</option><option value="ane">' + t('Neural Engine优先') + '</option><option value="cpu">' + t('仅CPU（对照）') + '</option></select><small>' + t('仅Core ML模型有效；建议用相同短片段分别测试耗时。') + '</small></label>' +
@@ -1446,6 +1452,7 @@ function deleteUnlockedFolderPassword(path) {
                 const descriptions = {
                   'coreml-x2plus': t('官方RealESRGAN_x2plus，保留真人细节，适合约2×放大。'),
                   'coreml-general-x4v3': t('官方tiny通用模型，速度最快，适合先比较速度和可接受画质。'),
+                  'coreml-general-x4v3-w8a8': t('轻量模型的8位权重与8位激活版本，使用视频样本校准，针对M4 ANE。'),
                   'coreml-x4plus-int8': t('高质量x4网络的8位权重量化版，用于比较M4速度、体积和画质。'),
                   'realesrgan-x4plus': t('原始高质量x4模型，模型最大且最慢，作为画质基准。'),
                   'realesr-animevideov3': t('动漫视频专用模型，不建议用于真人视频。')
@@ -1464,15 +1471,17 @@ function deleteUnlockedFolderPassword(path) {
               const performanceSelect = form.querySelector('[data-enhance-ai-performance]');
               performanceSelect.addEventListener('change', function () {
                 const presets = {
-                  fast: { scale: '2', tile: '256', threads: '4:4:4', encode: 'fast' },
-                  balanced: { scale: '2', tile: '0', threads: '2:4:2', encode: 'medium' },
-                  quality: { scale: '4', tile: '128', threads: '1:2:2', encode: 'slow' }
+                  fast: { scale: '2', tile: '256', threads: '4:4:4', encode: 'fast', overlap: 'low', temporal: '2' },
+                  balanced: { scale: '2', tile: '0', threads: '2:4:2', encode: 'medium', overlap: 'balanced', temporal: '1' },
+                  quality: { scale: '4', tile: '128', threads: '1:2:2', encode: 'slow', overlap: 'quality', temporal: '1' }
                 };
                 const preset = presets[performanceSelect.value];
                 form.querySelector('[data-enhance-ai-scale]').value = preset.scale;
                 form.querySelector('[data-enhance-ai-tile]').value = preset.tile;
                 form.querySelector('[data-enhance-ai-threads]').value = preset.threads;
                 form.querySelector('[data-enhance-ai-encode]').value = preset.encode;
+                form.querySelector('[data-enhance-ai-overlap]').value = preset.overlap;
+                form.querySelector('[data-enhance-ai-temporal]').value = preset.temporal;
                 syncAiScaleAvailability();
               });
               form.querySelector('[data-enhance-cancel]').addEventListener('click', function () { form.remove(); });
@@ -1492,6 +1501,11 @@ function deleteUnlockedFolderPassword(path) {
                   aiTile: Number(form.querySelector('[data-enhance-ai-tile]').value),
                   aiThreads: form.querySelector('[data-enhance-ai-threads]').value,
                   aiComputeUnits: aiComputeSelect.value,
+                  aiInputSizing: form.querySelector('[data-enhance-ai-input-sizing]').value,
+                  aiWorkers: Number(form.querySelector('[data-enhance-ai-workers]').value),
+                  aiTileBatch: Number(form.querySelector('[data-enhance-ai-batch]').value),
+                  aiOverlap: form.querySelector('[data-enhance-ai-overlap]').value,
+                  aiTemporalStep: Number(form.querySelector('[data-enhance-ai-temporal]').value),
                   aiGpu: Number(form.querySelector('[data-enhance-ai-gpu]').value),
                   aiEncodePreset: form.querySelector('[data-enhance-ai-encode]').value,
                   previewSeconds: Number(form.querySelector('[data-enhance-ai-preview]').value)
@@ -1564,6 +1578,11 @@ function deleteUnlockedFolderPassword(path) {
           + '&tile=' + encodeURIComponent(options.aiTile)
           + '&threads=' + encodeURIComponent(options.aiThreads)
           + '&compute_units=' + encodeURIComponent(options.aiComputeUnits || 'auto')
+          + '&input_sizing=' + encodeURIComponent(options.aiInputSizing || 'target')
+          + '&coreml_workers=' + encodeURIComponent(options.aiWorkers || 0)
+          + '&tile_batch=' + encodeURIComponent(options.aiTileBatch || 0)
+          + '&overlap_mode=' + encodeURIComponent(options.aiOverlap || 'balanced')
+          + '&temporal_step=' + encodeURIComponent(options.aiTemporalStep || 1)
           + '&gpu=' + encodeURIComponent(options.aiGpu)
           + '&encode_preset=' + encodeURIComponent(options.aiEncodePreset)
           + '&preview_seconds=' + encodeURIComponent(options.previewSeconds);
