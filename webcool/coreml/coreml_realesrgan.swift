@@ -109,7 +109,34 @@ func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
         } else {
             let batch = MLArrayBatchProvider(array: jobs.map { $0.provider })
             let outputBatch = try model.predictions(fromBatch: batch)
-            predictions = (0..<outputBatch.count).map { outputBatch.features(at: $0) }
+            var batchPredictions: [MLFeatureProvider] = []
+            var batchIsValid = outputBatch.count == jobs.count
+            if batchIsValid {
+                for index in 0..<outputBatch.count {
+                    // Core ML can bridge a missing batch result as NSNull even
+                    // though features(at:) is declared as MLFeatureProvider.
+                    // Calling featureValue(for:) on that value raises an
+                    // Objective-C NSException, which Swift do/catch cannot
+                    // intercept, so validate the underlying object first.
+                    let candidate = outputBatch.features(at: index) as AnyObject
+                    if candidate is NSNull {
+                        batchIsValid = false
+                        break
+                    }
+                    guard let provider = candidate as? MLFeatureProvider else {
+                        batchIsValid = false
+                        break
+                    }
+                    batchPredictions.append(provider)
+                }
+            }
+            if batchIsValid && batchPredictions.count == jobs.count {
+                predictions = batchPredictions
+            } else {
+                fputs("coreml-realesrgan: invalid batch output; retrying tiles individually\n", stderr)
+                fflush(stderr)
+                predictions = try jobs.map { try model.prediction(from: $0.provider) }
+            }
         }
         stageTimings.add(inference: CFAbsoluteTimeGetCurrent() - inferenceStarted)
         let composeStarted = CFAbsoluteTimeGetCurrent()

@@ -377,8 +377,13 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	const int estimated_height = (height + estimated_scale - 1) / estimated_scale;
 	const int estimated_tiles = ((estimated_width + estimated_tile - 1) / estimated_tile)
 		* ((estimated_height + estimated_tile - 1) / estimated_tile);
+	// Core ML occasionally returns NSNull entries for batched x2plus
+	// predictions on ANE. Default this model to reliable single-tile calls;
+	// explicit batch values remain available and the Swift runner validates
+	// their output before use.
+	const bool unreliable_batch_output = model == "coreml-x2plus";
 	const int tile_batch = requested_tile_batch > 0
-		? requested_tile_batch : (heavy_coreml || estimated_tiles <= 1 ? 1 : 2);
+		? requested_tile_batch : (heavy_coreml || unreliable_batch_output || estimated_tiles <= 1 ? 1 : 2);
 	const std::string input = local ? source : join_upload_path(upload_dir, source);
 	std::string output_label = "general";
 	if (model == "realesr-animevideov3") output_label = "anime";

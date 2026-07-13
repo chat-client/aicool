@@ -1553,9 +1553,9 @@ function deleteUnlockedFolderPassword(path) {
               const performanceSelect = form.querySelector('[data-enhance-ai-performance]');
               performanceSelect.addEventListener('change', function () {
                 const presets = {
-                  fast: { model: 'coreml-general-x4v3-w8a8', input: 'target', scale: '4', tile: '256', threads: '4:4:4', encode: 'fast', overlap: 'low', temporal: '2' },
-                  balanced: { model: 'coreml-x2plus', input: 'balanced', scale: '2', tile: '0', threads: '2:4:2', encode: 'medium', overlap: 'balanced', temporal: '0' },
-                  quality: { model: 'coreml-x2plus', input: 'source', scale: '2', tile: '128', threads: '1:2:2', encode: 'slow', overlap: 'balanced', temporal: '1' }
+                  fast: { model: 'coreml-general-x4v3-w8a8', input: 'target', scale: '4', tile: '256', threads: '4:4:4', encode: 'fast', overlap: 'low', temporal: '2', batch: '0' },
+                  balanced: { model: 'coreml-x2plus', input: 'balanced', scale: '2', tile: '0', threads: '2:4:2', encode: 'medium', overlap: 'balanced', temporal: '0', batch: '1' },
+                  quality: { model: 'coreml-x2plus', input: 'source', scale: '2', tile: '128', threads: '1:2:2', encode: 'slow', overlap: 'balanced', temporal: '1', batch: '1' }
                 };
                 const preset = presets[performanceSelect.value];
                 form.querySelector('[data-enhance-ai-scale]').value = preset.scale;
@@ -1566,6 +1566,7 @@ function deleteUnlockedFolderPassword(path) {
                 form.querySelector('[data-enhance-ai-encode]').value = preset.encode;
                 form.querySelector('[data-enhance-ai-overlap]').value = preset.overlap;
                 form.querySelector('[data-enhance-ai-temporal]').value = preset.temporal;
+                form.querySelector('[data-enhance-ai-batch]').value = preset.batch;
                 syncAiScaleAvailability();
               });
               form.querySelector('[data-enhance-cancel]').addEventListener('click', function () { form.remove(); });
@@ -1618,7 +1619,7 @@ function deleteUnlockedFolderPassword(path) {
                 });
                 const quality = Object.assign({}, base, {
                   method: 'ai', aiModel: 'coreml-x2plus', aiScale: 2,
-                  aiInputSizing: 'source', aiOverlap: 'balanced', aiTemporalStep: 1,
+                  aiInputSizing: 'source', aiOverlap: 'balanced', aiTemporalStep: 1, aiTileBatch: 1,
                   aiTile: 128, aiThreads: '1:2:2', aiEncodePreset: 'slow', previewSeconds: 10
                 });
                 form.remove(); loading.remove();
