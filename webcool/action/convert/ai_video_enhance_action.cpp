@@ -164,13 +164,14 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 		const std::string preview_text = std::to_string(preview_seconds);
 		const std::string tile_batch_text = std::to_string(tile_batch);
 		const std::string temporal_step_text = std::to_string(temporal_step);
-		ACL_ARGV* pipeline = acl_argv_alloc(32);
+		ACL_ARGV* pipeline = acl_argv_alloc(36);
 		acl_argv_add(pipeline, ai.c_str(), "--video", "--model", coreml_model.c_str(),
 			"--input", input.c_str(), "--output", silent_video.c_str(), "--workers", workers_text.c_str(),
 			"--width", width_text.c_str(), "--height", height_text.c_str(), "--bitrate", bitrate_text.c_str(),
 			"--preview-seconds", preview_text.c_str(), "--compute-units", compute_units.c_str(),
 			"--input-sizing", input_sizing.c_str(), "--tile-batch", tile_batch_text.c_str(),
-			"--overlap", overlap_mode.c_str(), "--temporal-step", temporal_step_text.c_str(), nullptr);
+			"--overlap", overlap_mode.c_str(), "--temporal-step", temporal_step_text.c_str(),
+			"--cleanup-path", temp_root.c_str(), nullptr);
 		const long long pipeline_duration = preview_seconds > 0
 			? std::min(duration, static_cast<long long>(preview_seconds) * 1000LL) : duration;
 		if (!run_stage(task, pipeline, pipeline_duration, 1, 84,

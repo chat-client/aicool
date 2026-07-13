@@ -191,4 +191,32 @@ bool request_cancel_task(const char* task_id, const std::string& scope,
 	return true;
 }
 
+void terminate_running_transcode_processes()
+{
+	std::vector<long> pids;
+	{
+		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
+		for (const auto& item : g_transcode_tasks) {
+			if (!item.second || item.second->done || item.second->process_pid <= 0) {
+				continue;
+			}
+			item.second->cancel_requested = true;
+			item.second->message = "服务正在退出";
+			pids.push_back(item.second->process_pid);
+		}
+	}
+	for (const long process_pid : pids) {
+#ifdef _WIN32
+		HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE,
+			static_cast<DWORD>(process_pid));
+		if (process != nullptr) {
+			TerminateProcess(process, 1);
+			CloseHandle(process);
+		}
+#else
+		kill(static_cast<pid_t>(process_pid), SIGTERM);
+#endif
+	}
+}
+
 } // namespace action

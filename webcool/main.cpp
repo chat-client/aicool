@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <csignal>
 #include "action/action_util.h"
+#include "action/convert/convert_common.h"
 #include "win32/win32_gui.h"
 #include "win32/webcool_controller.h"
 #include "config.h"
@@ -8,7 +9,7 @@
 #include "http_router.h"
 #include "master_service.h"
 
-static auto g_webcool_version = "1.6.4";
+static auto g_webcool_version = "1.7.0";
 
 static const char* event_type_name(acl::fiber_event_t event_type) {
 	switch (event_type) {
@@ -303,6 +304,7 @@ int main(int argc, char* argv[]) {
 		acl::log::stdout_open(true);
 		ensure_console_for_cli();
 		ms.run_alone(addr, conf.empty() ? nullptr : conf.c_str());
+		action::terminate_running_transcode_processes();
 		return 0;
 	}
 
@@ -331,6 +333,7 @@ int main(int argc, char* argv[]) {
 		}
 		ms.run_alone(addr, conf.empty() ? nullptr : conf.c_str());
 	}
+	action::terminate_running_transcode_processes();
 #endif
 
 	return 0;

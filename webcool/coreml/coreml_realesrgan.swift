@@ -3,6 +3,9 @@ import CoreML
 import CoreImage
 import CoreVideo
 import AVFoundation
+#if os(macOS)
+import Darwin
+#endif
 
 enum RunnerError: Error { case usage, imageLoad, pixelBuffer, pixelBufferPool, prediction, output }
 
@@ -196,6 +199,36 @@ func argument(_ name: String) -> String? {
 guard let modelPath = argument("--model"),
       let inputPath = argument("--input"),
       let outputPath = argument("--output") else { throw RunnerError.usage }
+
+#if os(macOS)
+// A Core ML prediction can keep running after its launcher disappears unless
+// the runner explicitly observes its parent. On orphaning, remove only the
+// incomplete video output and the private task directory explicitly supplied
+// by webcool; never infer cleanup paths from the input.
+let launcherPID = getppid()
+let orphanCleanupPath = argument("--cleanup-path")
+let parentWatchdog: DispatchSourceTimer = {
+    let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
+    timer.schedule(deadline: .now() + .milliseconds(500),
+                   repeating: .milliseconds(500), leeway: .milliseconds(100))
+    timer.setEventHandler {
+        if getppid() != launcherPID || kill(launcherPID, 0) != 0 {
+            let manager = FileManager.default
+            if CommandLine.arguments.contains("--video") {
+                try? manager.removeItem(atPath: outputPath)
+            }
+            if let path = orphanCleanupPath, path != "/", !path.isEmpty {
+                try? manager.removeItem(atPath: path)
+            }
+            fputs("coreml-realesrgan: parent process exited; temporary data removed\n", stderr)
+            fflush(stderr)
+            _exit(143)
+        }
+    }
+    timer.resume()
+    return timer
+}()
+#endif
 
 let rawModelURL = URL(fileURLWithPath: modelPath)
 let compiledURL: URL

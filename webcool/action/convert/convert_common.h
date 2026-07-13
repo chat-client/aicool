@@ -151,6 +151,7 @@ void snapshot_running_tasks(const std::string& scope,
 	std::vector<transcode_task_snapshot_t>& out);
 bool request_cancel_task(const char* task_id, const std::string& scope,
 	transcode_task_snapshot_t& snapshot, bool& signal_sent);
+void terminate_running_transcode_processes();
 
 #ifdef _WIN32
 std::string quote_windows_arg(const char* arg);
