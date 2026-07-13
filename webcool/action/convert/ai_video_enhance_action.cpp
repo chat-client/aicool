@@ -317,7 +317,7 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	const std::string threads = req.getParameter("threads") ? req.getParameter("threads") : "1:2:2";
 	const std::string encode_preset = req.getParameter("encode_preset") ? req.getParameter("encode_preset") : "medium";
 	const std::string compute_units = req.getParameter("compute_units") ? req.getParameter("compute_units") : "auto";
-	const std::string input_sizing = req.getParameter("input_sizing") ? req.getParameter("input_sizing") : "target";
+	const std::string input_sizing = req.getParameter("input_sizing") ? req.getParameter("input_sizing") : "balanced";
 	const int requested_coreml_workers = safe_atoi(req.getParameter("coreml_workers"), 0);
 	const int requested_tile_batch = safe_atoi(req.getParameter("tile_batch"), 0);
 	const int temporal_step = safe_atoi(req.getParameter("temporal_step"), 1);
@@ -336,7 +336,7 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 		|| gpu < -1 || gpu > 15
 		|| (encode_preset != "fast" && encode_preset != "medium" && encode_preset != "slow")
 		|| (compute_units != "auto" && compute_units != "gpu" && compute_units != "ane" && compute_units != "cpu")
-		|| (input_sizing != "target" && input_sizing != "source")
+		|| (input_sizing != "target" && input_sizing != "balanced" && input_sizing != "source")
 		|| (requested_coreml_workers != 0 && requested_coreml_workers != 1 && requested_coreml_workers != 2 && requested_coreml_workers != 4)
 		|| (requested_tile_batch != 0 && requested_tile_batch != 1 && requested_tile_batch != 2 && requested_tile_batch != 4)
 		|| (overlap_mode != "low" && overlap_mode != "balanced" && overlap_mode != "quality")
@@ -388,6 +388,7 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	else if (model == "coreml-x4plus-int8") output_label = "int8-x4";
 	if (coreml_model && compute_units != "auto") output_label += "-" + compute_units;
 	if (coreml_model && input_sizing == "target") output_label += "-target";
+	else if (coreml_model && input_sizing == "balanced") output_label += "-balanced";
 	if (coreml_model && temporal_step == 0) output_label += "-adaptive";
 	else if (coreml_model && temporal_step > 1) output_label += "-step" + std::to_string(temporal_step);
 	if (pre_denoise > 0 || pre_deblock > 0 || pre_sharpen > 0 || pre_deinterlace) {

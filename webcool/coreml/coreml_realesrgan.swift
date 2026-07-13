@@ -61,6 +61,12 @@ struct TileJob {
     let y: Int
     let outputWidth: Int
     let outputHeight: Int
+    let sampleX: Int
+    let sampleY: Int
+    let sampleWidth: Int
+    let sampleHeight: Int
+    let padX: Int
+    let padY: Int
 }
 
 func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
@@ -72,16 +78,19 @@ func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
     let sourceRect = source.extent.integral
     let outputWidth = Int(sourceRect.width) * modelScale
     let outputHeight = Int(sourceRect.height) * modelScale
-    var result = CIImage(color: .black).cropped(to: CGRect(x: 0, y: 0,
-                                                           width: outputWidth,
-                                                           height: outputHeight))
-    // Keep only the context-rich center of each prediction. Adjacent tiles
-    // overlap in the source but never blend generated pixels, avoiding the
-    // grid seams that are especially visible with the x2 RRDB model.
+    let outputRect = CGRect(x: 0, y: 0, width: outputWidth, height: outputHeight)
+    var result = CIImage(color: .black).cropped(to: outputRect)
+    // The margin supplies context and defines the feather width between
+    // adjacent predictions. Every video preset blends this overlap; direct
+    // center cropping makes both x2 and x4 RRDB tile boundaries visible.
     let margin: Int
     switch overlapMode {
     case "low": margin = max(4, tileSize / 32)
-    case "quality": margin = max(12, tileSize / 12)
+    // Quality previously used a much larger, special overlap grid. Repeated
+    // A/B tests showed that grid itself was the source of deterministic dark
+    // seams. Use the same proven overlap geometry as balanced mode; quality
+    // still differs through source-size inference and per-frame processing.
+    case "quality": margin = tileSize <= 256 ? max(8, tileSize / 16) : max(12, tileSize / 20)
     default: margin = tileSize <= 256 ? max(8, tileSize / 16) : max(12, tileSize / 20)
     }
     let coreSize = tileSize - margin * 2
@@ -108,26 +117,82 @@ func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
             let job = jobs[index]
             guard let enhancedBuffer = prediction.featureValue(for: outputName)?.imageBufferValue
             else { throw RunnerError.prediction }
-            let enhanced = CIImage(cvPixelBuffer: enhancedBuffer)
-                .cropped(to: CGRect(x: margin * modelScale, y: margin * modelScale,
-                                    width: job.outputWidth * modelScale,
-                                    height: job.outputHeight * modelScale))
-                .transformed(by: CGAffineTransform(translationX: CGFloat(-margin * modelScale),
-                                                   y: CGFloat(-margin * modelScale)))
-                .transformed(by: CGAffineTransform(translationX: CGFloat(job.x * modelScale),
-                                                   y: CGFloat(job.y * modelScale)))
+            var enhanced: CIImage
+            if destination == nil {
+                // Keep the complete valid prediction so adjacent tiles overlap.
+                // Blend that overlap below; a hard center crop exposes the small
+                // prediction difference at every model-tile boundary as a grid.
+                enhanced = CIImage(cvPixelBuffer: enhancedBuffer)
+                    .cropped(to: CGRect(x: job.padX * modelScale,
+                                        y: job.padY * modelScale,
+                                        width: job.sampleWidth * modelScale,
+                                        height: job.sampleHeight * modelScale))
+                    .transformed(by: CGAffineTransform(
+                        translationX: CGFloat((job.sampleX - job.padX) * modelScale),
+                        y: CGFloat((job.sampleY - job.padY) * modelScale)))
+            } else {
+                enhanced = CIImage(cvPixelBuffer: enhancedBuffer)
+                    .cropped(to: CGRect(x: margin * modelScale, y: margin * modelScale,
+                                        width: job.outputWidth * modelScale,
+                                        height: job.outputHeight * modelScale))
+                    .transformed(by: CGAffineTransform(translationX: CGFloat(-margin * modelScale),
+                                                       y: CGFloat(-margin * modelScale)))
+                    .transformed(by: CGAffineTransform(translationX: CGFloat(job.x * modelScale),
+                                                       y: CGFloat(job.y * modelScale)))
+            }
+            if destination == nil {
+                // Core Image is lazy. Keeping the ML output-backed CIImage in
+                // the full-frame blend graph also keeps its prediction input
+                // alive and eventually exhausts the reusable pixel-buffer
+                // pool on frames containing many tiles. Materialize each valid
+                // tile once, then let Core ML release both buffers immediately.
+                guard let rendered = context.createCGImage(enhanced, from: enhanced.extent)
+                else { throw RunnerError.output }
+                enhanced = CIImage(cgImage: rendered).transformed(by: CGAffineTransform(
+                    translationX: enhanced.extent.minX,
+                    y: enhanced.extent.minY))
+            }
             if let destination = destination {
                 let positioned = enhanced
                     .transformed(by: CGAffineTransform(scaleX: finalScale, y: finalScale))
                     .transformed(by: CGAffineTransform(translationX: finalOffsetX, y: finalOffsetY))
-                let bounds = positioned.extent.integral.intersection(
+                // Do not use CGRect.integral here: it expands each tile outwards
+                // and transparent edge pixels can overwrite its neighbour,
+                // producing regular horizontal/vertical grid lines.
+                let bounds = positioned.extent.intersection(
                     CGRect(x: 0, y: 0, width: finalWidth, height: finalHeight))
                 if !bounds.isNull && !bounds.isEmpty {
                     context.render(positioned, to: destination, bounds: bounds,
                                    colorSpace: CGColorSpaceCreateDeviceRGB())
                 }
             } else {
-                result = enhanced.composited(over: result)
+                let tileRect = enhanced.extent
+                var mask = CIImage(color: .white).cropped(to: tileRect)
+                let blendWidth = CGFloat(2 * margin * modelScale)
+                if job.sampleX > 0 {
+                    let horizontal = CIFilter(name: "CISmoothLinearGradient", parameters: [
+                        "inputPoint0": CIVector(x: tileRect.minX, y: tileRect.midY),
+                        "inputPoint1": CIVector(x: tileRect.minX + blendWidth, y: tileRect.midY),
+                        "inputColor0": CIColor.black,
+                        "inputColor1": CIColor.white
+                    ])!.outputImage!.cropped(to: tileRect)
+                    mask = horizontal
+                }
+                if job.sampleY > 0 {
+                    let vertical = CIFilter(name: "CISmoothLinearGradient", parameters: [
+                        "inputPoint0": CIVector(x: tileRect.midX, y: tileRect.minY),
+                        "inputPoint1": CIVector(x: tileRect.midX, y: tileRect.minY + blendWidth),
+                        "inputColor0": CIColor.black,
+                        "inputColor1": CIColor.white
+                    ])!.outputImage!.cropped(to: tileRect)
+                    mask = mask.applyingFilter("CIMultiplyCompositing", parameters: [
+                        kCIInputBackgroundImageKey: vertical
+                    ]).cropped(to: tileRect)
+                }
+                result = enhanced.applyingFilter("CIBlendWithMask", parameters: [
+                    kCIInputBackgroundImageKey: result,
+                    kCIInputMaskImageKey: mask
+                ]).cropped(to: outputRect)
             }
         }
         stageTimings.add(compose: CFAbsoluteTimeGetCurrent() - composeStarted)
@@ -165,7 +230,10 @@ func enhanceImage(_ source: CIImage, model: MLModel, context: CIContext,
             let provider = try MLDictionaryFeatureProvider(
                 dictionary: [inputName: MLFeatureValue(pixelBuffer: inputBuffer)])
             jobs.append(TileJob(provider: provider, inputBuffer: inputBuffer, x: x, y: y,
-                                outputWidth: outputCoreWidth, outputHeight: outputCoreHeight))
+                                outputWidth: outputCoreWidth, outputHeight: outputCoreHeight,
+                                sampleX: sampleX, sampleY: sampleY,
+                                sampleWidth: sampleWidth, sampleHeight: sampleHeight,
+                                padX: padX, padY: padY))
             if jobs.count >= batchSize { try flushJobs() }
         }
     }
@@ -345,10 +413,13 @@ func renderVideoFrame(_ sourceBuffer: CVPixelBuffer, time: CMTime,
     var source = CIImage(cvPixelBuffer: sourceBuffer).transformed(by: preferredTransform)
     source = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX,
                                                        y: -source.extent.minY))
-    if inputSizing == "target" && source.extent.width > 0 && source.extent.height > 0 {
+    if inputSizing != "source" && source.extent.width > 0 && source.extent.height > 0 {
         let outputFit = min(CGFloat(width) / source.extent.width,
                             CGFloat(height) / source.extent.height)
-        let inferenceScale = min(1.0, outputFit / CGFloat(worker.modelScale))
+        let targetScale = min(1.0, outputFit / CGFloat(worker.modelScale))
+        // Balanced mode never discards more than 25% of either source
+        // dimension. Target mode remains the explicit speed-first option.
+        let inferenceScale = inputSizing == "balanced" ? max(0.75, targetScale) : targetScale
         if inferenceScale < 0.999 {
             source = source.transformed(by: CGAffineTransform(scaleX: inferenceScale,
                                                                y: inferenceScale))
@@ -361,13 +432,24 @@ func renderVideoFrame(_ sourceBuffer: CVPixelBuffer, time: CMTime,
     worker.context.render(canvas, to: destination,
                           bounds: CGRect(x: 0, y: 0, width: width, height: height),
                           colorSpace: CGColorSpaceCreateDeviceRGB())
-    _ = try enhanceImage(source, model: worker.model,
+    // All presets need overlap blending. In particular the fast x4 model's
+    // direct per-tile rendering otherwise exposes a grid roughly every 400
+    // output pixels. Build one feathered image and render it once for every
+    // overlap preset; the preset still controls overlap width and speed.
+    let enhanced = try enhanceImage(source, model: worker.model,
                                     context: worker.context, inputPool: worker.inputPool,
                                     inputName: worker.inputName, outputName: worker.outputName,
                                     tileSize: worker.tileSize, modelScale: worker.modelScale,
-                                    batchSize: batchSize, overlapMode: overlapMode,
-                                    destination: destination, finalWidth: width,
-                                    finalHeight: height)
+                                    batchSize: batchSize, overlapMode: overlapMode)
+    let scale = min(CGFloat(width) / enhanced.extent.width,
+                    CGFloat(height) / enhanced.extent.height)
+    let scaled = enhanced.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+    let x = (CGFloat(width) - scaled.extent.width) / 2.0 - scaled.extent.minX
+    let y = (CGFloat(height) - scaled.extent.height) / 2.0 - scaled.extent.minY
+    let positioned = scaled.transformed(by: CGAffineTransform(translationX: x, y: y))
+    worker.context.render(positioned.composited(over: canvas), to: destination,
+                          bounds: CGRect(x: 0, y: 0, width: width, height: height),
+                          colorSpace: CGColorSpaceCreateDeviceRGB())
     return VideoFrame(buffer: destination, time: time)
 }
 
@@ -561,7 +643,9 @@ if CommandLine.arguments.contains("--video") {
     let height = Int(argument("--height") ?? "0") ?? 0
     let bitrate = Int(argument("--bitrate") ?? "8000000") ?? 8000000
     let preview = Double(argument("--preview-seconds") ?? "0") ?? 0
-    let inputSizing = argument("--input-sizing") == "source" ? "source" : "target"
+    let requestedInputSizing = argument("--input-sizing") ?? "balanced"
+    let inputSizing = requestedInputSizing == "source" || requestedInputSizing == "target"
+        ? requestedInputSizing : "balanced"
     let temporalStep = max(0, min(3, Int(argument("--temporal-step") ?? "1") ?? 1))
     guard width > 0, height > 0 else { throw RunnerError.usage }
     let workers = try (0..<workerCount).map {

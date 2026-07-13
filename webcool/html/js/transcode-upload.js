@@ -1396,7 +1396,7 @@ function deleteUnlockedFolderPassword(path) {
                 '<label>' + t('AI放大倍数') + '<select data-enhance-ai-scale><option value="2">2×</option><option value="4">4×</option></select></label>' +
                 '<label>' + t('性能档位') + '<select data-enhance-ai-performance><option value="fast">' + t('快速') + '</option><option value="balanced" selected>' + t('均衡') + '</option><option value="quality">' + t('高质量') + '</option></select></label>' +
                 '<details class="video-enhance-advanced"><summary>' + t('高级性能选项') + '</summary>' +
-                '<label>' + t('推理输入尺寸') + '<select data-enhance-ai-input-sizing><option value="target" selected>' + t('目标感知（推荐/更快）') + '</option><option value="source">' + t('保持源分辨率（最慢）') + '</option></select><small>' + t('目标感知会避免先过度放大再缩小，显著减少Tile数量。') + '</small></label>' +
+                '<label>' + t('推理输入尺寸') + '<select data-enhance-ai-input-sizing><option value="target">' + t('极速（允许大幅预缩小）') + '</option><option value="balanced" selected>' + t('均衡（最多缩小25%）') + '</option><option value="source">' + t('画质（不缩小源画面）') + '</option></select><small>' + t('画质模式保留全部源像素但耗时更长；极速模式可能损失原始细节。') + '</small></label>' +
                 '<label>' + t('Core ML并发') + '<select data-enhance-ai-workers><option value="0" selected>' + t('按模型自动') + '</option><option value="1">1</option><option value="2">2</option><option value="4">4</option></select><small>' + t('重模型通常1个更快，轻量模型通常2个更快。') + '</small></label>' +
                 '<label>' + t('Tile批量') + '<select data-enhance-ai-batch><option value="0" selected>' + t('按模型自动') + '</option><option value="1">1</option><option value="2">2</option><option value="4">4</option></select><small>' + t('批量可提高ANE吞吐，但会增加统一内存占用。') + '</small></label>' +
                 '<label>' + t('Tile重叠') + '<select data-enhance-ai-overlap><option value="low">' + t('较少（更快）') + '</option><option value="balanced" selected>' + t('均衡') + '</option><option value="quality">' + t('较多（减少接缝）') + '</option></select></label>' +
@@ -1408,7 +1408,7 @@ function deleteUnlockedFolderPassword(path) {
                 '<label>' + t('最终编码速度') + '<select data-enhance-ai-encode><option value="fast">Fast</option><option value="medium" selected>Medium</option><option value="slow">Slow</option></select></label></details>' +
                 '<small>' + t('AI会推测并生成纹理细节，结果不一定与原始真实内容完全一致。') + '</small></div>' +
                 '<label>' + t('试跑范围') + '<select data-enhance-ai-preview><option value="0">' + t('完整视频') + '</option><option value="10">' + t('仅前10秒') + '</option><option value="30">' + t('仅前30秒') + '</option><option value="60">' + t('仅前60秒') + '</option></select><small>' + t('可先转换短片段，确认参数和画面效果。') + '</small></label>' +
-                '<div class="video-enhance-actions"><button type="button" data-enhance-cancel>' + t('取消') + '</button><button type="button" data-enhance-confirm>' + t('开始提升') + '</button></div></div>';
+                '<div class="video-enhance-actions"><button type="button" data-enhance-cancel>' + t('取消') + '</button><button type="button" data-enhance-compare hidden>' + t('生成10秒三方案对比') + '</button><button type="button" data-enhance-confirm>' + t('开始提升') + '</button></div></div>';
               document.body.appendChild(form);
               const enhanceCard = form.querySelector('.video-enhance-card');
               const enhanceHead = form.querySelector('.video-enhance-head');
@@ -1442,9 +1442,11 @@ function deleteUnlockedFolderPassword(path) {
                 event.preventDefault();
               });
               const methodSelect = form.querySelector('[data-enhance-method]');
+              const comparisonButton = form.querySelector('[data-enhance-compare]');
               methodSelect.addEventListener('change', function () {
                 form.querySelector('[data-standard-enhance-options]').hidden = methodSelect.value === 'ai';
                 form.querySelector('[data-ai-enhance-options]').hidden = methodSelect.value !== 'ai';
+                comparisonButton.hidden = methodSelect.value !== 'ai';
                 syncRecommendedBitrate(!bitrateManuallyEdited);
               });
               const widthInput = form.querySelector('[data-enhance-width]');
@@ -1551,12 +1553,14 @@ function deleteUnlockedFolderPassword(path) {
               const performanceSelect = form.querySelector('[data-enhance-ai-performance]');
               performanceSelect.addEventListener('change', function () {
                 const presets = {
-                  fast: { scale: '2', tile: '256', threads: '4:4:4', encode: 'fast', overlap: 'low', temporal: '2' },
-                  balanced: { scale: '2', tile: '0', threads: '2:4:2', encode: 'medium', overlap: 'balanced', temporal: '0' },
-                  quality: { scale: '4', tile: '128', threads: '1:2:2', encode: 'slow', overlap: 'quality', temporal: '1' }
+                  fast: { model: 'coreml-general-x4v3-w8a8', input: 'target', scale: '4', tile: '256', threads: '4:4:4', encode: 'fast', overlap: 'low', temporal: '2' },
+                  balanced: { model: 'coreml-x2plus', input: 'balanced', scale: '2', tile: '0', threads: '2:4:2', encode: 'medium', overlap: 'balanced', temporal: '0' },
+                  quality: { model: 'coreml-x2plus', input: 'source', scale: '2', tile: '128', threads: '1:2:2', encode: 'slow', overlap: 'balanced', temporal: '1' }
                 };
                 const preset = presets[performanceSelect.value];
                 form.querySelector('[data-enhance-ai-scale]').value = preset.scale;
+                form.querySelector('[data-enhance-ai-model]').value = preset.model;
+                form.querySelector('[data-enhance-ai-input-sizing]').value = preset.input;
                 form.querySelector('[data-enhance-ai-tile]').value = preset.tile;
                 form.querySelector('[data-enhance-ai-threads]').value = preset.threads;
                 form.querySelector('[data-enhance-ai-encode]').value = preset.encode;
@@ -1565,8 +1569,8 @@ function deleteUnlockedFolderPassword(path) {
                 syncAiScaleAvailability();
               });
               form.querySelector('[data-enhance-cancel]').addEventListener('click', function () { form.remove(); });
-              form.querySelector('[data-enhance-confirm]').addEventListener('click', function () {
-                const options = {
+              const collectEnhanceOptions = function () {
+                return {
                   width: Number(form.querySelector('[data-enhance-width]').value),
                   height: Number(form.querySelector('[data-enhance-height]').value),
                   bitrate: Number(form.querySelector('[data-enhance-bitrate]').value),
@@ -1594,10 +1598,42 @@ function deleteUnlockedFolderPassword(path) {
                   aiEncodePreset: form.querySelector('[data-enhance-ai-encode]').value,
                   previewSeconds: Number(form.querySelector('[data-enhance-ai-preview]').value)
                 };
-                if (!Number.isInteger(options.width) || !Number.isInteger(options.height)
-                    || options.width < 320 || options.width > 3840 || options.width % 2
-                    || options.height < 240 || options.height > 2160 || options.height % 2
-                    || !Number.isFinite(options.bitrate) || options.bitrate < 300 || options.bitrate > 50000) {
+              };
+              const validEnhanceOptions = function (options) {
+                return Number.isInteger(options.width) && Number.isInteger(options.height)
+                  && options.width >= 320 && options.width <= 3840 && options.width % 2 === 0
+                  && options.height >= 240 && options.height <= 2160 && options.height % 2 === 0
+                  && Number.isFinite(options.bitrate) && options.bitrate >= 300 && options.bitrate <= 50000;
+              };
+              comparisonButton.addEventListener('click', async function () {
+                const base = collectEnhanceOptions();
+                if (!validEnhanceOptions(base)) {
+                  showStatus(t('请输入有效的偶数宽高和视频码率'), 'err');
+                  return;
+                }
+                const fast = Object.assign({}, base, {
+                  method: 'ai', aiModel: 'coreml-general-x4v3-w8a8', aiScale: 4,
+                  aiInputSizing: 'target', aiOverlap: 'low', aiTemporalStep: 2,
+                  aiTile: 256, aiThreads: '4:4:4', aiEncodePreset: 'fast', previewSeconds: 10
+                });
+                const quality = Object.assign({}, base, {
+                  method: 'ai', aiModel: 'coreml-x2plus', aiScale: 2,
+                  aiInputSizing: 'source', aiOverlap: 'balanced', aiTemporalStep: 1,
+                  aiTile: 128, aiThreads: '1:2:2', aiEncodePreset: 'slow', previewSeconds: 10
+                });
+                form.remove(); loading.remove();
+                try {
+                  showStatus(t('正在依次生成极速和高质量10秒对比文件'), 'ok');
+                  const fastName = await startVideoEnhance(path, local, fast);
+                  const qualityName = await startVideoEnhance(path, local, quality);
+                  showStatus(t('三方案对比已生成：原视频、') + fastName + '、' + qualityName, 'ok');
+                } catch (err) {
+                  showStatus(t('对比文件生成失败：') + err.message, 'err');
+                }
+              });
+              form.querySelector('[data-enhance-confirm]').addEventListener('click', function () {
+                const options = collectEnhanceOptions();
+                if (!validEnhanceOptions(options)) {
                   showStatus(t('请输入有效的偶数宽高和视频码率'), 'err');
                   return;
                 }
@@ -1662,7 +1698,7 @@ function deleteUnlockedFolderPassword(path) {
           + '&tile=' + encodeURIComponent(options.aiTile)
           + '&threads=' + encodeURIComponent(options.aiThreads)
           + '&compute_units=' + encodeURIComponent(options.aiComputeUnits || 'auto')
-          + '&input_sizing=' + encodeURIComponent(options.aiInputSizing || 'target')
+          + '&input_sizing=' + encodeURIComponent(options.aiInputSizing || 'balanced')
           + '&coreml_workers=' + encodeURIComponent(options.aiWorkers || 0)
           + '&tile_batch=' + encodeURIComponent(options.aiTileBatch || 0)
           + '&overlap_mode=' + encodeURIComponent(options.aiOverlap || 'balanced')
@@ -1693,7 +1729,8 @@ function deleteUnlockedFolderPassword(path) {
         if (isAi && started.backend === 'coreml') {
           progressView.update(0, t('已启用 M4 Core ML 加速'));
         }
-        await monitorVideoEnhanceTask(taskId, path, local, isAi, progressView, Date.now());
+        await monitorVideoEnhanceTask(taskId, path, local, isAi, progressView, Date.now(), true);
+        return String(started.name || '');
       }
 
       function videoEnhanceTaskInfo(task) {
@@ -1769,7 +1806,7 @@ function deleteUnlockedFolderPassword(path) {
         return secs + t('秒');
       }
 
-      async function monitorVideoEnhanceTask(taskId, path, local, isAi, progressView, taskStartedAt) {
+      async function monitorVideoEnhanceTask(taskId, path, local, isAi, progressView, taskStartedAt, propagateErrors) {
         const progressApi = local ? (isAi ? api.localDiskAiVideoEnhanceProgress : api.localDiskVideoEnhanceProgress) : (isAi ? api.aiVideoEnhanceProgress : api.videoEnhanceProgress);
         const cancelApi = local ? (isAi ? api.localDiskAiVideoEnhanceCancel : api.localDiskVideoEnhanceCancel) : (isAi ? api.aiVideoEnhanceCancel : api.videoEnhanceCancel);
         const id = String(taskId || '');
@@ -1792,19 +1829,19 @@ function deleteUnlockedFolderPassword(path) {
               message += ' · ' + t('预计剩余约') + remainingMinutes + t('分钟');
             }
             progressView.update(value, message);
-            window.setTimeout(function () {
-              poll().catch(function (err) {
-                activeVideoEnhanceProgressTasks.delete(id);
-                removeVideoEnhanceRecoveryTask(id);
-                progressView.update(null, t('进度查询失败：') + err.message, 'failed');
-              });
-            }, 800);
-            return;
+            await new Promise(function (resolve) { window.setTimeout(resolve, 800); });
+            return poll();
           }
           activeVideoEnhanceProgressTasks.delete(id);
           removeVideoEnhanceRecoveryTask(id);
           if (!data.success) {
-            progressView.update(value, data.cancel_requested ? t('已取消') : (data.error || t('画质提升失败')), data.cancel_requested ? 'cancelled' : 'failed');
+            const failureMessage = data.cancel_requested ? t('已取消') : (data.error || t('画质提升失败'));
+            progressView.update(value, failureMessage, data.cancel_requested ? 'cancelled' : 'failed');
+            if (propagateErrors) {
+              const failure = new Error(failureMessage);
+              failure.enhanceTaskFailure = true;
+              throw failure;
+            }
             return;
           }
           const totalElapsedSeconds = Math.max(0, (Date.now() - taskStartedAt) / 1000);
@@ -1817,7 +1854,10 @@ function deleteUnlockedFolderPassword(path) {
         } catch (err) {
           activeVideoEnhanceProgressTasks.delete(id);
           removeVideoEnhanceRecoveryTask(id);
-          progressView.update(null, t('进度查询失败：') + err.message, 'failed');
+          if (!err.enhanceTaskFailure) {
+            progressView.update(null, t('进度查询失败：') + err.message, 'failed');
+          }
+          if (propagateErrors) throw err;
         }
       }
 
