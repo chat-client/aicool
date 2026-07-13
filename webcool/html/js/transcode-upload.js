@@ -1374,7 +1374,7 @@ function deleteUnlockedFolderPassword(path) {
                 '<label>' + t('处理方式') + '<select data-enhance-method><option value="standard">' + t('普通增强（快速）') + '</option><option value="ai">' + t('AI超分辨率（高质量，耗时）') + '</option></select></label>' +
                 '<label>' + t('目标宽度') + '<input type="number" data-enhance-width min="320" max="3840" step="2" value="' + suggested.width + '"></label>' +
                 '<label>' + t('目标高度') + '<input type="number" data-enhance-height min="240" max="2160" step="2" value="' + suggested.height + '"></label>' +
-                '<label>' + t('视频码率') + ' (kb/s)<input type="number" data-enhance-bitrate min="300" max="50000" step="100" value="' + Math.round(suggested.bitrate) + '"></label>' +
+                '<label>' + t('视频码率') + ' (kb/s)<input type="number" data-enhance-bitrate min="300" max="50000" step="100" value="' + Math.round(suggested.bitrate) + '"><small data-enhance-bitrate-recommendation></small></label>' +
                 '<div data-standard-enhance-options><label>' + t('降噪强度') + '<select data-enhance-denoise><option value="0">' + t('关闭') + '</option><option value="1" selected>' + t('轻度') + '</option><option value="2">' + t('中度') + '</option></select></label>' +
                 '<label>' + t('锐化强度') + '<input type="range" data-enhance-sharpen min="0" max="100" step="10" value="30"><span class="video-enhance-range-value" data-enhance-sharpen-value>30%</span></label>' +
                 '<label class="video-enhance-check"><input type="checkbox" data-enhance-deinterlace> ' + t('去隔行（仅老式隔行视频建议开启）') + '</label>' +
@@ -1439,7 +1439,61 @@ function deleteUnlockedFolderPassword(path) {
               methodSelect.addEventListener('change', function () {
                 form.querySelector('[data-standard-enhance-options]').hidden = methodSelect.value === 'ai';
                 form.querySelector('[data-ai-enhance-options]').hidden = methodSelect.value !== 'ai';
+                syncRecommendedBitrate(!bitrateManuallyEdited);
               });
+              const widthInput = form.querySelector('[data-enhance-width]');
+              const heightInput = form.querySelector('[data-enhance-height]');
+              const bitrateInput = form.querySelector('[data-enhance-bitrate]');
+              const bitrateRecommendation = form.querySelector('[data-enhance-bitrate-recommendation]');
+              const sourceWidth = Math.max(1, Number(data.width || 0));
+              const sourceHeight = Math.max(1, Number(data.height || 0));
+              const sourceBitrate = Math.max(300, currentBitrate || 1000);
+              let bitrateManuallyEdited = false;
+              const recommendedBitrate = function () {
+                const width = Number(widthInput.value);
+                const height = Number(heightInput.value);
+                if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+                const targetPixels = width * height;
+                const pixelRatio = sourceWidth > 1 && sourceHeight > 1
+                  ? targetPixels / (sourceWidth * sourceHeight) : 1;
+                // Use a continuous resolution floor instead of height bands,
+                // otherwise changing width inside the same 720p/1080p band
+                // can appear to have no effect at all.
+                const resolutionFloor = 2500 * Math.pow(targetPixels / (1280 * 720), 0.72);
+                let value = sourceBitrate * Math.pow(Math.max(0.25, pixelRatio), 0.75);
+                if (methodSelect.value === 'ai') value *= 1.2;
+                const targetFps = Number(form.querySelector('[data-enhance-fps]').value || 0);
+                const sourceFps = Math.max(1, Number(data.fps || 25));
+                if (targetFps > sourceFps) value *= Math.sqrt(targetFps / sourceFps);
+                value = Math.max(600, resolutionFloor, Math.min(50000, value));
+                value = Math.min(50000, value);
+                return Math.round(value / 100) * 100;
+              };
+              const syncRecommendedBitrate = function (applyValue) {
+                const value = recommendedBitrate();
+                if (value == null) return;
+                if (applyValue) bitrateInput.value = String(value);
+                bitrateRecommendation.textContent = t('自动建议：') + value
+                  + ' kb/s' + (bitrateManuallyEdited ? t('（已保留手工设置）') : t('（随分辨率自动调整）'));
+              };
+              const resolutionChanged = function () { syncRecommendedBitrate(!bitrateManuallyEdited); };
+              widthInput.addEventListener('input', resolutionChanged);
+              widthInput.addEventListener('change', resolutionChanged);
+              heightInput.addEventListener('input', resolutionChanged);
+              heightInput.addEventListener('change', resolutionChanged);
+              form.querySelector('[data-enhance-fps]').addEventListener('change', function () {
+                syncRecommendedBitrate(!bitrateManuallyEdited);
+              });
+              bitrateInput.addEventListener('input', function () {
+                bitrateManuallyEdited = true;
+                syncRecommendedBitrate(false);
+              });
+              bitrateRecommendation.addEventListener('click', function () {
+                bitrateManuallyEdited = false;
+                syncRecommendedBitrate(true);
+              });
+              bitrateRecommendation.title = t('点击恢复自动码率');
+              syncRecommendedBitrate(true);
               const aiModelSelect = form.querySelector('[data-enhance-ai-model]');
               const aiScaleSelect = form.querySelector('[data-enhance-ai-scale]');
               const aiComputeSelect = form.querySelector('[data-enhance-ai-compute]');
