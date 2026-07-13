@@ -1379,7 +1379,13 @@ function deleteUnlockedFolderPassword(path) {
                 '<label>' + t('锐化强度') + '<input type="range" data-enhance-sharpen min="0" max="100" step="10" value="30"><span class="video-enhance-range-value" data-enhance-sharpen-value>30%</span></label>' +
                 '<label class="video-enhance-check"><input type="checkbox" data-enhance-deinterlace> ' + t('去隔行（仅老式隔行视频建议开启）') + '</label>' +
                 '<label>' + t('运动补帧') + '<select data-enhance-fps><option value="0" selected>' + t('保持原帧率') + '</option><option value="30">30 FPS</option><option value="50">50 FPS</option><option value="60">60 FPS</option></select><small>' + t('补帧可以改善运动流畅度，但会显著增加处理时间。') + '</small></label></div>' +
-                '<div data-ai-enhance-options hidden><label>' + t('AI模型') + '<select data-enhance-ai-model>' +
+                '<div data-ai-enhance-options hidden><label>' + t('旧视频修复预设') + '<select data-enhance-ai-restore-preset><option value="off">' + t('关闭预处理') + '</option><option value="conservative">' + t('保守（轻微处理）') + '</option><option value="balanced" selected>' + t('均衡（推荐）') + '</option><option value="strong">' + t('强化（严重压缩）') + '</option></select><small>' + t('先去除压缩块和噪声，再进行AI超分，通常比直接放大更清晰。') + '</small></label>' +
+                '<details class="video-enhance-advanced" data-ai-restore-options><summary>' + t('旧视频修复细化选项') + '</summary>' +
+                '<label>' + t('去压缩块') + '<select data-enhance-ai-deblock><option value="0">' + t('关闭') + '</option><option value="1" selected>' + t('轻度') + '</option><option value="2">' + t('中度') + '</option></select></label>' +
+                '<label>' + t('AI前降噪') + '<select data-enhance-ai-predenoise><option value="0">' + t('关闭') + '</option><option value="1" selected>' + t('轻度') + '</option><option value="2">' + t('中度') + '</option></select></label>' +
+                '<label>' + t('轻微去模糊/预锐化') + '<input type="range" data-enhance-ai-presharpen min="0" max="50" step="5" value="20"><span class="video-enhance-range-value" data-enhance-ai-presharpen-value>20%</span></label>' +
+                '<label class="video-enhance-check"><input type="checkbox" data-enhance-ai-deinterlace> ' + t('AI前去隔行（仅隔行视频开启）') + '</label></details>' +
+                '<label>' + t('AI模型') + '<select data-enhance-ai-model>' +
                 '<option value="coreml-x2plus">' + t('真实2×（高质量/较快）') + '</option>' +
                 '<option value="coreml-general-x4v3">' + t('轻量x4（速度优先）') + '</option>' +
                 '<option value="coreml-general-x4v3-w8a8">' + t('轻量W8A8 x4（M4实验）') + '</option>' +
@@ -1518,6 +1524,26 @@ function deleteUnlockedFolderPassword(path) {
               };
               aiModelSelect.addEventListener('change', syncAiScaleAvailability);
               syncAiScaleAvailability();
+              const restorePreset = form.querySelector('[data-enhance-ai-restore-preset]');
+              const preSharpenInput = form.querySelector('[data-enhance-ai-presharpen]');
+              const syncRestorePreset = function () {
+                const presets = {
+                  off: { deblock: '0', denoise: '0', sharpen: '0' },
+                  conservative: { deblock: '1', denoise: '0', sharpen: '10' },
+                  balanced: { deblock: '1', denoise: '1', sharpen: '20' },
+                  strong: { deblock: '2', denoise: '2', sharpen: '30' }
+                };
+                const preset = presets[restorePreset.value] || presets.balanced;
+                form.querySelector('[data-enhance-ai-deblock]').value = preset.deblock;
+                form.querySelector('[data-enhance-ai-predenoise]').value = preset.denoise;
+                preSharpenInput.value = preset.sharpen;
+                form.querySelector('[data-enhance-ai-presharpen-value]').textContent = preset.sharpen + '%';
+              };
+              restorePreset.addEventListener('change', syncRestorePreset);
+              preSharpenInput.addEventListener('input', function () {
+                form.querySelector('[data-enhance-ai-presharpen-value]').textContent = preSharpenInput.value + '%';
+              });
+              syncRestorePreset();
               const sharpenInput = form.querySelector('[data-enhance-sharpen]');
               sharpenInput.addEventListener('input', function () {
                 form.querySelector('[data-enhance-sharpen-value]').textContent = sharpenInput.value + '%';
@@ -1560,6 +1586,10 @@ function deleteUnlockedFolderPassword(path) {
                   aiTileBatch: Number(form.querySelector('[data-enhance-ai-batch]').value),
                   aiOverlap: form.querySelector('[data-enhance-ai-overlap]').value,
                   aiTemporalStep: Number(form.querySelector('[data-enhance-ai-temporal]').value),
+                  aiPreDeblock: Number(form.querySelector('[data-enhance-ai-deblock]').value),
+                  aiPreDenoise: Number(form.querySelector('[data-enhance-ai-predenoise]').value),
+                  aiPreSharpen: Number(preSharpenInput.value),
+                  aiPreDeinterlace: form.querySelector('[data-enhance-ai-deinterlace]').checked,
                   aiGpu: Number(form.querySelector('[data-enhance-ai-gpu]').value),
                   aiEncodePreset: form.querySelector('[data-enhance-ai-encode]').value,
                   previewSeconds: Number(form.querySelector('[data-enhance-ai-preview]').value)
@@ -1637,6 +1667,10 @@ function deleteUnlockedFolderPassword(path) {
           + '&tile_batch=' + encodeURIComponent(options.aiTileBatch || 0)
           + '&overlap_mode=' + encodeURIComponent(options.aiOverlap || 'balanced')
           + '&temporal_step=' + encodeURIComponent(Number.isFinite(options.aiTemporalStep) ? options.aiTemporalStep : 1)
+          + '&ai_pre_deblock=' + encodeURIComponent(options.aiPreDeblock || 0)
+          + '&ai_pre_denoise=' + encodeURIComponent(options.aiPreDenoise || 0)
+          + '&ai_pre_sharpen=' + encodeURIComponent(options.aiPreSharpen || 0)
+          + '&ai_pre_deinterlace=' + (options.aiPreDeinterlace ? '1' : '0')
           + '&gpu=' + encodeURIComponent(options.aiGpu)
           + '&encode_preset=' + encodeURIComponent(options.aiEncodePreset)
           + '&preview_seconds=' + encodeURIComponent(options.previewSeconds);

@@ -144,6 +144,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& compute_units,
 	const std::string& input_sizing,
 	int tile_batch, const std::string& overlap_mode, int temporal_step,
+	int pre_denoise, int pre_deblock, int pre_sharpen, bool pre_deinterlace,
 	const std::string& input, const std::string& output, const std::string& temp_root,
 	const std::string& model, int scale, int width, int height, int bitrate, double fps,
 	int tile, const std::string& threads, int gpu, const std::string& encode_preset,
@@ -155,6 +156,37 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 		finish_task(task, false, "AI增强失败", "cannot create temporary directories", -1); return;
 	}
 	const long long duration = probe_duration_ms(ffmpeg, input);
+	const long long pipeline_duration = preview_seconds > 0
+		? std::min(duration, static_cast<long long>(preview_seconds) * 1000LL) : duration;
+	std::string inference_input = input;
+	const bool preprocess = pre_denoise > 0 || pre_deblock > 0
+		|| pre_sharpen > 0 || pre_deinterlace;
+	if (preprocess) {
+		const std::string preprocessed = temp_root + "/preprocessed.mp4";
+		std::string filter;
+		if (pre_deinterlace) filter += "yadif=0:-1:0,";
+		if (pre_deblock == 1) filter += "deblock=filter=weak:block=8:alpha=0.06:beta=0.04:gamma=0.03:delta=0.03,";
+		if (pre_deblock == 2) filter += "deblock=filter=strong:block=8:alpha=0.08:beta=0.05:gamma=0.04:delta=0.04,";
+		if (pre_denoise == 1) filter += "hqdn3d=0.6:0.6:2.4:2.4,";
+		if (pre_denoise == 2) filter += "hqdn3d=1.0:1.0:3.5:3.5,";
+		if (pre_sharpen > 0) filter += "unsharp=5:5:" + std::to_string(pre_sharpen / 100.0) + ":3:3:0,";
+		if (!filter.empty()) filter.erase(filter.size() - 1);
+		ACL_ARGV* prepare = acl_argv_alloc(34);
+		acl_argv_add(prepare, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
+			"-i", input.c_str(), nullptr);
+		const std::string preview_text = std::to_string(preview_seconds);
+		if (preview_seconds > 0) acl_argv_add(prepare, "-t", preview_text.c_str(), nullptr);
+		acl_argv_add(prepare, "-map", "0:v:0", "-an", "-vf", filter.c_str(),
+			"-c:v", "libx264", "-preset", "fast", "-crf", "12", "-pix_fmt", "yuv420p",
+			"-progress", "pipe:1", "-nostats", preprocessed.c_str(), nullptr);
+		if (!run_stage(task, prepare, pipeline_duration, 1, 11,
+			"正在去除旧视频压缩噪声和轻微模糊", 12, "旧视频预处理完成")) {
+			cleanup_temp(temp_root); finish_task(task, false,
+				is_task_cancel_requested(task) ? "已取消" : "AI增强失败",
+				"old video preprocessing failed", -1); return;
+		}
+		inference_input = preprocessed;
+	}
 	if (use_coreml) {
 		const std::string silent_video = temp_root + "/coreml-video.mp4";
 		const std::string workers_text = std::to_string(coreml_workers);
@@ -166,15 +198,15 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 		const std::string temporal_step_text = std::to_string(temporal_step);
 		ACL_ARGV* pipeline = acl_argv_alloc(36);
 		acl_argv_add(pipeline, ai.c_str(), "--video", "--model", coreml_model.c_str(),
-			"--input", input.c_str(), "--output", silent_video.c_str(), "--workers", workers_text.c_str(),
+			"--input", inference_input.c_str(), "--output", silent_video.c_str(), "--workers", workers_text.c_str(),
 			"--width", width_text.c_str(), "--height", height_text.c_str(), "--bitrate", bitrate_text.c_str(),
 			"--preview-seconds", preview_text.c_str(), "--compute-units", compute_units.c_str(),
 			"--input-sizing", input_sizing.c_str(), "--tile-batch", tile_batch_text.c_str(),
 			"--overlap", overlap_mode.c_str(), "--temporal-step", temporal_step_text.c_str(),
 			"--cleanup-path", temp_root.c_str(), nullptr);
-		const long long pipeline_duration = preview_seconds > 0
-			? std::min(duration, static_cast<long long>(preview_seconds) * 1000LL) : duration;
-		if (!run_stage(task, pipeline, pipeline_duration, 1, 84,
+		const double coreml_start = preprocess ? 12 : 1;
+		const double coreml_span = preprocess ? 73 : 84;
+		if (!run_stage(task, pipeline, pipeline_duration, coreml_start, coreml_span,
 			"M4正在进行硬件解码、Core ML增强与VideoToolbox编码", 85, "Core ML视频流水线完成")) {
 			cleanup_temp(temp_root); finish_task(task, false,
 				is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "Core ML video pipeline failed", -1); return;
@@ -194,7 +226,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	}
 	const std::string input_pattern = frames_in + "/%08d.png";
 	ACL_ARGV* extract = acl_argv_alloc(20);
-	acl_argv_add(extract, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", "-i", input.c_str(),
+	acl_argv_add(extract, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", "-i", inference_input.c_str(),
 		"-map", "0:v:0", nullptr);
 	const std::string preview_text = std::to_string(preview_seconds);
 	if (preview_seconds > 0) acl_argv_add(extract, "-t", preview_text.c_str(), nullptr);
@@ -289,6 +321,10 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	const int requested_coreml_workers = safe_atoi(req.getParameter("coreml_workers"), 0);
 	const int requested_tile_batch = safe_atoi(req.getParameter("tile_batch"), 0);
 	const int temporal_step = safe_atoi(req.getParameter("temporal_step"), 1);
+	const int pre_denoise = safe_atoi(req.getParameter("ai_pre_denoise"), 0);
+	const int pre_deblock = safe_atoi(req.getParameter("ai_pre_deblock"), 0);
+	const int pre_sharpen = safe_atoi(req.getParameter("ai_pre_sharpen"), 0);
+	const bool pre_deinterlace = safe_atoi(req.getParameter("ai_pre_deinterlace"), 0) == 1;
 	const std::string overlap_mode = req.getParameter("overlap_mode") ? req.getParameter("overlap_mode") : "balanced";
 	if (width < 320 || width > 3840 || height < 240 || height > 2160 || width % 2 || height % 2
 		|| bitrate < 300 || bitrate > 50000 || (scale != 2 && scale != 4) || fps <= 0 || fps > 120
@@ -305,6 +341,8 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 		|| (requested_tile_batch != 0 && requested_tile_batch != 1 && requested_tile_batch != 2 && requested_tile_batch != 4)
 		|| (overlap_mode != "low" && overlap_mode != "balanced" && overlap_mode != "quality")
 		|| (temporal_step != 0 && temporal_step != 1 && temporal_step != 2 && temporal_step != 3)
+		|| pre_denoise < 0 || pre_denoise > 2 || pre_deblock < 0 || pre_deblock > 2
+		|| pre_sharpen < 0 || pre_sharpen > 50
 		|| (preview_seconds != 0 && preview_seconds != 10 && preview_seconds != 30 && preview_seconds != 60)) {
 		json_error(res, 400, "invalid AI enhancement options", req.isKeepAlive()); return true;
 	}
@@ -352,6 +390,9 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	if (coreml_model && input_sizing == "target") output_label += "-target";
 	if (coreml_model && temporal_step == 0) output_label += "-adaptive";
 	else if (coreml_model && temporal_step > 1) output_label += "-step" + std::to_string(temporal_step);
+	if (pre_denoise > 0 || pre_deblock > 0 || pre_sharpen > 0 || pre_deinterlace) {
+		output_label += "-restored";
+	}
 	if (preview_seconds > 0) output_label += "_preview" + std::to_string(preview_seconds) + "s";
 	const std::string output_name = ai_output_name(source, local, upload_dir, output_label, width, height);
 	const std::string output = local ? output_name : join_upload_path(upload_dir, output_name);
@@ -362,9 +403,9 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	const std::string key = scoped_task_key(upload_dir, task_file);
 	{ std::lock_guard<webcool::mutex> guard(g_transcode_mutex); const auto it = g_running_task_by_file.find(key); if (it != g_running_task_by_file.end()) { const auto old = g_transcode_tasks.find(it->second); if (old != g_transcode_tasks.end() && !old->second->done) { acl::json json; acl::json_node& root=json.create_node(); root.add_bool("ok",true); root.add_text("task_id",old->second->id.c_str()); root.add_text("name",old->second->output_name.c_str()); return sendJson(res,200,root,req.isKeepAlive()); } } g_transcode_tasks[task->id]=task; g_running_task_by_file[key]=task->id; }
 	const std::string temp_root = local_parent_path(output) + "/.ai_enhance_tmp." + task->id;
-	go[task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
-		acl::gofiber_wait_thread([task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
-			run_ai_task(task, ffmpeg, ai, models, use_coreml, coreml.model, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, input, output, temp_root, model, scale, width, height, bitrate, fps,
+	go[task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, pre_denoise, pre_deblock, pre_sharpen, pre_deinterlace, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
+		acl::gofiber_wait_thread([task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, pre_denoise, pre_deblock, pre_sharpen, pre_deinterlace, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
+			run_ai_task(task, ffmpeg, ai, models, use_coreml, coreml.model, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, pre_denoise, pre_deblock, pre_sharpen, pre_deinterlace, input, output, temp_root, model, scale, width, height, bitrate, fps,
 				tile, threads, gpu, encode_preset, preview_seconds);
 		});
 	};
