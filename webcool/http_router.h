@@ -110,6 +110,12 @@ private:
 	static bool routeLocalDiskVideoEdit(request_t& req, response_t& res);
 	static bool routeLocalDiskVideoEditProgress(request_t& req, response_t& res);
 	static bool routeLocalDiskVideoEditCancel(request_t& req, response_t& res);
+	static bool routeVideoSubtitleExport(request_t& req, response_t& res);
+	static bool routeLocalDiskVideoSubtitleExport(request_t& req, response_t& res);
+	static bool routeVideoSubtitleExportProgress(request_t& req, response_t& res);
+	static bool routeVideoSubtitleExportCancel(request_t& req, response_t& res);
+	static bool routeLocalDiskVideoSubtitleExportProgress(request_t& req, response_t& res);
+	static bool routeLocalDiskVideoSubtitleExportCancel(request_t& req, response_t& res);
 	static bool routeAiVideoEnhance(request_t& req, response_t& res);
 	static bool routeAiVideoEnhanceProgress(request_t& req, response_t& res);
 	static bool routeAiVideoEnhanceCancel(request_t& req, response_t& res);

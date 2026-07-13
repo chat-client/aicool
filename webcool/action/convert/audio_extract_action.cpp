@@ -5,6 +5,12 @@ namespace action {
 
 namespace {
 
+long long audio_extract_time_param(const request_t& req, const char* name)
+{
+	const char* value = req.getParameter(name);
+	return value && *value ? std::max(0LL, static_cast<long long>(atoll(value))) : 0;
+}
+
 std::string make_audio_extract_name(const std::string& upload_dir,
 	const std::string& input_name)
 {
@@ -21,14 +27,22 @@ std::string make_audio_extract_name(const std::string& upload_dir,
 
 void run_audio_extract(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input_path,
-	const std::string& temp_path, const std::string& output_path)
+	const std::string& temp_path, const std::string& output_path,
+	long long start_ms, long long end_ms)
 {
 	unlink(temp_path.c_str());
-	const long long duration_ms = probe_duration_ms(ffmpeg, input_path);
+	const long long source_duration_ms = probe_duration_ms(ffmpeg, input_path);
+	const long long duration_ms = end_ms > start_ms ? end_ms - start_ms
+		: (source_duration_ms > start_ms ? source_duration_ms - start_ms : source_duration_ms);
 	ACL_ARGV* args = acl_argv_alloc(24);
 	acl_argv_add(args,
-		ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
-		"-i", input_path.c_str(), "-map", "0:a:0", "-vn",
+		ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", nullptr);
+	const std::string start_text = std::to_string(start_ms / 1000.0);
+	const std::string duration_text = end_ms > start_ms
+		? std::to_string((end_ms - start_ms) / 1000.0) : "";
+	if (start_ms > 0) acl_argv_add(args, "-ss", start_text.c_str(), nullptr);
+	if (!duration_text.empty()) acl_argv_add(args, "-t", duration_text.c_str(), nullptr);
+	acl_argv_add(args, "-i", input_path.c_str(), "-map", "0:a:0", "-vn",
 		"-c:a", "libmp3lame", "-ac", "2", "-b:a", "192k",
 		"-progress", "pipe:1", "-nostats",
 		temp_path.c_str(), nullptr);
@@ -59,6 +73,11 @@ void run_audio_extract(const std::shared_ptr<transcode_task_t>& task,
 bool AudioExtractAction::run(request_t& req, response_t& res,
 	const std::string& upload_dir)
 {
+	const long long start_ms = audio_extract_time_param(req, "start_ms");
+	const long long end_ms = audio_extract_time_param(req, "end_ms");
+	if (end_ms > 0 && end_ms - start_ms < 100) {
+		json_error(res, 400, "invalid audio export range", req.isKeepAlive()); return true;
+	}
 	const char* file = req.getParameter("file");
 	std::string relative_path;
 	std::string err;
@@ -81,7 +100,8 @@ bool AudioExtractAction::run(request_t& req, response_t& res,
 		json_error(res, 500, "ffmpeg not found", req.isKeepAlive());
 		return true;
 	}
-	const std::string task_file = "audio-extract:" + relative_path;
+	const std::string task_file = "audio-extract:" + relative_path + ":"
+		+ std::to_string(start_ms) + ":" + std::to_string(end_ms);
 	const std::string task_key = scoped_task_key(upload_dir, task_file);
 	{
 		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
@@ -118,9 +138,9 @@ bool AudioExtractAction::run(request_t& req, response_t& res,
 	}
 	const std::string input_path = join_upload_path(upload_dir, relative_path);
 	const std::string temporary_path = temp_path.c_str();
-	go[task, ffmpeg, input_path, temporary_path, output_path] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary_path, output_path] {
-			run_audio_extract(task, ffmpeg, input_path, temporary_path, output_path);
+	go[task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms] {
+		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms] {
+			run_audio_extract(task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms);
 		});
 	};
 	acl::json json;
@@ -183,6 +203,11 @@ bool AudioExtractAction::cancel(request_t& req, response_t& res,
 bool LocalDiskAudioExtractAction::run(request_t& req, response_t& res,
 	const std::string& upload_dir)
 {
+	const long long start_ms = audio_extract_time_param(req, "start_ms");
+	const long long end_ms = audio_extract_time_param(req, "end_ms");
+	if (end_ms > 0 && end_ms - start_ms < 100) {
+		json_error(res, 400, "invalid audio export range", req.isKeepAlive()); return true;
+	}
 	std::string input_path;
 	std::string err;
 	if (!normalize_local_video_path(req.getParameter("path"), input_path, err)) {
@@ -205,7 +230,8 @@ bool LocalDiskAudioExtractAction::run(request_t& req, response_t& res,
 		json_error(res, 500, "ffmpeg not found", req.isKeepAlive());
 		return true;
 	}
-	const std::string task_file = "audio-extract-local:" + input_path;
+	const std::string task_file = "audio-extract-local:" + input_path + ":"
+		+ std::to_string(start_ms) + ":" + std::to_string(end_ms);
 	const std::string task_key = scoped_task_key(upload_dir, task_file);
 	{
 		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
@@ -255,9 +281,9 @@ bool LocalDiskAudioExtractAction::run(request_t& req, response_t& res,
 		g_running_task_by_file[task_key] = task->id;
 	}
 	const std::string temporary_path = temp_path.c_str();
-	go[task, ffmpeg, input_path, temporary_path, output_path] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary_path, output_path] {
-			run_audio_extract(task, ffmpeg, input_path, temporary_path, output_path);
+	go[task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms] {
+		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms] {
+			run_audio_extract(task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms);
 		});
 	};
 	acl::json json;

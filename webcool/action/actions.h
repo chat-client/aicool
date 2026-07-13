@@ -526,9 +526,13 @@ public:
 
 class VideoEditAction {
 public:
-	static bool run(request_t& req, response_t& res, const std::string& upload_dir, bool local);
+	static bool run(request_t& req, response_t& res, const std::string& upload_dir,
+		bool local, const std::string& auxiliary_upload_dir = "");
 	static bool progress(request_t& req, response_t& res, const std::string& upload_dir, bool local);
 	static bool cancel(request_t& req, response_t& res, const std::string& upload_dir, bool local);
+	static bool exportSubtitle(request_t& req, response_t& res, const std::string& upload_dir, bool local);
+	static bool subtitleProgress(request_t& req, response_t& res, const std::string& upload_dir, bool local);
+	static bool subtitleCancel(request_t& req, response_t& res, const std::string& upload_dir, bool local);
 };
 
 class AiVideoEnhanceAction {

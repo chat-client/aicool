@@ -56,7 +56,7 @@
   window.addEventListener('resize', scheduleAdaptiveUiScale);
   window.addEventListener('orientationchange', scheduleAdaptiveUiScale);
 
-  const assetVersion = 'video-editor-controls-20260713-02';
+  const assetVersion = 'video-editor-minimize-20260713-07';
   const modules = [
     '/webcool/html/js/core-state.js',
     '/webcool/html/js/locks-context.js',
