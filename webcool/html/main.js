@@ -56,7 +56,7 @@
   window.addEventListener('resize', scheduleAdaptiveUiScale);
   window.addEventListener('orientationchange', scheduleAdaptiveUiScale);
 
-  const assetVersion = 'ai-coreml-batch-fix-20260713-01';
+  const assetVersion = 'video-editor-controls-20260713-02';
   const modules = [
     '/webcool/html/js/core-state.js',
     '/webcool/html/js/locks-context.js',
@@ -72,6 +72,7 @@
     '/webcool/html/js/remote-files.js',
     '/webcool/html/js/preview-local-disk.js',
     '/webcool/html/js/admin-storage.js',
+    '/webcool/html/js/video-editor.js',
     '/webcool/html/js/events-bootstrap.js'
   ];
 

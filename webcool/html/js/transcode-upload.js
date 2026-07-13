@@ -1867,6 +1867,10 @@ function deleteUnlockedFolderPassword(path) {
           return;
         }
         const fileLabel = local ? path : path;
+        if (action === 'video-edit') {
+          openVideoEditor(path, local);
+          return;
+        }
         if (action === 'video-properties') {
           await showVideoProperties(path, local);
           return;

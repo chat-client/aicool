@@ -854,6 +854,7 @@ function loadUnlockedFilePasswords() {
           html += '<button type="button" class="folder-context-item" data-file-menu-action="video-properties">' + t('属性') + '</button>';
         }
         if (!isMultiList && isVideo && !opts.recycleMode) {
+          html += '<button type="button" class="folder-context-item" data-file-menu-action="video-edit">' + t('剪辑') + '</button>';
           html += '<button type="button" class="folder-context-item" data-file-menu-action="extract-audio">' + t('提取音频') + '</button>';
         }
         menu.innerHTML = html;
