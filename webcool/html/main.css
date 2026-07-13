@@ -5445,6 +5445,12 @@
     .video-editor-track-source label:first-child { margin-top: 0; }
     .video-editor-track-source input { min-width: 0; width: 100%; box-sizing: border-box; }
     .video-editor-track-source em { color: #72879a; font-style: normal; }
+    .video-editor-track-hint {
+      margin: 7px 0 0;
+      color: #72879a;
+      font-size: 11px;
+      line-height: 1.45;
+    }
     .video-editor-file-picker {
       display: flex;
       min-width: 0;

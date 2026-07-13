@@ -159,7 +159,7 @@ void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& crop, int output_height, const std::string& audio_mode,
 	const std::string& audio_path, long long audio_start_ms,
 	const std::string& subtitle_mode, const std::string& subtitle_path,
-	long long subtitle_start_ms)
+	long long subtitle_start_ms, const std::string& subtitle_import_mode)
 {
 	unlink(temporary.c_str());
 	const long long source_duration = probe_duration_ms(ffmpeg, input);
@@ -169,6 +169,8 @@ void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
 
 	const std::string video_filter = build_video_filter(speed, rotate, flip_h,
 		flip_v, crop, output_height);
+	const bool fast_subtitle_import = subtitle_mode == "replace"
+		&& subtitle_import_mode == "fast";
 	std::string audio_filter;
 	if (!muted && audio_mode != "remove") {
 		if (std::fabs(speed - 1.0) > 0.0001) audio_filter = audio_tempo_filter(speed);
@@ -211,9 +213,14 @@ void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
 	if (!video_filter.empty()) acl_argv_add(args, "-vf", video_filter.c_str(), nullptr);
 	if (muted || audio_mode == "remove") acl_argv_add(args, "-an", nullptr);
 	else if (!audio_filter.empty()) acl_argv_add(args, "-af", audio_filter.c_str(), nullptr);
-	acl_argv_add(args, "-c:v", "libx264", "-preset", "medium", "-crf", "21",
-		"-pix_fmt", "yuv420p", nullptr);
-	if (!muted && audio_mode != "remove") acl_argv_add(args, "-c:a", "aac", "-b:a", "192k", nullptr);
+	if (fast_subtitle_import) {
+		acl_argv_add(args, "-c:v", "copy", nullptr);
+		if (!muted && audio_mode != "remove") acl_argv_add(args, "-c:a", "copy", nullptr);
+	} else {
+		acl_argv_add(args, "-c:v", "libx264", "-preset", "medium", "-crf", "21",
+			"-pix_fmt", "yuv420p", nullptr);
+		if (!muted && audio_mode != "remove") acl_argv_add(args, "-c:a", "aac", "-b:a", "192k", nullptr);
+	}
 	if (subtitle_mode != "remove") acl_argv_add(args, "-c:s", "mov_text", nullptr);
 	const std::string output_duration_text = selected_duration > 0
 		? decimal_text(selected_duration / 1000.0) : "";
@@ -227,11 +234,14 @@ void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
 		return;
 	}
 	const int code = wait_transcode_progress(task, *process, selected_duration,
-		2.0, 95.0, "正在导出剪辑", 98.0, "正在写入MP4文件");
+		2.0, 95.0, fast_subtitle_import ? "正在快速添加字幕" : "正在导出剪辑",
+		98.0, "正在写入MP4文件");
 	if (code != 0 || is_task_cancel_requested(task) || file_size_of(temporary.c_str()) <= 0) {
 		unlink(temporary.c_str());
-		finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "视频剪辑失败",
-			is_task_cancel_requested(task) ? "cancelled" : "ffmpeg video edit failed", -1);
+		finish_task(task, false, is_task_cancel_requested(task) ? "已取消"
+			: (fast_subtitle_import ? "快速添加字幕失败" : "视频剪辑失败"),
+			is_task_cancel_requested(task) ? "cancelled"
+			: (fast_subtitle_import ? "快速封装失败，请改用兼容转码" : "ffmpeg video edit failed"), -1);
 		return;
 	}
 	if (rename(temporary.c_str(), output.c_str()) != 0) {
@@ -239,7 +249,8 @@ void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
 		finish_task(task, false, "视频剪辑失败", "rename edited video failed", -1);
 		return;
 	}
-	finish_task(task, true, "视频剪辑完成", "", file_size_of(output.c_str()));
+	finish_task(task, true, fast_subtitle_import ? "快速添加字幕完成" : "视频剪辑完成",
+		"", file_size_of(output.c_str()));
 }
 
 bool edit_task_snapshot(const request_t& req, const std::string& scope,
@@ -312,6 +323,8 @@ bool VideoEditAction::run(request_t& req, response_t& res,
 	const std::string subtitle_mode = req.getParameter("subtitle_mode") ? req.getParameter("subtitle_mode") : "keep";
 	const bool subtitle_uploaded = req.getParameter("subtitle_file_source")
 		&& strcmp(req.getParameter("subtitle_file_source"), "upload") == 0;
+	const std::string subtitle_import_mode = req.getParameter("subtitle_import_mode")
+		? req.getParameter("subtitle_import_mode") : "reencode";
 	const long long subtitle_start_ms = integer_param(req, "subtitle_start_ms");
 	if (start_ms < 0 || (end_ms > 0 && end_ms - start_ms < 100)
 		|| speed < 0.25 || speed > 4.0 || volume < 0 || volume > 200
@@ -320,8 +333,18 @@ bool VideoEditAction::run(request_t& req, response_t& res,
 		|| (output_height != 0 && output_height != 480 && output_height != 720 && output_height != 1080)
 		|| (audio_mode != "keep" && audio_mode != "remove" && audio_mode != "replace")
 		|| (subtitle_mode != "keep" && subtitle_mode != "remove" && subtitle_mode != "replace")
+		|| (subtitle_import_mode != "fast" && subtitle_import_mode != "reencode")
 		|| audio_start_ms < 0 || subtitle_start_ms < 0) {
 		json_error(res, 400, "invalid video edit options", req.isKeepAlive());
+		return true;
+	}
+	if (subtitle_import_mode == "fast" && (subtitle_mode != "replace"
+		|| std::fabs(speed - 1.0) > 0.0001 || volume != 100 || muted
+		|| rotate != 0 || flip_h || flip_v || crop != "original"
+		|| output_height != 0 || audio_mode != "keep")) {
+		json_error(res, 400,
+			"快速封装不能同时应用画面、变速或音频编辑，请选择兼容转码",
+			req.isKeepAlive());
 		return true;
 	}
 
@@ -393,7 +416,9 @@ bool VideoEditAction::run(request_t& req, response_t& res,
 		static_cast<unsigned>(getpid()), static_cast<unsigned long>(g_transcode_seq.load()));
 	auto task = std::make_shared<transcode_task_t>();
 	task->id = make_task_id(); task->scope = upload_dir; task->file_name = task_file;
-	task->output_name = output_name; task->message = "等待导出剪辑"; task->local = local;
+	task->output_name = output_name;
+	task->message = subtitle_import_mode == "fast" ? "等待快速添加字幕" : "等待导出剪辑";
+	task->local = local;
 	{
 		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 		g_transcode_tasks[task->id] = task; g_running_task_by_file[key] = task->id;
@@ -401,15 +426,16 @@ bool VideoEditAction::run(request_t& req, response_t& res,
 	const std::string temporary = temp.c_str();
 	go[task, ffmpeg, input_path, temporary, output_path, start_ms, end_ms, speed,
 		volume, muted, rotate, flip_h, flip_v, crop, output_height, audio_mode,
-		audio_path, audio_start_ms, subtitle_mode, subtitle_path, subtitle_start_ms] {
+		audio_path, audio_start_ms, subtitle_mode, subtitle_path, subtitle_start_ms,
+		subtitle_import_mode] {
 		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary, output_path,
 			start_ms, end_ms, speed, volume, muted, rotate, flip_h, flip_v, crop,
 			output_height, audio_mode, audio_path, audio_start_ms, subtitle_mode,
-			subtitle_path, subtitle_start_ms] {
+			subtitle_path, subtitle_start_ms, subtitle_import_mode] {
 			run_video_edit(task, ffmpeg, input_path, temporary, output_path, start_ms,
 				end_ms, speed, volume, muted, rotate, flip_h, flip_v, crop, output_height,
 				audio_mode, audio_path, audio_start_ms, subtitle_mode, subtitle_path,
-				subtitle_start_ms);
+				subtitle_start_ms, subtitle_import_mode);
 		});
 	};
 	acl::json json; acl::json_node& root = json.create_node();

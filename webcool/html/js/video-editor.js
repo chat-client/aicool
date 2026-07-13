@@ -99,7 +99,7 @@ function openVideoEditor(path, local) {
           '</div>' +
           '<div class="video-editor-control-group"><h3>' + videoEditorEscape(t('字幕轨')) + '</h3>' +
             '<label><span>' + videoEditorEscape(t('字幕处理')) + '</span><select data-editor-subtitle-mode><option value="keep">' + videoEditorEscape(t('保留原字幕')) + '</option><option value="remove">' + videoEditorEscape(t('去除字幕')) + '</option><option value="replace">' + videoEditorEscape(t('添加或替换字幕')) + '</option></select></label>' +
-            '<div class="video-editor-track-source" data-editor-subtitle-source hidden><label><span>' + videoEditorEscape(t('字幕文件')) + '</span><span class="video-editor-file-picker"><input type="text" list="video-editor-subtitle-files" data-editor-subtitle-file placeholder="' + videoEditorEscape(t('选择字幕文件位置')) + '"><button type="button" data-editor-subtitle-browse>' + videoEditorEscape(t('选择文件')) + '</button><input type="file" accept=".srt,.vtt,.ass,.ssa,text/vtt,application/x-subrip" data-editor-subtitle-upload hidden></span></label><label><span>' + videoEditorEscape(t('起始位置')) + '</span><input type="number" min="0" step="0.1" value="0" data-editor-subtitle-start><em>s</em></label></div>' +
+            '<div class="video-editor-track-source" data-editor-subtitle-source hidden><label><span>' + videoEditorEscape(t('字幕文件')) + '</span><span class="video-editor-file-picker"><input type="text" list="video-editor-subtitle-files" data-editor-subtitle-file placeholder="' + videoEditorEscape(t('选择字幕文件位置')) + '"><button type="button" data-editor-subtitle-browse>' + videoEditorEscape(t('选择文件')) + '</button><input type="file" accept=".srt,.vtt,.ass,.ssa,text/vtt,application/x-subrip" data-editor-subtitle-upload hidden></span></label><label><span>' + videoEditorEscape(t('添加方式')) + '</span><select data-editor-subtitle-import-mode><option value="fast">' + videoEditorEscape(t('快速封装（不重新编码）')) + '</option><option value="reencode">' + videoEditorEscape(t('兼容转码（应用全部编辑）')) + '</option></select></label><p class="video-editor-track-hint" data-editor-subtitle-import-hint>' + videoEditorEscape(t('快速封装速度快，但不能同时应用画面、变速或音频编辑；裁剪点可能对齐到关键帧。')) + '</p><label><span>' + videoEditorEscape(t('起始位置')) + '</span><input type="number" min="0" step="0.1" value="0" data-editor-subtitle-start><em>s</em></label></div>' +
             '<button type="button" class="video-editor-track-export" data-editor-export-subtitle>' + videoEditorEscape(t('导出原字幕')) + '</button>' +
           '</div>' +
           '<div class="video-editor-control-group"><h3>' + videoEditorEscape(t('画面')) + '</h3>' +
@@ -142,6 +142,8 @@ function openVideoEditor(path, local) {
   const subtitleFile = dialog.querySelector('[data-editor-subtitle-file]');
   const subtitleBrowseBtn = dialog.querySelector('[data-editor-subtitle-browse]');
   const subtitleUploadInput = dialog.querySelector('[data-editor-subtitle-upload]');
+  const subtitleImportMode = dialog.querySelector('[data-editor-subtitle-import-mode]');
+  const subtitleImportHint = dialog.querySelector('[data-editor-subtitle-import-hint]');
   const subtitleStart = dialog.querySelector('[data-editor-subtitle-start]');
   const exportBtn = dialog.querySelector('[data-editor-export]');
   const exportAudioBtn = dialog.querySelector('[data-editor-export-audio]');
@@ -224,6 +226,11 @@ function openVideoEditor(path, local) {
     exportSubtitleBtn.textContent = t(adding ? '开始添加字幕' : '导出原字幕');
   }
   subtitleMode.addEventListener('change', syncSubtitleMode);
+  subtitleImportMode.addEventListener('change', function () {
+    subtitleImportHint.textContent = t(subtitleImportMode.value === 'fast'
+      ? '快速封装速度快，但不能同时应用画面、变速或音频编辑；裁剪点可能对齐到关键帧。'
+      : '兼容转码会重新编码视频，可应用剪辑窗口中的全部设置。');
+  });
   subtitleBrowseBtn.addEventListener('click', function () { subtitleUploadInput.click(); });
   subtitleUploadInput.addEventListener('change', function () {
     const file = subtitleUploadInput.files && subtitleUploadInput.files[0];
@@ -392,10 +399,18 @@ function openVideoEditor(path, local) {
         audio_start_ms: Math.round((Number(audioStart.value) || 0) * 1000),
         subtitle_mode: subtitleMode.value, subtitle_file: subtitlePath,
         subtitle_file_source: subtitleFileSource,
+        subtitle_import_mode: subtitleMode.value === 'replace' ? subtitleImportMode.value : 'reencode',
         subtitle_start_ms: Math.round((Number(subtitleStart.value) || 0) * 1000)
       };
       if (audioMode.value === 'replace' && !params.audio_file) throw new Error(t('请选择音频文件'));
       if (subtitleMode.value === 'replace' && !params.subtitle_file) throw new Error(t('请选择字幕文件'));
+      if (subtitleMode.value === 'replace' && subtitleImportMode.value === 'fast'
+        && (speed.value !== '1' || volume.value !== '100' || muted.checked
+          || rotate.value !== '0' || flipH.checked || flipV.checked
+          || crop.value !== 'original' || outputHeight.value !== '0'
+          || audioMode.value !== 'keep')) {
+        throw new Error(t('快速封装不能同时应用画面、变速或音频编辑，请选择兼容转码'));
+      }
       Object.keys(params).forEach(function (key) { url += '&' + key + '=' + encodeURIComponent(params[key]); });
       const data = await fetchJson(url, { method: 'POST' });
       taskId = String(data.task_id || '');
