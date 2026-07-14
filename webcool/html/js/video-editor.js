@@ -117,7 +117,7 @@ function openVideoEditor(path, local) {
             '<div class="video-editor-toggle-row"><label class="video-editor-check"><input type="checkbox" data-editor-flip-h><span>' + videoEditorEscape(t('水平翻转')) + '</span></label><label class="video-editor-check"><input type="checkbox" data-editor-flip-v><span>' + videoEditorEscape(t('垂直翻转')) + '</span></label></div>' +
             '<label><span>' + videoEditorEscape(t('画面比例')) + '</span><select data-editor-crop><option value="original">' + videoEditorEscape(t('原始比例')) + '</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></label>' +
             '<label><span>' + videoEditorEscape(t('导出分辨率')) + '</span><select data-editor-height><option value="0">' + videoEditorEscape(t('保持原始')) + '</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label>' +
-            '<button type="button" class="video-editor-track-export" data-editor-export-keyframes>' + videoEditorEscape(t('连续截取关键帧')) + '</button>' +
+            '<div class="video-editor-capture-actions"><button type="button" class="video-editor-track-export" data-editor-export-keyframes>' + videoEditorEscape(t('连续截取关键帧')) + '</button><button type="button" class="video-editor-track-export" data-editor-screenshot>' + videoEditorEscape(t('截屏')) + '</button></div>' +
             '<p class="video-editor-track-hint">' + videoEditorEscape(t('将所选时段内的关键帧导出到与视频同名的目录。')) + '</p>' +
           '</div>' +
           '<p class="video-editor-output-hint">' + videoEditorEscape(t('将导出为新的 MP4 文件，原视频不会被修改。')) + '</p>' +
@@ -161,6 +161,7 @@ function openVideoEditor(path, local) {
   const exportAudioBtn = dialog.querySelector('[data-editor-export-audio]');
   const exportSubtitleBtn = dialog.querySelector('[data-editor-export-subtitle]');
   const exportKeyframesBtn = dialog.querySelector('[data-editor-export-keyframes]');
+  const screenshotBtn = dialog.querySelector('[data-editor-screenshot]');
   const cancelExportBtn = dialog.querySelector('[data-editor-cancel-export]');
   const progress = dialog.querySelector('.video-editor-progress');
   const progressBar = progress.querySelector('i');
@@ -278,6 +279,7 @@ function openVideoEditor(path, local) {
     else startTrackExport('subtitle');
   });
   exportKeyframesBtn.addEventListener('click', function () { startTrackExport('keyframes'); });
+  screenshotBtn.addEventListener('click', function () { startTrackExport('screenshot'); });
 
   function updateProgress(value, message, state) {
     progress.hidden = false;
@@ -294,6 +296,7 @@ function openVideoEditor(path, local) {
     exportAudioBtn.disabled = busy;
     exportSubtitleBtn.disabled = busy;
     exportKeyframesBtn.disabled = busy;
+    screenshotBtn.disabled = busy;
     subtitleBrowseBtn.disabled = busy;
     subtitleUploadInput.disabled = busy;
     cancelExportBtn.hidden = !busy;
@@ -305,6 +308,8 @@ function openVideoEditor(path, local) {
     const selected = selection();
     const isAudio = kind === 'audio';
     const isKeyframes = kind === 'keyframes';
+    const isScreenshot = kind === 'screenshot';
+    const isFrameExport = isKeyframes || isScreenshot;
     const startedAt = Date.now();
     let lastProgress = 0;
     const progressMessage = function (message, value) {
@@ -313,33 +318,43 @@ function openVideoEditor(path, local) {
     };
     const startApi = isAudio
       ? (local ? api.localDiskAudioExtract : api.extractAudio)
-      : (isKeyframes
+      : (isFrameExport
         ? (local ? api.localDiskVideoKeyframeExport : api.videoKeyframeExport)
         : (local ? api.localDiskVideoSubtitleExport : api.videoSubtitleExport));
     const progressApi = isAudio
       ? (local ? api.localDiskAudioExtractProgress : api.extractAudioProgress)
-      : (isKeyframes
+      : (isFrameExport
         ? (local ? api.localDiskVideoKeyframeExportProgress : api.videoKeyframeExportProgress)
         : (local ? api.localDiskVideoSubtitleExportProgress : api.videoSubtitleExportProgress));
     activeCancelApi = isAudio
       ? (local ? api.localDiskAudioExtractCancel : api.extractAudioCancel)
-      : (isKeyframes
+      : (isFrameExport
         ? (local ? api.localDiskVideoKeyframeExportCancel : api.videoKeyframeExportCancel)
         : (local ? api.localDiskVideoSubtitleExportCancel : api.videoSubtitleExportCancel));
     const startingMessage = isAudio ? t('正在启动音频导出')
-      : (isKeyframes ? t('正在启动关键帧截屏') : t('正在启动字幕导出'));
+      : (isScreenshot ? t('正在启动截屏')
+        : (isKeyframes ? t('正在启动关键帧截屏') : t('正在启动字幕导出')));
     const runningMessage = isAudio ? t('正在导出音频')
-      : (isKeyframes ? t('正在导出关键帧') : t('正在导出字幕'));
+      : (isScreenshot ? t('正在截取当前画面')
+        : (isKeyframes ? t('正在导出关键帧') : t('正在导出字幕')));
     const completionMessage = isAudio ? t('音频导出完成：')
-      : (isKeyframes ? t('关键帧截屏完成：') : t('字幕导出完成：'));
+      : (isScreenshot ? t('截屏完成：')
+        : (isKeyframes ? t('关键帧截屏完成：') : t('字幕导出完成：')));
     const failureMessage = isAudio ? t('导出音频失败：')
-      : (isKeyframes ? t('导出关键帧失败：') : t('导出字幕失败：'));
+      : (isScreenshot ? t('截屏失败：')
+        : (isKeyframes ? t('导出关键帧失败：') : t('导出字幕失败：')));
     setExportBusy(true);
     updateProgress(0, progressMessage(startingMessage, 0));
     try {
       let url = videoEditorTaskUrl(startApi, path, local);
-      url += '&start_ms=' + encodeURIComponent(String(Math.round(selected.start * 1000)));
+      const currentTime = Number(video.currentTime);
+      const capturePosition = Math.max(0, Math.min(Math.max(0, duration - 0.001),
+        Number.isFinite(currentTime) ? currentTime : selected.start));
+      url += '&start_ms=' + encodeURIComponent(String(Math.round(
+        (isScreenshot ? capturePosition : selected.start) * 1000
+      )));
       url += '&end_ms=' + encodeURIComponent(String(Math.round(selected.end * 1000)));
+      if (isScreenshot) url += '&single=1';
       const started = await fetchJson(url, { method: 'POST' });
       taskId = String(started.task_id || '');
       if (!taskId) throw new Error(started.message || t('无法启动导出'));

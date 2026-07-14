@@ -5479,6 +5479,7 @@
     }
     .video-editor-track-export:hover { background: #eaf3f9; }
     .video-editor-track-export:disabled { opacity: .55; cursor: default; }
+    .video-editor-capture-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .video-editor-toggle-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 11px 0; }
     .video-editor-output-hint { margin: 4px; color: #73879a; font-size: 12px; line-height: 1.5; }
     .video-editor-footer {

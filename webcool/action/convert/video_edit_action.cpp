@@ -395,47 +395,121 @@ bool publish_keyframe_directory(const std::string& temporary,
 	return true;
 }
 
+void cleanup_screenshot_temporary_directory(const std::string& directory)
+{
+	unlink(local_join_path(directory, "screenshot.jpg").c_str());
+	rmdir(directory.c_str());
+}
+
+bool publish_screenshot(const std::string& temporary,
+	const std::string& output, long long& image_size, std::string& image_name,
+	std::string& err)
+{
+	const std::string source = local_join_path(temporary, "screenshot.jpg");
+	image_size = file_size_of(source.c_str());
+	if (image_size <= 0) {
+		cleanup_screenshot_temporary_directory(temporary);
+		err = "screenshot output is empty";
+		return false;
+	}
+	struct stat st{};
+	if (stat(output.c_str(), &st) == 0) {
+		if (!S_ISDIR(st.st_mode)) {
+			cleanup_screenshot_temporary_directory(temporary);
+			err = "screenshot output path is not a directory";
+			return false;
+		}
+	} else if (mkdir(output.c_str(), 0755) != 0) {
+		cleanup_screenshot_temporary_directory(temporary);
+		err = acl::last_serror();
+		return false;
+	}
+	for (int i = 1; i < 1000000; ++i) {
+		acl::string candidate;
+		candidate.format("screenshot_%06d.jpg", i);
+		const std::string destination = local_join_path(output, candidate.c_str());
+		if (path_exists(destination)) continue;
+		if (rename(source.c_str(), destination.c_str()) != 0) {
+			cleanup_screenshot_temporary_directory(temporary);
+			err = "move screenshot image failed";
+			return false;
+		}
+		image_name = candidate.c_str();
+		rmdir(temporary.c_str());
+		return true;
+	}
+	cleanup_screenshot_temporary_directory(temporary);
+	err = "too many screenshots in output directory";
+	return false;
+}
+
 void run_keyframe_export(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input,
 	const std::string& temporary_directory, const std::string& output_directory,
-	long long start_ms, long long end_ms)
+	long long start_ms, long long end_ms, bool single_screenshot)
 {
-	cleanup_keyframe_directory(temporary_directory, true);
+	if (single_screenshot) cleanup_screenshot_temporary_directory(temporary_directory);
+	else cleanup_keyframe_directory(temporary_directory, true);
 	if (mkdir(temporary_directory.c_str(), 0755) != 0) {
-		finish_task(task, false, "关键帧截屏启动失败", acl::last_serror(), -1);
+		finish_task(task, false, single_screenshot ? "截屏启动失败" : "关键帧截屏启动失败",
+			acl::last_serror(), -1);
 		return;
 	}
 	const long long source_duration = probe_duration_ms(ffmpeg, input);
 	const long long duration = end_ms > start_ms ? end_ms - start_ms
 		: (source_duration > start_ms ? source_duration - start_ms : source_duration);
 	const std::string start_text = decimal_text(start_ms / 1000.0);
-	const std::string duration_text = end_ms > start_ms
+	const std::string duration_text = !single_screenshot && end_ms > start_ms
 		? decimal_text((end_ms - start_ms) / 1000.0) : "";
 	const std::string output_pattern = local_join_path(temporary_directory,
-		"keyframe_%06d.jpg");
+		single_screenshot ? "screenshot.jpg" : "keyframe_%06d.jpg");
 	ACL_ARGV* args = acl_argv_alloc(32);
 	acl_argv_add(args, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", nullptr);
 	if (start_ms > 0) acl_argv_add(args, "-ss", start_text.c_str(), nullptr);
 	acl_argv_add(args, "-i", input.c_str(), nullptr);
 	if (!duration_text.empty()) acl_argv_add(args, "-t", duration_text.c_str(), nullptr);
-	acl_argv_add(args, "-map", "0:v:0", "-an",
-		"-vf", "select=eq(pict_type\\,I)", "-vsync", "vfr", "-q:v", "2",
-		"-progress", "pipe:1", "-nostats", output_pattern.c_str(), nullptr);
+	acl_argv_add(args, "-map", "0:v:0", "-an", nullptr);
+	if (single_screenshot) {
+		acl_argv_add(args, "-frames:v", "1", nullptr);
+	} else {
+		acl_argv_add(args, "-vf", "select=eq(pict_type\\,I)", "-vsync", "vfr", nullptr);
+	}
+	acl_argv_add(args, "-q:v", "2", "-progress", "pipe:1", "-nostats",
+		output_pattern.c_str(), nullptr);
 	const ffmpeg_process_ptr process = start_ffmpeg_process(args);
 	if (!process) {
-		cleanup_keyframe_directory(temporary_directory, true);
-		finish_task(task, false, "关键帧截屏启动失败", acl::last_serror(), -1);
+		if (single_screenshot) cleanup_screenshot_temporary_directory(temporary_directory);
+		else cleanup_keyframe_directory(temporary_directory, true);
+		finish_task(task, false, single_screenshot ? "截屏启动失败" : "关键帧截屏启动失败",
+			acl::last_serror(), -1);
 		return;
 	}
 	const int code = wait_transcode_progress(task, *process, duration, 2, 95,
-		"正在截取关键帧", 97, "正在整理截屏图片");
+		single_screenshot ? "正在截取当前画面" : "正在截取关键帧",
+		97, "正在整理截屏图片");
 	if (code != 0 || is_task_cancel_requested(task)) {
-		cleanup_keyframe_directory(temporary_directory, true);
-		finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "关键帧截屏失败",
-			is_task_cancel_requested(task) ? "cancelled" : "ffmpeg keyframe export failed", -1);
+		if (single_screenshot) cleanup_screenshot_temporary_directory(temporary_directory);
+		else cleanup_keyframe_directory(temporary_directory, true);
+		finish_task(task, false, is_task_cancel_requested(task) ? "已取消"
+			: (single_screenshot ? "截屏失败" : "关键帧截屏失败"),
+			is_task_cancel_requested(task) ? "cancelled"
+			: (single_screenshot ? "ffmpeg screenshot failed" : "ffmpeg keyframe export failed"), -1);
 		return;
 	}
 	long long total_size = 0;
+	if (single_screenshot) {
+		std::string image_name;
+		std::string err;
+		if (!publish_screenshot(temporary_directory, output_directory,
+			total_size, image_name, err)) {
+			finish_task(task, false, "截屏失败", err.c_str(), -1);
+			return;
+		}
+		acl::string message;
+		message.format("截屏完成：%s", image_name.c_str());
+		finish_task(task, true, message.c_str(), "", total_size);
+		return;
+	}
 	long long image_count = 0;
 	std::string err;
 	if (!publish_keyframe_directory(temporary_directory, output_directory,
@@ -785,7 +859,8 @@ bool VideoEditAction::exportKeyframes(request_t& req, response_t& res,
 {
 	const long long start_ms = integer_param(req, "start_ms");
 	const long long end_ms = integer_param(req, "end_ms");
-	if (start_ms < 0 || (end_ms > 0 && end_ms - start_ms < 100)) {
+	const bool single_screenshot = integer_param(req, "single") != 0;
+	if (start_ms < 0 || (!single_screenshot && end_ms > 0 && end_ms - start_ms < 100)) {
 		json_error(res, 400, "invalid keyframe export range", req.isKeepAlive()); return true;
 	}
 	std::string source;
@@ -842,18 +917,21 @@ bool VideoEditAction::exportKeyframes(request_t& req, response_t& res,
 		static_cast<unsigned long>(g_transcode_seq.load()));
 	auto task = std::make_shared<transcode_task_t>();
 	task->id = make_task_id(); task->scope = upload_dir; task->file_name = task_file;
-	task->output_name = output_name; task->message = "等待截取关键帧"; task->local = local;
+	task->output_name = output_name;
+	task->message = single_screenshot ? "等待截取当前画面" : "等待截取关键帧";
+	task->local = local;
 	{
 		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 		g_transcode_tasks[task->id] = task;
 		g_running_task_by_file[task_key] = task->id;
 	}
 	const std::string temporary_directory = temporary.c_str();
-	go[task, ffmpeg, input_path, temporary_directory, output_path, start_ms, end_ms] {
+	go[task, ffmpeg, input_path, temporary_directory, output_path, start_ms, end_ms,
+		single_screenshot] {
 		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary_directory,
-			output_path, start_ms, end_ms] {
+			output_path, start_ms, end_ms, single_screenshot] {
 			run_keyframe_export(task, ffmpeg, input_path, temporary_directory,
-				output_path, start_ms, end_ms);
+				output_path, start_ms, end_ms, single_screenshot);
 		});
 	};
 	acl::json json; acl::json_node& root = json.create_node();
