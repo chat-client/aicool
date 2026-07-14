@@ -2730,6 +2730,8 @@
             } else {
               showFileSummaryDialog(path);
             }
+          } else if (action === 'image-enhance') {
+            openImageEnhanceDialog(path, local);
           } else if (action === 'download') {
             downloadRemoteListFile(path, local);
           } else if (action === 'copy-local') {

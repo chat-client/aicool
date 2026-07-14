@@ -843,6 +843,8 @@ function getLocalDirPassword(path) {
             scalePreviewImage(win, 1.25);
           } else if (type === 'zoom-out') {
             scalePreviewImage(win, 0.8);
+          } else if (type === 'enhance') {
+            openImageEnhanceDialog(win.__imageEnhancePath, !!win.__imageEnhanceLocal);
           } else if (type === 'crop') {
             setPreviewCropMode(win, true);
           } else if (type === 'apply-crop') {
@@ -993,6 +995,311 @@ function getLocalDirPassword(path) {
         showStatus(list.length > 1 ? ('已移动 ' + list.length + ' 个文件') : '文件已移动', 'ok');
       }
 
+      function summaryImageResolutionFromRecord(file) {
+        const width = Math.round(Number(file && (file.width || file.image_width || file.pixel_width)) || 0);
+        const height = Math.round(Number(file && (file.height || file.image_height || file.pixel_height)) || 0);
+        return width > 0 && height > 0 ? (width + ' × ' + height + ' px') : '';
+      }
+
+      function loadSummaryImageResolution(dialog, url) {
+        const value = dialog && dialog.querySelector('[data-file-summary-resolution]');
+        if (!value || !url) return;
+        const apply = function (width, height) {
+          if (!dialog.isConnected) return;
+          const w = Math.max(0, Math.round(Number(width) || 0));
+          const h = Math.max(0, Math.round(Number(height) || 0));
+          value.textContent = w && h ? (w + ' × ' + h + ' px') : '-';
+        };
+        const image = new Image();
+        image.decoding = 'async';
+        image.onload = function () { apply(image.naturalWidth, image.naturalHeight); };
+        image.onerror = function () {
+          if (typeof createImageBitmap !== 'function') { apply(0, 0); return; }
+          fetch(url).then(function (response) {
+            if (!response.ok) throw new Error('image fetch failed');
+            return response.blob();
+          }).then(function (blob) {
+            return createImageBitmap(blob);
+          }).then(function (bitmap) {
+            apply(bitmap.width, bitmap.height);
+            bitmap.close();
+          }).catch(function () { apply(0, 0); });
+        };
+        image.src = url;
+      }
+
+      function fileSummaryResolutionHtml(label, value) {
+        return '<div class="file-summary-row file-summary-resolution-row">' +
+          '<dt>' + escapeHtml(label) + '</dt>' +
+          '<dd><span class="file-summary-resolution-value" data-file-summary-resolution>' + escapeHtml(value) + '</span></dd>' +
+        '</div>';
+      }
+
+      function fileSummaryHeaderHtml(path) {
+        return '<div class="tag-dialog-head file-summary-head" data-file-summary-drag-handle>' +
+          '<div class="file-summary-head-copy">' +
+            '<h2 id="file-summary-title">' + escapeHtml(t('文件摘要')) + '</h2>' +
+            '<p>' + escapeHtml(path) + '</p>' +
+          '</div>' +
+          '<div class="file-summary-window-actions">' +
+            '<button type="button" data-file-summary-minimize title="' + escapeHtml(t('最小化')) + '" aria-label="' + escapeHtml(t('最小化')) + '">−</button>' +
+            '<button type="button" data-file-summary-close="1" title="' + escapeHtml(t('关闭')) + '" aria-label="' + escapeHtml(t('关闭')) + '">×</button>' +
+          '</div>' +
+        '</div>';
+      }
+
+      function bindFileSummaryWindow(dialog) {
+        const card = dialog && dialog.querySelector('.file-summary-card');
+        const handle = dialog && dialog.querySelector('[data-file-summary-drag-handle]');
+        const minimizeButton = dialog && dialog.querySelector('[data-file-summary-minimize]');
+        if (!card || !handle || !minimizeButton) return;
+        const placeCard = function (left, top) {
+          const maxLeft = Math.max(8, window.innerWidth - card.offsetWidth - 8);
+          const maxTop = Math.max(8, window.innerHeight - card.offsetHeight - 8);
+          card.style.position = 'fixed';
+          card.style.left = Math.max(8, Math.min(maxLeft, left)) + 'px';
+          card.style.top = Math.max(8, Math.min(maxTop, top)) + 'px';
+          card.style.right = 'auto';
+          card.style.bottom = 'auto';
+        };
+        minimizeButton.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          const rect = card.getBoundingClientRect();
+          const minimized = !dialog.classList.contains('is-minimized');
+          dialog.classList.toggle('is-minimized', minimized);
+          card.setAttribute('aria-modal', minimized ? 'false' : 'true');
+          minimizeButton.textContent = minimized ? '□' : '−';
+          minimizeButton.title = t(minimized ? '还原' : '最小化');
+          minimizeButton.setAttribute('aria-label', minimizeButton.title);
+          placeCard(rect.left, rect.top);
+        });
+        handle.addEventListener('pointerdown', function (event) {
+          if (event.button !== 0 || event.target.closest('button, select, input, a')) return;
+          const rect = card.getBoundingClientRect();
+          const startX = event.clientX;
+          const startY = event.clientY;
+          const startLeft = rect.left;
+          const startTop = rect.top;
+          handle.classList.add('is-dragging');
+          handle.setPointerCapture(event.pointerId);
+          const move = function (moveEvent) {
+            placeCard(startLeft + moveEvent.clientX - startX, startTop + moveEvent.clientY - startY);
+          };
+          const stop = function () {
+            handle.classList.remove('is-dragging');
+            handle.removeEventListener('pointermove', move);
+            handle.removeEventListener('pointerup', stop);
+            handle.removeEventListener('pointercancel', stop);
+          };
+          handle.addEventListener('pointermove', move);
+          handle.addEventListener('pointerup', stop);
+          handle.addEventListener('pointercancel', stop);
+          event.preventDefault();
+        });
+        window.addEventListener('resize', function () {
+          if (!dialog.isConnected || card.style.position !== 'fixed') return;
+          const rect = card.getBoundingClientRect();
+          placeCard(rect.left, rect.top);
+        });
+      }
+
+      function bindFileSummaryEnhance(dialog, path, local) {
+        const button = dialog && dialog.querySelector('[data-file-summary-enhance-convert]');
+        const select = dialog && dialog.querySelector('[data-file-summary-enhance]');
+        const settingsButton = dialog && dialog.querySelector('[data-file-summary-ai-settings]');
+        const status = dialog && dialog.querySelector('[data-file-summary-enhance-status]');
+        const progress = dialog && dialog.querySelector('[data-file-summary-enhance-progress]');
+        const message = dialog && dialog.querySelector('[data-file-summary-enhance-message]');
+        if (!button || !select || !settingsButton || !status || !progress || !message) return;
+        const macPlatform = /Mac/i.test(navigator.platform || navigator.userAgent || '');
+        const aiSettings = {
+          model: macPlatform ? 'coreml-x2plus' : 'realesrgan-x4plus',
+          scale: macPlatform ? 2 : 4,
+          denoise: 0,
+          sharpen: 20,
+          computeUnits: 'auto',
+          tile: 0,
+          overlap: 'balanced'
+        };
+        const openAiSettings = function () {
+          if (document.querySelector('.image-ai-settings-dialog')) return;
+          const settingsDialog = document.createElement('div');
+          settingsDialog.className = 'video-screenshot-ai-dialog image-ai-settings-dialog';
+          settingsDialog.innerHTML = '<section class="video-screenshot-ai-card" role="dialog" aria-modal="true" aria-label="' + escapeHtml(t('AI图片超分详细设置')) + '">' +
+            '<header><h3>' + escapeHtml(t('AI图片超分详细设置')) + '</h3><button type="button" data-image-ai-close aria-label="' + escapeHtml(t('关闭')) + '">×</button></header>' +
+            '<div class="video-screenshot-ai-body">' +
+              '<label><span>' + escapeHtml(t('AI模型')) + '</span><select data-image-ai-model>' +
+                '<option value="coreml-x2plus">' + escapeHtml(t('真实2×（高质量/较快）')) + '</option>' +
+                '<option value="coreml-general-x4v3">' + escapeHtml(t('轻量x4（速度优先）')) + '</option>' +
+                '<option value="coreml-general-x4v3-w8a8">' + escapeHtml(t('轻量W8A8 x4（M4实验）')) + '</option>' +
+                '<option value="coreml-x4plus-int8">' + escapeHtml(t('M4量化x4（质量优先）')) + '</option>' +
+                '<option value="realesrgan-x4plus">RealESRGAN x4plus</option>' +
+                '<option value="realesr-animevideov3">RealESRGAN AnimeVideo v3</option>' +
+              '</select></label>' +
+              '<label><span>' + escapeHtml(t('AI放大倍数')) + '</span><select data-image-ai-scale><option value="2">2×</option><option value="4">4×</option></select></label>' +
+              '<label><span>' + escapeHtml(t('AI前降噪')) + '</span><select data-image-ai-denoise><option value="0">' + escapeHtml(t('关闭')) + '</option><option value="1">' + escapeHtml(t('轻度')) + '</option><option value="2">' + escapeHtml(t('中度')) + '</option></select></label>' +
+              '<label><span>' + escapeHtml(t('轻微去模糊/预锐化')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="50" step="5" data-image-ai-sharpen><output data-image-ai-sharpen-value></output></span></label>' +
+              '<label><span>' + escapeHtml(t('计算单元')) + '</span><select data-image-ai-compute><option value="auto">' + escapeHtml(t('自动（CPU/GPU/ANE）')) + '</option><option value="ane">' + escapeHtml(t('Neural Engine优先')) + '</option><option value="gpu">' + escapeHtml(t('GPU优先')) + '</option><option value="cpu">' + escapeHtml(t('仅CPU（对照）')) + '</option></select></label>' +
+              '<label><span>Tile</span><select data-image-ai-tile><option value="0">' + escapeHtml(t('自动')) + '</option><option value="128">128</option><option value="256">256</option><option value="512">512</option></select></label>' +
+              '<label><span>' + escapeHtml(t('Tile重叠')) + '</span><select data-image-ai-overlap><option value="low">' + escapeHtml(t('较少（更快）')) + '</option><option value="balanced">' + escapeHtml(t('均衡')) + '</option><option value="quality">' + escapeHtml(t('较多（减少接缝）')) + '</option></select></label>' +
+              '<p>' + escapeHtml(t('AI会推测并生成纹理细节，结果不一定与原始真实内容完全一致。')) + '</p>' +
+            '</div><footer><button type="button" data-image-ai-cancel>' + escapeHtml(t('取消')) + '</button><button type="button" class="primary" data-image-ai-save>' + escapeHtml(t('保存设置')) + '</button></footer>' +
+          '</section>';
+          document.body.appendChild(settingsDialog);
+          const model = settingsDialog.querySelector('[data-image-ai-model]');
+          const scale = settingsDialog.querySelector('[data-image-ai-scale]');
+          const denoise = settingsDialog.querySelector('[data-image-ai-denoise]');
+          const sharpen = settingsDialog.querySelector('[data-image-ai-sharpen]');
+          const sharpenValue = settingsDialog.querySelector('[data-image-ai-sharpen-value]');
+          const compute = settingsDialog.querySelector('[data-image-ai-compute]');
+          const tile = settingsDialog.querySelector('[data-image-ai-tile]');
+          const overlap = settingsDialog.querySelector('[data-image-ai-overlap]');
+          model.value = aiSettings.model;
+          scale.value = String(aiSettings.scale);
+          denoise.value = String(aiSettings.denoise);
+          sharpen.value = String(aiSettings.sharpen);
+          compute.value = aiSettings.computeUnits;
+          tile.value = String(aiSettings.tile);
+          overlap.value = aiSettings.overlap;
+          const syncModel = function () {
+            const coreml = model.value.indexOf('coreml-') === 0;
+            if (model.value === 'coreml-x2plus') scale.value = '2';
+            else if (coreml || model.value === 'realesrgan-x4plus') scale.value = '4';
+            scale.disabled = coreml || model.value === 'realesrgan-x4plus';
+            compute.disabled = !coreml;
+          };
+          const syncSharpen = function () { sharpenValue.textContent = sharpen.value + '%'; };
+          model.addEventListener('change', syncModel);
+          sharpen.addEventListener('input', syncSharpen);
+          syncModel();
+          syncSharpen();
+          const close = function () { settingsDialog.remove(); };
+          settingsDialog.querySelector('[data-image-ai-close]').addEventListener('click', close);
+          settingsDialog.querySelector('[data-image-ai-cancel]').addEventListener('click', close);
+          settingsDialog.addEventListener('click', function (event) { if (event.target === settingsDialog) close(); });
+          settingsDialog.querySelector('[data-image-ai-save]').addEventListener('click', function () {
+            aiSettings.model = model.value;
+            aiSettings.scale = Number(scale.value) || 2;
+            aiSettings.denoise = Number(denoise.value) || 0;
+            aiSettings.sharpen = Number(sharpen.value) || 0;
+            aiSettings.computeUnits = compute.value;
+            aiSettings.tile = Number(tile.value) || 0;
+            aiSettings.overlap = overlap.value;
+            close();
+          });
+        };
+        select.addEventListener('change', function () {
+          const ai = select.value === 'ai';
+          settingsButton.hidden = !ai;
+          if (ai) openAiSettings();
+        });
+        settingsButton.addEventListener('click', openAiSettings);
+        const setProgress = function (percent, text, state) {
+          const value = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+          status.hidden = false;
+          status.setAttribute('data-state', state || 'running');
+          progress.style.width = value + '%';
+          message.textContent = value + '% · ' + String(text || '');
+        };
+        button.addEventListener('click', async function () {
+          const method = select.value === 'ai' ? 'ai' : 'sharpen';
+          button.disabled = true;
+          select.disabled = true;
+          setProgress(0, method === 'ai' ? t('正在启动AI超分辨率') : t('正在启动图片锐化'), 'running');
+          try {
+            let startUrl = (local ? api.localDiskImageEnhance : api.imageEnhance)
+              + '?' + (local ? 'path=' : 'file=') + encodeURIComponent(path)
+              + '&method=' + encodeURIComponent(method);
+            if (method === 'ai') {
+              startUrl += '&ai_model=' + encodeURIComponent(aiSettings.model)
+                + '&ai_scale=' + encodeURIComponent(String(aiSettings.scale))
+                + '&ai_denoise=' + encodeURIComponent(String(aiSettings.denoise))
+                + '&ai_sharpen=' + encodeURIComponent(String(aiSettings.sharpen))
+                + '&ai_compute_units=' + encodeURIComponent(aiSettings.computeUnits)
+                + '&ai_tile=' + encodeURIComponent(String(aiSettings.tile))
+                + '&ai_overlap=' + encodeURIComponent(aiSettings.overlap);
+            }
+            if (local) {
+              startUrl = appendLocalDirPassword(appendFilePassword(startUrl, path, true), localDiskParentPath(path));
+            } else {
+              startUrl = appendFilePassword(withFolderPassword(startUrl, parentFolderPathFromFilePath(path)), path, false);
+            }
+            const started = await fetchJson(startUrl, { method: 'POST' });
+            const taskId = String(started.task_id || '');
+            if (!taskId) throw new Error(t('无法启动图片转换'));
+            const progressBase = local ? api.localDiskImageEnhanceProgress : api.imageEnhanceProgress;
+            const poll = async function () {
+              let progressUrl = progressBase + '?task_id=' + encodeURIComponent(taskId);
+              if (local) progressUrl = appendLocalDirPassword(progressUrl, localDiskParentPath(path));
+              const task = await fetchJson(progressUrl);
+              setProgress(task.progress, task.message || t('正在转换图片'), task.done ? (task.success ? 'success' : 'failed') : 'running');
+              if (!task.done) {
+                window.setTimeout(function () {
+                  poll().catch(function (err) {
+                    setProgress(0, t('图片转换失败：') + err.message, 'failed');
+                    button.disabled = false;
+                    select.disabled = false;
+                  });
+                }, 700);
+                return;
+              }
+              button.disabled = false;
+              select.disabled = false;
+              if (!task.success) throw new Error(task.error || task.message || t('图片转换失败'));
+              setProgress(100, task.message || (t('图片转换完成：') + task.name), 'success');
+              if (local) await loadLocalDisk(activeLocalDiskPath || localDiskParentPath(path) || '');
+              else await loadFiles();
+            };
+            await poll();
+          } catch (err) {
+            button.disabled = false;
+            select.disabled = false;
+            setProgress(0, t('图片转换失败：') + (err && err.message ? err.message : err), 'failed');
+          }
+        });
+      }
+
+      function openImageEnhanceDialog(path, local) {
+        const filePath = String(path || '');
+        if (!filePath) return;
+        const oldDialog = document.getElementById('image-enhance-dialog');
+        if (oldDialog) oldDialog.remove();
+        const dialog = document.createElement('div');
+        dialog.className = 'tag-dialog image-enhance-dialog';
+        dialog.id = 'image-enhance-dialog';
+        dialog.innerHTML =
+          '<div class="tag-dialog-backdrop" data-image-enhance-close></div>' +
+          '<div class="tag-dialog-card image-enhance-card" role="dialog" aria-modal="true" aria-labelledby="image-enhance-title">' +
+            '<div class="tag-dialog-head image-enhance-head">' +
+              '<div><h2 id="image-enhance-title">' + escapeHtml(t('提升图片清晰度')) + '</h2><p>' + escapeHtml(filePath) + '</p></div>' +
+              '<button type="button" class="image-enhance-close" data-image-enhance-close aria-label="' + escapeHtml(t('关闭')) + '">×</button>' +
+            '</div>' +
+            '<div class="image-enhance-options">' +
+              '<label class="file-summary-enhance-control">' +
+                '<span>' + escapeHtml(t('处理方式')) + '</span>' +
+                '<select data-file-summary-enhance aria-label="' + escapeHtml(t('处理方式')) + '">' +
+                  '<option value="sharpen">' + escapeHtml(t('锐化')) + '</option>' +
+                  '<option value="ai">' + escapeHtml(t('AI超分辨率')) + '</option>' +
+                '</select>' +
+                '<button type="button" class="file-summary-ai-settings" data-file-summary-ai-settings hidden>' + escapeHtml(t('详细设置')) + '</button>' +
+                '<button type="button" data-file-summary-enhance-convert>' + escapeHtml(t('转换')) + '</button>' +
+              '</label>' +
+              '<div class="file-summary-enhance-status" data-file-summary-enhance-status hidden>' +
+                '<span class="file-summary-enhance-progress"><i data-file-summary-enhance-progress></i></span>' +
+                '<span data-file-summary-enhance-message></span>' +
+              '</div>' +
+              '<p class="image-enhance-hint">' + escapeHtml(t('转换会生成新图片，不会覆盖原图。')) + '</p>' +
+            '</div>' +
+            '<div class="tag-dialog-actions"><button type="button" class="tag-dialog-btn secondary" data-image-enhance-close>' + escapeHtml(t('关闭')) + '</button></div>' +
+          '</div>';
+        document.body.appendChild(dialog);
+        bindFileSummaryEnhance(dialog, filePath, !!local);
+        dialog.querySelectorAll('[data-image-enhance-close]').forEach(function (node) {
+          node.addEventListener('click', function () { dialog.remove(); });
+        });
+      }
+
       function showFileSummaryDialog(filePath) {
         const file = getFileRecordByPath(filePath);
         if (!file) {
@@ -1008,10 +1315,13 @@ function getLocalDirPassword(path) {
         const sizeText = file.directory ? t('文件夹') : (formatNumber(safeSize(file)) + t(' 字节'));
         const createdText = getFileTimeText(file, ['created_time', 'created_at', 'uploaded_time']);
         const modifiedText = getFileTimeText(file, ['modified_time', 'modified_at', 'uploaded_time']);
+        const isImage = !file.directory && isImageName(name);
+        const resolutionText = isImage ? summaryImageResolutionFromRecord(file) : '';
         const rows = [
           [t('文件名'), name],
           [t('文件大小'), sizeText],
           [t('文件类型'), inferFileTypeLabel(file)],
+          ...(isImage ? [[t('分辨率'), resolutionText || t('读取中…'), 'resolution']] : []),
           [t('创建时间'), createdText],
           [t('修改时间'), modifiedText]
         ];
@@ -1021,11 +1331,11 @@ function getLocalDirPassword(path) {
         dialog.innerHTML =
           '<div class="tag-dialog-backdrop" data-file-summary-close="1"></div>' +
           '<div class="tag-dialog-card file-summary-card" role="dialog" aria-modal="true" aria-labelledby="file-summary-title">' +
-            '<div class="tag-dialog-head">' +
-              '<h2 id="file-summary-title">' + escapeHtml(t('文件摘要')) + '</h2>' +
-              '<p>' + escapeHtml(path) + '</p>' +
-            '</div>' +
+            fileSummaryHeaderHtml(path) +
             '<dl class="file-summary-list">' + rows.map(function (row) {
+              if (row[2] === 'resolution') {
+                return fileSummaryResolutionHtml(row[0], row[1]);
+              }
               return '<div class="file-summary-row"><dt>' + escapeHtml(row[0]) + '</dt><dd>' + escapeHtml(row[1]) + '</dd></div>';
             }).join('') + '</dl>' +
             '<div class="tag-dialog-actions">' +
@@ -1033,6 +1343,11 @@ function getLocalDirPassword(path) {
             '</div>' +
           '</div>';
         document.body.appendChild(dialog);
+        bindFileSummaryWindow(dialog);
+        if (isImage && !resolutionText) {
+          const imageUrl = file.local ? localDiskDownloadUrl(path) : downloadUrlForFile(path, true);
+          loadSummaryImageResolution(dialog, imageUrl);
+        }
       }
 
       function startLocalDiskFileRename(path) {

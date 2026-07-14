@@ -545,6 +545,13 @@ public:
 	static bool cancel(request_t& req, response_t& res, const std::string& upload_dir, bool local);
 };
 
+class ImageEnhanceAction {
+public:
+	static bool run(request_t& req, response_t& res, const std::string& upload_dir, bool local);
+	static bool progress(request_t& req, response_t& res, const std::string& upload_dir, bool local);
+	static bool cancel(request_t& req, response_t& res, const std::string& upload_dir, bool local);
+};
+
 class VideoResumeGetAction {
 public:
 	static bool run(request_t& req, response_t& res,

@@ -312,6 +312,9 @@ void http_router::setup() const {
 		.Get("/api/v1/office/preview", &http_router::routeOfficePreview)
 		.Get("/api/v1/open-file", &http_router::routeOpenFile)
 		.Get("/api/v1/image/save", &http_router::routeImageSave)
+		.Get("/api/v1/image/enhance", &http_router::routeImageEnhance)
+		.Get("/api/v1/image/enhance/progress", &http_router::routeImageEnhanceProgress)
+		.Get("/api/v1/image/enhance/cancel", &http_router::routeImageEnhanceCancel)
 		.Get("/api/v1/local-disk/list", &http_router::routeLocalDiskList)
 		.Get("/api/v1/local-disk/download", &http_router::routeLocalDiskDownload)
 		.Get("/api/v1/local-disk/office/preview", &http_router::routeLocalDiskOfficePreview)
@@ -323,6 +326,9 @@ void http_router::setup() const {
 		.Get("/api/v1/local-disk/rename", &http_router::routeLocalDiskRename)
 		.Get("/api/v1/local-disk/open-trash", &http_router::routeLocalDiskOpenTrash)
 		.Get("/api/v1/local-disk/open-file", &http_router::routeLocalDiskOpenFile)
+		.Get("/api/v1/local-disk/image/enhance", &http_router::routeLocalDiskImageEnhance)
+		.Get("/api/v1/local-disk/image/enhance/progress", &http_router::routeLocalDiskImageEnhanceProgress)
+		.Get("/api/v1/local-disk/image/enhance/cancel", &http_router::routeLocalDiskImageEnhanceCancel)
 		.Get("/api/v1/local-disk/import", &http_router::routeLocalDiskImport)
 		.Get("/api/v1/local-disk/import/progress", &http_router::routeLocalDiskImportProgress)
 		.Get("/api/v1/local-disk/import/control", &http_router::routeLocalDiskImportControl)
@@ -422,6 +428,9 @@ void http_router::setup() const {
 		.Post("/api/v1/admin/storage/backup/sync/control", &http_router::routeAdminStorageBackupSyncControl)
 		.Post("/api/v1/admin/local-disk-settings", &http_router::routeAdminLocalDiskSettings)
 		.Post("/api/v1/image/save", &http_router::routeImageSave)
+		.Post("/api/v1/image/enhance", &http_router::routeImageEnhance)
+		.Post("/api/v1/image/enhance/progress", &http_router::routeImageEnhanceProgress)
+		.Post("/api/v1/image/enhance/cancel", &http_router::routeImageEnhanceCancel)
 		.Post("/api/v1/restore", &http_router::routeRestore)
 		.Post("/api/v1/files/move", &http_router::routeMoveFile)
 		.Post("/api/v1/files/copy", &http_router::routeCopyFile)
@@ -474,6 +483,9 @@ void http_router::setup() const {
 		.Post("/api/v1/local-disk/rename", &http_router::routeLocalDiskRename)
 		.Post("/api/v1/local-disk/open-trash", &http_router::routeLocalDiskOpenTrash)
 		.Post("/api/v1/local-disk/open-file", &http_router::routeLocalDiskOpenFile)
+		.Post("/api/v1/local-disk/image/enhance", &http_router::routeLocalDiskImageEnhance)
+		.Post("/api/v1/local-disk/image/enhance/progress", &http_router::routeLocalDiskImageEnhanceProgress)
+		.Post("/api/v1/local-disk/image/enhance/cancel", &http_router::routeLocalDiskImageEnhanceCancel)
 		.Post("/api/v1/open-file", &http_router::routeOpenFile)
 		.Post("/api/v1/local-disk/import", &http_router::routeLocalDiskImport)
 		.Post("/api/v1/local-disk/import/control", &http_router::routeLocalDiskImportControl)
@@ -773,6 +785,21 @@ bool http_router::routeImageSave(request_t& req, response_t& res) {
 	return userUploadDir(req, res, dir) && action::ImageSaveAction::run(req, res, dir);
 }
 
+bool http_router::routeImageEnhance(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::ImageEnhanceAction::run(req, res, dir, false);
+}
+
+bool http_router::routeImageEnhanceProgress(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::ImageEnhanceAction::progress(req, res, dir, false);
+}
+
+bool http_router::routeImageEnhanceCancel(request_t& req, response_t& res) {
+	std::string dir;
+	return userUploadDir(req, res, dir) && action::ImageEnhanceAction::cancel(req, res, dir, false);
+}
+
 bool http_router::routeOpenFile(request_t& req, response_t& res) {
 	std::string dir;
 	return userUploadDir(req, res, dir) && action::OpenFileAction::run(req, res, dir);
@@ -821,6 +848,18 @@ bool http_router::routeLocalDiskOpenTrash(request_t& req, response_t& res) {
 
 bool http_router::routeLocalDiskOpenFile(request_t& req, response_t& res) {
 	return action::LocalDiskOpenFileAction::run(req, res, action::runtime_upload_dir_get());
+}
+
+bool http_router::routeLocalDiskImageEnhance(request_t& req, response_t& res) {
+	return action::ImageEnhanceAction::run(req, res, action::runtime_upload_dir_get(), true);
+}
+
+bool http_router::routeLocalDiskImageEnhanceProgress(request_t& req, response_t& res) {
+	return action::ImageEnhanceAction::progress(req, res, action::runtime_upload_dir_get(), true);
+}
+
+bool http_router::routeLocalDiskImageEnhanceCancel(request_t& req, response_t& res) {
+	return action::ImageEnhanceAction::cancel(req, res, action::runtime_upload_dir_get(), true);
 }
 
 bool http_router::routeLocalDiskImport(request_t& req, response_t& res) {

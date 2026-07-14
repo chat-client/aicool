@@ -117,7 +117,7 @@ function openVideoEditor(path, local) {
             '<div class="video-editor-toggle-row"><label class="video-editor-check"><input type="checkbox" data-editor-flip-h><span>' + videoEditorEscape(t('水平翻转')) + '</span></label><label class="video-editor-check"><input type="checkbox" data-editor-flip-v><span>' + videoEditorEscape(t('垂直翻转')) + '</span></label></div>' +
             '<label><span>' + videoEditorEscape(t('画面比例')) + '</span><select data-editor-crop><option value="original">' + videoEditorEscape(t('原始比例')) + '</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></label>' +
             '<label><span>' + videoEditorEscape(t('导出分辨率')) + '</span><select data-editor-height><option value="0">' + videoEditorEscape(t('保持原始')) + '</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label>' +
-            '<div class="video-editor-capture-actions"><button type="button" class="video-editor-track-export" data-editor-export-keyframes>' + videoEditorEscape(t('连续截取关键帧')) + '</button><button type="button" class="video-editor-track-export" data-editor-screenshot>' + videoEditorEscape(t('截屏')) + '</button></div>' +
+            '<div class="video-editor-capture-actions"><button type="button" class="video-editor-track-export" data-editor-export-keyframes>' + videoEditorEscape(t('连续截取关键帧')) + '</button><button type="button" class="video-editor-track-export" data-editor-screenshot>' + videoEditorEscape(t('截屏')) + '</button><select data-editor-screenshot-mode aria-label="' + videoEditorEscape(t('截图增强方式')) + '"><option value="original">' + videoEditorEscape(t('原始画面')) + '</option><option value="sharpen">' + videoEditorEscape(t('锐化增强')) + '</option><option value="ai">' + videoEditorEscape(t('AI超分辨率')) + '</option></select><button type="button" class="video-editor-track-export video-editor-ai-settings" data-editor-screenshot-ai-settings hidden>' + videoEditorEscape(t('详细设置')) + '</button></div>' +
             '<p class="video-editor-track-hint">' + videoEditorEscape(t('将所选时段内的关键帧导出到与视频同名的目录。')) + '</p>' +
           '</div>' +
           '<p class="video-editor-output-hint">' + videoEditorEscape(t('将导出为新的 MP4 文件，原视频不会被修改。')) + '</p>' +
@@ -162,6 +162,8 @@ function openVideoEditor(path, local) {
   const exportSubtitleBtn = dialog.querySelector('[data-editor-export-subtitle]');
   const exportKeyframesBtn = dialog.querySelector('[data-editor-export-keyframes]');
   const screenshotBtn = dialog.querySelector('[data-editor-screenshot]');
+  const screenshotMode = dialog.querySelector('[data-editor-screenshot-mode]');
+  const screenshotAiSettingsBtn = dialog.querySelector('[data-editor-screenshot-ai-settings]');
   const cancelExportBtn = dialog.querySelector('[data-editor-cancel-export]');
   const progress = dialog.querySelector('.video-editor-progress');
   const progressBar = progress.querySelector('i');
@@ -174,6 +176,10 @@ function openVideoEditor(path, local) {
   let stopAtEnd = false;
   let selectedSubtitleUpload = null;
   let selectedSubtitleUploadPath = '';
+  const screenshotSettings = {
+    model: 'coreml-x2plus', scale: 2, denoise: 1, sharpen: 20,
+    quality: 95, computeUnits: 'auto', tile: 0, overlap: 'balanced'
+  };
 
   function selection() {
     let start = Math.max(0, Math.min(Math.max(0, duration - 0.1), Number(startNumber.value) || 0));
@@ -245,6 +251,88 @@ function openVideoEditor(path, local) {
       ? '快速封装速度快，但不能同时应用画面、变速或音频编辑；裁剪点可能对齐到关键帧。'
       : '兼容转码会重新编码视频，可应用剪辑窗口中的全部设置。');
   });
+
+  function openScreenshotAiSettings() {
+    if (dialog.querySelector('.video-screenshot-ai-dialog')) return;
+    const settingsDialog = document.createElement('div');
+    settingsDialog.className = 'video-screenshot-ai-dialog';
+    settingsDialog.innerHTML = '<section class="video-screenshot-ai-card" role="dialog" aria-modal="true" aria-label="' + videoEditorEscape(t('AI截图详细设置')) + '">' +
+      '<header><h3>' + videoEditorEscape(t('AI截图详细设置')) + '</h3><button type="button" data-ai-screenshot-close aria-label="' + videoEditorEscape(t('关闭')) + '">×</button></header>' +
+      '<div class="video-screenshot-ai-body">' +
+        '<label><span>' + videoEditorEscape(t('AI模型')) + '</span><select data-ai-screenshot-model>' +
+          '<option value="coreml-x2plus">' + videoEditorEscape(t('真实2×（高质量/较快）')) + '</option>' +
+          '<option value="coreml-general-x4v3">' + videoEditorEscape(t('轻量x4（速度优先）')) + '</option>' +
+          '<option value="coreml-general-x4v3-w8a8">' + videoEditorEscape(t('轻量W8A8 x4（M4实验）')) + '</option>' +
+          '<option value="coreml-x4plus-int8">' + videoEditorEscape(t('M4量化x4（质量优先）')) + '</option>' +
+          '<option value="realesrgan-x4plus">RealESRGAN x4plus</option>' +
+          '<option value="realesr-animevideov3">RealESRGAN AnimeVideo v3</option>' +
+        '</select></label>' +
+        '<label><span>' + videoEditorEscape(t('AI放大倍数')) + '</span><select data-ai-screenshot-scale><option value="2">2×</option><option value="4">4×</option></select></label>' +
+        '<label><span>' + videoEditorEscape(t('AI前降噪')) + '</span><select data-ai-screenshot-denoise><option value="0">' + videoEditorEscape(t('关闭')) + '</option><option value="1">' + videoEditorEscape(t('轻度')) + '</option><option value="2">' + videoEditorEscape(t('中度')) + '</option></select></label>' +
+        '<label><span>' + videoEditorEscape(t('轻微去模糊/预锐化')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="50" step="5" data-ai-screenshot-sharpen><output data-ai-screenshot-sharpen-value></output></span></label>' +
+        '<label><span>' + videoEditorEscape(t('图片质量')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="70" max="100" step="1" data-ai-screenshot-quality><output data-ai-screenshot-quality-value></output></span></label>' +
+        '<label><span>' + videoEditorEscape(t('计算单元')) + '</span><select data-ai-screenshot-compute><option value="auto">' + videoEditorEscape(t('自动（CPU/GPU/ANE）')) + '</option><option value="ane">' + videoEditorEscape(t('Neural Engine优先')) + '</option><option value="gpu">' + videoEditorEscape(t('GPU优先')) + '</option><option value="cpu">' + videoEditorEscape(t('仅CPU（对照）')) + '</option></select></label>' +
+        '<label><span>Tile</span><select data-ai-screenshot-tile><option value="0">' + videoEditorEscape(t('自动')) + '</option><option value="128">128</option><option value="256">256</option><option value="512">512</option></select></label>' +
+        '<label><span>' + videoEditorEscape(t('Tile重叠')) + '</span><select data-ai-screenshot-overlap><option value="low">' + videoEditorEscape(t('较少（更快）')) + '</option><option value="balanced">' + videoEditorEscape(t('均衡')) + '</option><option value="quality">' + videoEditorEscape(t('较多（减少接缝）')) + '</option></select></label>' +
+        '<p>' + videoEditorEscape(t('AI会推测并生成纹理细节，结果不一定与原始真实内容完全一致。')) + '</p>' +
+      '</div><footer><button type="button" data-ai-screenshot-cancel>' + videoEditorEscape(t('取消')) + '</button><button type="button" class="primary" data-ai-screenshot-save>' + videoEditorEscape(t('保存设置')) + '</button></footer>' +
+    '</section>';
+    dialog.appendChild(settingsDialog);
+    const model = settingsDialog.querySelector('[data-ai-screenshot-model]');
+    const scale = settingsDialog.querySelector('[data-ai-screenshot-scale]');
+    const denoise = settingsDialog.querySelector('[data-ai-screenshot-denoise]');
+    const sharpen = settingsDialog.querySelector('[data-ai-screenshot-sharpen]');
+    const quality = settingsDialog.querySelector('[data-ai-screenshot-quality]');
+    const compute = settingsDialog.querySelector('[data-ai-screenshot-compute]');
+    const tile = settingsDialog.querySelector('[data-ai-screenshot-tile]');
+    const overlap = settingsDialog.querySelector('[data-ai-screenshot-overlap]');
+    model.value = screenshotSettings.model;
+    scale.value = String(screenshotSettings.scale);
+    denoise.value = String(screenshotSettings.denoise);
+    sharpen.value = String(screenshotSettings.sharpen);
+    quality.value = String(screenshotSettings.quality);
+    compute.value = screenshotSettings.computeUnits;
+    tile.value = String(screenshotSettings.tile);
+    overlap.value = screenshotSettings.overlap;
+    const syncRangeLabels = function () {
+      settingsDialog.querySelector('[data-ai-screenshot-sharpen-value]').textContent = sharpen.value + '%';
+      settingsDialog.querySelector('[data-ai-screenshot-quality-value]').textContent = quality.value + '%';
+    };
+    const syncModelScale = function () {
+      const coreml = model.value.indexOf('coreml-') === 0;
+      if (model.value === 'coreml-x2plus') scale.value = '2';
+      else if (coreml || model.value === 'realesrgan-x4plus') scale.value = '4';
+      scale.disabled = coreml || model.value === 'realesrgan-x4plus';
+      compute.disabled = !coreml;
+    };
+    sharpen.addEventListener('input', syncRangeLabels);
+    quality.addEventListener('input', syncRangeLabels);
+    model.addEventListener('change', syncModelScale);
+    syncRangeLabels();
+    syncModelScale();
+    const close = function () { settingsDialog.remove(); };
+    settingsDialog.querySelector('[data-ai-screenshot-close]').addEventListener('click', close);
+    settingsDialog.querySelector('[data-ai-screenshot-cancel]').addEventListener('click', close);
+    settingsDialog.addEventListener('click', function (event) { if (event.target === settingsDialog) close(); });
+    settingsDialog.querySelector('[data-ai-screenshot-save]').addEventListener('click', function () {
+      screenshotSettings.model = model.value;
+      screenshotSettings.scale = Number(scale.value) || 2;
+      screenshotSettings.denoise = Number(denoise.value) || 0;
+      screenshotSettings.sharpen = Number(sharpen.value) || 0;
+      screenshotSettings.quality = Number(quality.value) || 95;
+      screenshotSettings.computeUnits = compute.value;
+      screenshotSettings.tile = Number(tile.value) || 0;
+      screenshotSettings.overlap = overlap.value;
+      close();
+    });
+  }
+
+  screenshotMode.addEventListener('change', function () {
+    const ai = screenshotMode.value === 'ai';
+    screenshotAiSettingsBtn.hidden = !ai;
+    if (ai) openScreenshotAiSettings();
+  });
+  screenshotAiSettingsBtn.addEventListener('click', openScreenshotAiSettings);
   subtitleBrowseBtn.addEventListener('click', function () { subtitleUploadInput.click(); });
   subtitleUploadInput.addEventListener('change', function () {
     const file = subtitleUploadInput.files && subtitleUploadInput.files[0];
@@ -297,6 +385,8 @@ function openVideoEditor(path, local) {
     exportSubtitleBtn.disabled = busy;
     exportKeyframesBtn.disabled = busy;
     screenshotBtn.disabled = busy;
+    screenshotMode.disabled = busy;
+    screenshotAiSettingsBtn.disabled = busy;
     subtitleBrowseBtn.disabled = busy;
     subtitleUploadInput.disabled = busy;
     cancelExportBtn.hidden = !busy;
@@ -310,6 +400,7 @@ function openVideoEditor(path, local) {
     const isKeyframes = kind === 'keyframes';
     const isScreenshot = kind === 'screenshot';
     const isFrameExport = isKeyframes || isScreenshot;
+    const isAiScreenshot = isScreenshot && screenshotMode.value === 'ai';
     const startedAt = Date.now();
     let lastProgress = 0;
     const progressMessage = function (message, value) {
@@ -332,16 +423,16 @@ function openVideoEditor(path, local) {
         ? (local ? api.localDiskVideoKeyframeExportCancel : api.videoKeyframeExportCancel)
         : (local ? api.localDiskVideoSubtitleExportCancel : api.videoSubtitleExportCancel));
     const startingMessage = isAudio ? t('正在启动音频导出')
-      : (isScreenshot ? t('正在启动截屏')
+      : (isScreenshot ? t(isAiScreenshot ? '正在启动AI增强截屏' : '正在启动截屏')
         : (isKeyframes ? t('正在启动关键帧截屏') : t('正在启动字幕导出')));
     const runningMessage = isAudio ? t('正在导出音频')
-      : (isScreenshot ? t('正在截取当前画面')
+      : (isScreenshot ? t(isAiScreenshot ? 'AI正在增强当前画面' : '正在截取当前画面')
         : (isKeyframes ? t('正在导出关键帧') : t('正在导出字幕')));
     const completionMessage = isAudio ? t('音频导出完成：')
-      : (isScreenshot ? t('截屏完成：')
+      : (isScreenshot ? t(isAiScreenshot ? 'AI截屏完成：' : '截屏完成：')
         : (isKeyframes ? t('关键帧截屏完成：') : t('字幕导出完成：')));
     const failureMessage = isAudio ? t('导出音频失败：')
-      : (isScreenshot ? t('截屏失败：')
+      : (isScreenshot ? t(isAiScreenshot ? 'AI截屏失败：' : '截屏失败：')
         : (isKeyframes ? t('导出关键帧失败：') : t('导出字幕失败：')));
     setExportBusy(true);
     updateProgress(0, progressMessage(startingMessage, 0));
@@ -354,7 +445,19 @@ function openVideoEditor(path, local) {
         (isScreenshot ? capturePosition : selected.start) * 1000
       )));
       url += '&end_ms=' + encodeURIComponent(String(Math.round(selected.end * 1000)));
-      if (isScreenshot) url += '&single=1';
+      if (isScreenshot) {
+        url += '&single=1&enhance_mode=' + encodeURIComponent(screenshotMode.value);
+        url += '&ai_model=' + encodeURIComponent(screenshotSettings.model);
+        url += '&ai_scale=' + encodeURIComponent(String(screenshotSettings.scale));
+        url += '&ai_denoise=' + encodeURIComponent(String(screenshotSettings.denoise));
+        url += '&sharpen=' + encodeURIComponent(String(
+          screenshotMode.value === 'sharpen' ? 35 : screenshotSettings.sharpen
+        ));
+        url += '&image_quality=' + encodeURIComponent(String(screenshotSettings.quality));
+        url += '&ai_compute_units=' + encodeURIComponent(screenshotSettings.computeUnits);
+        url += '&ai_tile=' + encodeURIComponent(String(screenshotSettings.tile));
+        url += '&ai_overlap=' + encodeURIComponent(screenshotSettings.overlap);
+      }
       const started = await fetchJson(url, { method: 'POST' });
       taskId = String(started.task_id || '');
       if (!taskId) throw new Error(started.message || t('无法启动导出'));

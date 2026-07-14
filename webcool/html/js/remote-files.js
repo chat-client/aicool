@@ -236,6 +236,7 @@ function folderNameFromPath(path) {
               '<button class="preview-edit-btn" type="button" data-image-edit="cancel-crop" title="取消剪切" aria-label="取消剪切">×</button>' +
               '<button class="preview-edit-btn" type="button" data-image-edit="zoom-in" title="等比例放大" aria-label="等比例放大">＋</button>' +
               '<button class="preview-edit-btn" type="button" data-image-edit="zoom-out" title="等比例缩小" aria-label="等比例缩小">－</button>' +
+              '<button class="preview-edit-btn preview-image-enhance-btn" type="button" data-image-edit="enhance" title="' + escapeHtml(t('提升图片清晰度')) + '" aria-label="' + escapeHtml(t('提升图片清晰度')) + '">✨ ' + escapeHtml(t('提升清晰度')) + '</button>' +
               '<span class="preview-image-size" title="当前图像尺寸">' +
                 '<input class="preview-size-input" data-image-size="width" type="number" min="1" step="1" aria-label="图片宽度">' +
                 '<span>x</span>' +
@@ -1315,10 +1316,13 @@ function loadUnlockedFolderPasswords() {
         if (oldDialog && oldDialog.parentNode) {
           oldDialog.parentNode.removeChild(oldDialog);
         }
+        const isImage = isImageName(item.name || filePath);
+        const resolutionText = isImage ? summaryImageResolutionFromRecord(item) : '';
         const rows = [
           [t('文件名'), String(item.name || localBaseName(filePath) || '')],
           [t('文件大小'), formatNumber(Number(item.size || 0)) + t(' 字节')],
           [t('文件类型'), inferFileTypeLabel({ name: item.name || filePath, directory: false })],
+          ...(isImage ? [[t('分辨率'), resolutionText || t('读取中…'), 'resolution']] : []),
           [t('创建时间'), String(item.created_time || '-')],
           [t('修改时间'), String(item.modified_time || '-')]
         ];
@@ -1328,11 +1332,11 @@ function loadUnlockedFolderPasswords() {
         dialog.innerHTML =
           '<div class="tag-dialog-backdrop" data-file-summary-close="1"></div>' +
           '<div class="tag-dialog-card file-summary-card" role="dialog" aria-modal="true" aria-labelledby="file-summary-title">' +
-            '<div class="tag-dialog-head">' +
-              '<h2 id="file-summary-title">' + escapeHtml(t('文件摘要')) + '</h2>' +
-              '<p>' + escapeHtml(filePath) + '</p>' +
-            '</div>' +
+            fileSummaryHeaderHtml(filePath) +
             '<dl class="file-summary-list">' + rows.map(function (row) {
+              if (row[2] === 'resolution') {
+                return fileSummaryResolutionHtml(row[0], row[1]);
+              }
               return '<div class="file-summary-row"><dt>' + escapeHtml(row[0]) + '</dt><dd>' + escapeHtml(row[1]) + '</dd></div>';
             }).join('') + '</dl>' +
             '<div class="tag-dialog-actions">' +
@@ -1340,6 +1344,10 @@ function loadUnlockedFolderPasswords() {
             '</div>' +
           '</div>';
         document.body.appendChild(dialog);
+        bindFileSummaryWindow(dialog);
+        if (isImage && !resolutionText) {
+          loadSummaryImageResolution(dialog, localDiskDownloadUrl(filePath));
+        }
       }
 
       function setAdminStorageProgressControls(state) {

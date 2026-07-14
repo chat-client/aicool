@@ -68,6 +68,9 @@ private:
 	static bool routeOfficePreview(request_t& req, response_t& res);
 	static bool routeOpenFile(request_t& req, response_t& res);
 	static bool routeImageSave(request_t& req, response_t& res);
+	static bool routeImageEnhance(request_t& req, response_t& res);
+	static bool routeImageEnhanceProgress(request_t& req, response_t& res);
+	static bool routeImageEnhanceCancel(request_t& req, response_t& res);
 	static bool routeLocalDiskList(request_t& req, response_t& res);
 	static bool routeLocalDiskDownload(request_t& req, response_t& res);
 	static bool routeLocalDiskOfficePreview(request_t& req, response_t& res);
@@ -79,6 +82,9 @@ private:
 	static bool routeLocalDiskRename(request_t& req, response_t& res);
 	static bool routeLocalDiskOpenTrash(request_t& req, response_t& res);
 	static bool routeLocalDiskOpenFile(request_t& req, response_t& res);
+	static bool routeLocalDiskImageEnhance(request_t& req, response_t& res);
+	static bool routeLocalDiskImageEnhanceProgress(request_t& req, response_t& res);
+	static bool routeLocalDiskImageEnhanceCancel(request_t& req, response_t& res);
 	static bool routeLocalDiskImport(request_t& req, response_t& res);
 	static bool routeLocalDiskImportProgress(request_t& req, response_t& res);
 	static bool routeLocalDiskImportControl(request_t& req, response_t& res);

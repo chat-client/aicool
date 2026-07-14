@@ -2209,6 +2209,8 @@ function deleteUnlockedFolderPassword(path) {
         const nextBtn = win.querySelector('.preview-nav-btn[data-preview-nav="next"]');
         win.__imageGallery = gallery;
         win.__imageIndex = nextIndex;
+        win.__imageEnhancePath = String(item.file || item.path || '');
+        win.__imageEnhanceLocal = !!item.local;
         if (titleEl) {
           titleEl.textContent = '图片预览：' + String(item.name || item.file || '');
         }

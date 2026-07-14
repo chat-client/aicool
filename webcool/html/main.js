@@ -56,7 +56,7 @@
   window.addEventListener('resize', scheduleAdaptiveUiScale);
   window.addEventListener('orientationchange', scheduleAdaptiveUiScale);
 
-  const assetVersion = 'video-current-frame-capture-20260714-13';
+  const assetVersion = 'image-enhance-menu-preview-20260714-21';
   const modules = [
     '/webcool/html/js/core-state.js',
     '/webcool/html/js/locks-context.js',
