@@ -18,6 +18,16 @@ function formatVideoEditorTime(seconds) {
     + '.' + fraction;
 }
 
+function formatVideoEditorElapsed(milliseconds) {
+  const totalSeconds = Math.max(0, Math.floor((Number(milliseconds) || 0) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return String(hours).padStart(2, '0') + ':'
+    + String(minutes).padStart(2, '0') + ':'
+    + String(seconds).padStart(2, '0');
+}
+
 function videoEditorMediaUrl(path, local) {
   if (local) {
     return appendLocalDirPassword(
@@ -289,6 +299,12 @@ function openVideoEditor(path, local) {
     if (exporting || !duration) return;
     const selected = selection();
     const isAudio = kind === 'audio';
+    const startedAt = Date.now();
+    let lastProgress = 0;
+    const progressMessage = function (message, value) {
+      return String(message || '') + ' ' + value + '% · ' + t('已用时') + ' '
+        + formatVideoEditorElapsed(Date.now() - startedAt);
+    };
     const startApi = isAudio
       ? (local ? api.localDiskAudioExtract : api.extractAudio)
       : (local ? api.localDiskVideoSubtitleExport : api.videoSubtitleExport);
@@ -299,7 +315,7 @@ function openVideoEditor(path, local) {
       ? (local ? api.localDiskAudioExtractCancel : api.extractAudioCancel)
       : (local ? api.localDiskVideoSubtitleExportCancel : api.videoSubtitleExportCancel);
     setExportBusy(true);
-    updateProgress(0, isAudio ? t('正在启动音频导出') : t('正在启动字幕导出'));
+    updateProgress(0, progressMessage(isAudio ? t('正在启动音频导出') : t('正在启动字幕导出'), 0));
     try {
       let url = videoEditorTaskUrl(startApi, path, local);
       url += '&start_ms=' + encodeURIComponent(String(Math.round(selected.start * 1000)));
@@ -309,11 +325,19 @@ function openVideoEditor(path, local) {
       if (!taskId) throw new Error(started.message || t('无法启动导出'));
       while (true) {
         const data = await fetchJson(progressApi + '?task_id=' + encodeURIComponent(taskId));
-        const value = Math.round(Number(data.progress) || 0);
-        updateProgress(value, data.message || (isAudio ? t('正在导出音频') : t('正在导出字幕')));
+        const value = Math.max(0, Math.min(100, Math.round(Number(data.progress) || 0)));
+        lastProgress = value;
+        updateProgress(value, progressMessage(
+          data.message || (isAudio ? t('正在导出音频') : t('正在导出字幕')),
+          value
+        ));
         if (data.done) {
           if (!data.success) throw new Error(data.cancel_requested ? t('已取消') : (data.error || data.message || t('导出失败')));
-          updateProgress(100, (isAudio ? t('音频导出完成：') : t('字幕导出完成：')) + String(data.name || ''), 'done');
+          lastProgress = 100;
+          updateProgress(100, progressMessage(
+            (isAudio ? t('音频导出完成：') : t('字幕导出完成：')) + String(data.name || ''),
+            100
+          ), 'done');
           if (local) await loadLocalDisk(activeLocalDiskPath || localDiskParentPath(path) || '');
           else await loadFiles();
           showStatus((isAudio ? t('音频导出完成：') : t('字幕导出完成：')) + String(data.name || ''), 'ok');
@@ -322,7 +346,10 @@ function openVideoEditor(path, local) {
         await new Promise(function (resolve) { window.setTimeout(resolve, 800); });
       }
     } catch (err) {
-      updateProgress(null, (isAudio ? t('导出音频失败：') : t('导出字幕失败：')) + err.message, 'failed');
+      updateProgress(lastProgress, progressMessage(
+        (isAudio ? t('导出音频失败：') : t('导出字幕失败：')) + err.message,
+        lastProgress
+      ), 'failed');
     } finally {
       taskId = '';
       activeCancelApi = '';

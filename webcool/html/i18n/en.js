@@ -947,7 +947,10 @@
     ,'正在启动字幕导出': 'Starting subtitle export'
     ,'正在导出音频': 'Exporting audio'
     ,'正在导出字幕': 'Exporting subtitles'
+    ,'已用时': 'Elapsed'
     ,'无法启动导出': 'Unable to start export'
+    ,'视频没有内嵌音轨，已自动加载同名音频文件并同步播放。': 'The video has no embedded audio track. A matching audio file was loaded and synchronized automatically.'
+    ,'视频音轨缺失或浏览器不支持其编码，已自动加载同名音频文件并同步播放。': 'The audio track is missing or unsupported by the browser. A matching audio file was loaded and synchronized automatically.'
   };
 
   var phraseEntries = Object.keys(textMap)

@@ -249,8 +249,25 @@ void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
 		finish_task(task, false, "视频剪辑失败", "rename edited video failed", -1);
 		return;
 	}
-	finish_task(task, true, fast_subtitle_import ? "快速添加字幕完成" : "视频剪辑完成",
-		"", file_size_of(output.c_str()));
+	long long output_size = file_size_of(output.c_str());
+	int subtitle_status = 0;
+	std::string vtt_path;
+	std::string subtitle_err;
+	if (subtitle_mode != "remove") {
+		update_task_progress(task, 99.0, "正在生成浏览器字幕文件");
+		subtitle_status = export_vtt_sidecar(ffmpeg, output, output,
+			vtt_path, subtitle_err);
+		if (subtitle_status > 0) output_size += file_size_of(vtt_path.c_str());
+	}
+	const char* success_message = fast_subtitle_import ? "快速添加字幕完成" : "视频剪辑完成";
+	if (subtitle_status > 0) {
+		success_message = fast_subtitle_import
+			? "快速添加字幕完成，已生成浏览器VTT字幕"
+			: "视频剪辑完成，已生成浏览器VTT字幕";
+	} else if (subtitle_status < 0) {
+		success_message = "视频已生成，但浏览器VTT字幕生成失败";
+	}
+	finish_task(task, true, success_message, "", output_size);
 }
 
 bool edit_task_snapshot(const request_t& req, const std::string& scope,
@@ -515,6 +532,24 @@ bool VideoEditAction::exportSubtitle(request_t& req, response_t& res,
 	const std::string ffmpeg = choose_ffmpeg_path();
 	if (ffmpeg.empty()) { json_error(res, 500, "ffmpeg not found", req.isKeepAlive()); return true; }
 	const std::string source_path = local ? source : join_upload_path(upload_dir, source);
+	const std::string prefix = local ? "subtitle-export-local:" : "subtitle-export:";
+	// One fixed VTT sidecar is maintained per video, regardless of the selected range.
+	const std::string task_file = prefix + source;
+	const std::string task_key = scoped_task_key(upload_dir, task_file);
+	{
+		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
+		const auto running = g_running_task_by_file.find(task_key);
+		if (running != g_running_task_by_file.end()) {
+			const auto found = g_transcode_tasks.find(running->second);
+			if (found != g_transcode_tasks.end() && !found->second->done) {
+				acl::json json; acl::json_node& root = json.create_node();
+				root.add_bool("ok", true); root.add_bool("started", false);
+				root.add_text("task_id", found->second->id.c_str());
+				root.add_text("name", found->second->output_name.c_str());
+				return sendJson(res, 200, root, req.isKeepAlive());
+			}
+		}
+	}
 	std::string subtitle_source_path = source_path;
 	if (!probe_has_subtitle_stream(ffmpeg, source_path)) {
 		const char* subtitle_extensions[] = { ".vtt", ".srt", ".ass", ".ssa" };
@@ -543,29 +578,18 @@ bool VideoEditAction::exportSubtitle(request_t& req, response_t& res,
 		}
 		subtitle_source_path = sidecar_path;
 	}
-	const std::string stem = replace_ext(source, "");
-	std::string output_name;
-	for (int i = 1; i < 10000; ++i) {
-		const std::string suffix = i == 1 ? "" : ("_" + std::to_string(i));
-		const std::string candidate = stem + "_subtitle" + suffix + ".vtt";
-		if (!path_exists(local ? candidate : join_upload_path(upload_dir, candidate))) {
-			output_name = candidate; break;
-		}
-	}
-	if (output_name.empty()) output_name = stem + "_subtitle_" + std::to_string(g_transcode_seq.load()) + ".vtt";
+	const std::string output_name = replace_ext(source, ".vtt");
 	const std::string output_path = local ? output_name : join_upload_path(upload_dir, output_name);
 	acl::string temp; temp.format("%s/.subtitle_export_tmp.%u.%lu.vtt",
 		local_parent_path(output_path).c_str(), static_cast<unsigned>(getpid()),
 		static_cast<unsigned long>(g_transcode_seq.load()));
-	const std::string prefix = local ? "subtitle-export-local:" : "subtitle-export:";
-	const std::string task_file = prefix + source + ":" + std::to_string(start_ms) + ":" + std::to_string(end_ms);
 	auto task = std::make_shared<transcode_task_t>();
 	task->id = make_task_id(); task->scope = upload_dir; task->file_name = task_file;
 	task->output_name = output_name; task->message = "等待导出字幕"; task->local = local;
 	{
 		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 		g_transcode_tasks[task->id] = task;
-		g_running_task_by_file[scoped_task_key(upload_dir, task_file)] = task->id;
+		g_running_task_by_file[task_key] = task->id;
 	}
 	const std::string temporary = temp.c_str();
 	go[task, ffmpeg, subtitle_source_path, temporary, output_path, start_ms, end_ms] {

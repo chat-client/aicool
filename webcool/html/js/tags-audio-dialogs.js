@@ -99,6 +99,13 @@ function getLocalDirPassword(path) {
         videoEl.addEventListener('loadedmetadata', function () {
           syncCurrentTime(true);
         });
+        audioEl.addEventListener('loadedmetadata', function () {
+          syncVolumeAndRate();
+          syncCurrentTime(true);
+          if (!videoEl.paused && !videoEl.ended) {
+            audioEl.play().catch(function () {});
+          }
+        });
         videoEl.addEventListener('play', function () {
           syncVolumeAndRate();
           syncCurrentTime(true);

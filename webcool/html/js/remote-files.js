@@ -162,11 +162,9 @@ function folderNameFromPath(path) {
           const subtitleName = toVttSidecarName(rawName);
           const subtitleUrl = (opts.local ? localDiskDownloadUrl(subtitleName) : downloadUrlForFile(subtitleName, true)) + '&v=' + Date.now();
           const sidecarAudioUrl = resolveSplitVideoAudioUrl(rawName, opts.local);
-          const sidecarAudioHint = sidecarAudioUrl
-            ? '<div class="preview-sidecar-audio-hint">' +
-                escapeHtml(t('当前声音由拆分出的独立音频文件同步播放。由于视频文件本身没有音轨，播放器里的音量图标可能显示为禁用，但不影响实际出声。')) +
-              '</div>'
-            : '';
+          const sidecarAudioHint = '<div class="preview-sidecar-audio-hint"' + (sidecarAudioUrl ? '' : ' hidden') + '>' +
+            escapeHtml(t('视频音轨缺失或浏览器不支持其编码，已自动加载同名音频文件并同步播放。')) +
+            '</div>';
           bodyClass += ' preview-body-video';
           mediaHtml = '<div class="preview-video-stack">' +
               '<video class="preview-video" controls preload="metadata">' +
@@ -277,11 +275,26 @@ function folderNameFromPath(path) {
         const mediaVideo = win.querySelector('video');
         if (mediaVideo) {
           const rawVideoFile = decodeURIComponent(String(file || ''));
-          const mediaSidecarAudio = win.querySelector('.preview-video-sidecar-audio');
+          let mediaSidecarAudio = win.querySelector('.preview-video-sidecar-audio');
+          const sidecarAudioHint = win.querySelector('.preview-sidecar-audio-hint');
           bindVideoResume(mediaVideo, opts.local ? ('local:' + rawVideoFile) : rawVideoFile);
           mediaVideo.src = url;
           if (mediaSidecarAudio) {
             bindSplitVideoAudio(mediaVideo, mediaSidecarAudio);
+          } else {
+            resolveMissingVideoAudioUrl(rawVideoFile, !!opts.local).then(function (audioUrl) {
+              if (!audioUrl || !win.isConnected || !mediaVideo.isConnected) return;
+              mediaSidecarAudio = document.createElement('audio');
+              mediaSidecarAudio.className = 'preview-video-sidecar-audio';
+              mediaSidecarAudio.preload = 'metadata';
+              mediaSidecarAudio.hidden = true;
+              mediaSidecarAudio.src = audioUrl;
+              const stack = win.querySelector('.preview-video-stack');
+              if (stack) stack.insertBefore(mediaSidecarAudio, sidecarAudioHint || null);
+              if (sidecarAudioHint) sidecarAudioHint.hidden = false;
+              bindSplitVideoAudio(mediaVideo, mediaSidecarAudio);
+              mediaSidecarAudio.load();
+            }).catch(function () {});
           }
           mediaVideo.play().catch(function () {});
           const streamBtn = win.querySelector('[data-preview-stream-video]');

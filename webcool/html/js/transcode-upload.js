@@ -2489,6 +2489,35 @@ function deleteUnlockedFolderPassword(path) {
         return '';
       }
 
+      async function resolveMissingVideoAudioUrl(filePath, local) {
+        const videoPath = String(filePath || '');
+        if (!/\.mp4$/i.test(videoPath)) {
+          return '';
+        }
+        let propertiesUrl;
+        if (local) {
+          propertiesUrl = api.localDiskVideoProperties + '?path=' + encodeURIComponent(videoPath);
+          propertiesUrl = appendLocalDirPassword(
+            appendFilePassword(propertiesUrl, videoPath, true),
+            localDiskParentPath(videoPath)
+          );
+        } else {
+          propertiesUrl = api.videoProperties + '?file=' + encodeURIComponent(videoPath);
+          propertiesUrl = appendFilePassword(
+            withFolderPassword(propertiesUrl, parentFolderPathFromFilePath(videoPath)),
+            videoPath,
+            false
+          );
+        }
+        const properties = await fetchJson(propertiesUrl);
+        if (properties.browser_audio_supported !== false || !properties.sidecar_audio) {
+          return '';
+        }
+        const audioPath = String(properties.sidecar_audio);
+        return (local ? localDiskDownloadUrl(audioPath) : downloadUrlForFile(audioPath, true))
+          + '&v=' + Date.now();
+      }
+
       function setVisibleLocalDiskFilesSelected(checked) {
         getVisibleLocalDiskFilePaths().forEach(function (path) {
           if (checked) {

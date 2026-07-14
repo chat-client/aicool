@@ -11,18 +11,9 @@ long long audio_extract_time_param(const request_t& req, const char* name)
 	return value && *value ? std::max(0LL, static_cast<long long>(atoll(value))) : 0;
 }
 
-std::string make_audio_extract_name(const std::string& upload_dir,
-	const std::string& input_name)
+std::string make_audio_extract_name(const std::string& input_name)
 {
-	const std::string stem = replace_ext(input_name, "");
-	for (int i = 1; i < 10000; ++i) {
-		const std::string suffix = i == 1 ? "" : ("_" + std::to_string(i));
-		const std::string candidate = stem + "_audio" + suffix + ".mp3";
-		if (!path_exists(join_upload_path(upload_dir, candidate))) {
-			return candidate;
-		}
-	}
-	return stem + "_audio_" + std::to_string(g_transcode_seq.load()) + ".mp3";
+	return replace_ext(input_name, ".mp3");
 }
 
 void run_audio_extract(const std::shared_ptr<transcode_task_t>& task,
@@ -100,8 +91,8 @@ bool AudioExtractAction::run(request_t& req, response_t& res,
 		json_error(res, 500, "ffmpeg not found", req.isKeepAlive());
 		return true;
 	}
-	const std::string task_file = "audio-extract:" + relative_path + ":"
-		+ std::to_string(start_ms) + ":" + std::to_string(end_ms);
+	// One fixed sidecar is maintained for each video so the player can discover it.
+	const std::string task_file = "audio-extract:" + relative_path;
 	const std::string task_key = scoped_task_key(upload_dir, task_file);
 	{
 		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
@@ -119,7 +110,7 @@ bool AudioExtractAction::run(request_t& req, response_t& res,
 			}
 		}
 	}
-	const std::string output_name = make_audio_extract_name(upload_dir, relative_path);
+	const std::string output_name = make_audio_extract_name(relative_path);
 	const std::string output_path = join_upload_path(upload_dir, output_name);
 	acl::string temp_path;
 	temp_path.format("%s/.audio_extract_tmp.%u.%lu.mp3",
@@ -230,8 +221,8 @@ bool LocalDiskAudioExtractAction::run(request_t& req, response_t& res,
 		json_error(res, 500, "ffmpeg not found", req.isKeepAlive());
 		return true;
 	}
-	const std::string task_file = "audio-extract-local:" + input_path + ":"
-		+ std::to_string(start_ms) + ":" + std::to_string(end_ms);
+	// Different ranges still target the same sidecar; serialize them by source video.
+	const std::string task_file = "audio-extract-local:" + input_path;
 	const std::string task_key = scoped_task_key(upload_dir, task_file);
 	{
 		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
@@ -251,20 +242,8 @@ bool LocalDiskAudioExtractAction::run(request_t& req, response_t& res,
 	}
 	const std::string parent = local_parent_path(input_path);
 	const std::string stem = replace_ext(local_base_name(input_path), "");
-	std::string output_path;
-	for (int i = 1; i < 10000; ++i) {
-		const std::string suffix = i == 1 ? "" : ("_" + std::to_string(i));
-		const std::string candidate = local_join_path(parent,
-			(stem + "_audio" + suffix + ".mp3").c_str());
-		if (!path_exists(candidate)) {
-			output_path = candidate;
-			break;
-		}
-	}
-	if (output_path.empty()) {
-		output_path = local_join_path(parent,
-			(stem + "_audio_" + std::to_string(g_transcode_seq.load()) + ".mp3").c_str());
-	}
+	const std::string output_file_name = stem + ".mp3";
+	const std::string output_path = local_join_path(parent, output_file_name.c_str());
 	acl::string temp_path;
 	temp_path.format("%s/.audio_extract_tmp.%u.%lu.mp3", parent.c_str(),
 		static_cast<unsigned>(getpid()), static_cast<unsigned long>(g_transcode_seq.load()));
