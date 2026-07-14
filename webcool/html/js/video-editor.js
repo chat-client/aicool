@@ -117,6 +117,8 @@ function openVideoEditor(path, local) {
             '<div class="video-editor-toggle-row"><label class="video-editor-check"><input type="checkbox" data-editor-flip-h><span>' + videoEditorEscape(t('水平翻转')) + '</span></label><label class="video-editor-check"><input type="checkbox" data-editor-flip-v><span>' + videoEditorEscape(t('垂直翻转')) + '</span></label></div>' +
             '<label><span>' + videoEditorEscape(t('画面比例')) + '</span><select data-editor-crop><option value="original">' + videoEditorEscape(t('原始比例')) + '</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></label>' +
             '<label><span>' + videoEditorEscape(t('导出分辨率')) + '</span><select data-editor-height><option value="0">' + videoEditorEscape(t('保持原始')) + '</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label>' +
+            '<button type="button" class="video-editor-track-export" data-editor-export-keyframes>' + videoEditorEscape(t('连续截取关键帧')) + '</button>' +
+            '<p class="video-editor-track-hint">' + videoEditorEscape(t('将所选时段内的关键帧导出到与视频同名的目录。')) + '</p>' +
           '</div>' +
           '<p class="video-editor-output-hint">' + videoEditorEscape(t('将导出为新的 MP4 文件，原视频不会被修改。')) + '</p>' +
         '</aside>' +
@@ -158,6 +160,7 @@ function openVideoEditor(path, local) {
   const exportBtn = dialog.querySelector('[data-editor-export]');
   const exportAudioBtn = dialog.querySelector('[data-editor-export-audio]');
   const exportSubtitleBtn = dialog.querySelector('[data-editor-export-subtitle]');
+  const exportKeyframesBtn = dialog.querySelector('[data-editor-export-keyframes]');
   const cancelExportBtn = dialog.querySelector('[data-editor-cancel-export]');
   const progress = dialog.querySelector('.video-editor-progress');
   const progressBar = progress.querySelector('i');
@@ -274,6 +277,7 @@ function openVideoEditor(path, local) {
     if (subtitleMode.value === 'replace') startVideoExport();
     else startTrackExport('subtitle');
   });
+  exportKeyframesBtn.addEventListener('click', function () { startTrackExport('keyframes'); });
 
   function updateProgress(value, message, state) {
     progress.hidden = false;
@@ -289,6 +293,7 @@ function openVideoEditor(path, local) {
     exportBtn.disabled = busy;
     exportAudioBtn.disabled = busy;
     exportSubtitleBtn.disabled = busy;
+    exportKeyframesBtn.disabled = busy;
     subtitleBrowseBtn.disabled = busy;
     subtitleUploadInput.disabled = busy;
     cancelExportBtn.hidden = !busy;
@@ -299,6 +304,7 @@ function openVideoEditor(path, local) {
     if (exporting || !duration) return;
     const selected = selection();
     const isAudio = kind === 'audio';
+    const isKeyframes = kind === 'keyframes';
     const startedAt = Date.now();
     let lastProgress = 0;
     const progressMessage = function (message, value) {
@@ -307,15 +313,29 @@ function openVideoEditor(path, local) {
     };
     const startApi = isAudio
       ? (local ? api.localDiskAudioExtract : api.extractAudio)
-      : (local ? api.localDiskVideoSubtitleExport : api.videoSubtitleExport);
+      : (isKeyframes
+        ? (local ? api.localDiskVideoKeyframeExport : api.videoKeyframeExport)
+        : (local ? api.localDiskVideoSubtitleExport : api.videoSubtitleExport));
     const progressApi = isAudio
       ? (local ? api.localDiskAudioExtractProgress : api.extractAudioProgress)
-      : (local ? api.localDiskVideoSubtitleExportProgress : api.videoSubtitleExportProgress);
+      : (isKeyframes
+        ? (local ? api.localDiskVideoKeyframeExportProgress : api.videoKeyframeExportProgress)
+        : (local ? api.localDiskVideoSubtitleExportProgress : api.videoSubtitleExportProgress));
     activeCancelApi = isAudio
       ? (local ? api.localDiskAudioExtractCancel : api.extractAudioCancel)
-      : (local ? api.localDiskVideoSubtitleExportCancel : api.videoSubtitleExportCancel);
+      : (isKeyframes
+        ? (local ? api.localDiskVideoKeyframeExportCancel : api.videoKeyframeExportCancel)
+        : (local ? api.localDiskVideoSubtitleExportCancel : api.videoSubtitleExportCancel));
+    const startingMessage = isAudio ? t('正在启动音频导出')
+      : (isKeyframes ? t('正在启动关键帧截屏') : t('正在启动字幕导出'));
+    const runningMessage = isAudio ? t('正在导出音频')
+      : (isKeyframes ? t('正在导出关键帧') : t('正在导出字幕'));
+    const completionMessage = isAudio ? t('音频导出完成：')
+      : (isKeyframes ? t('关键帧截屏完成：') : t('字幕导出完成：'));
+    const failureMessage = isAudio ? t('导出音频失败：')
+      : (isKeyframes ? t('导出关键帧失败：') : t('导出字幕失败：'));
     setExportBusy(true);
-    updateProgress(0, progressMessage(isAudio ? t('正在启动音频导出') : t('正在启动字幕导出'), 0));
+    updateProgress(0, progressMessage(startingMessage, 0));
     try {
       let url = videoEditorTaskUrl(startApi, path, local);
       url += '&start_ms=' + encodeURIComponent(String(Math.round(selected.start * 1000)));
@@ -328,26 +348,26 @@ function openVideoEditor(path, local) {
         const value = Math.max(0, Math.min(100, Math.round(Number(data.progress) || 0)));
         lastProgress = value;
         updateProgress(value, progressMessage(
-          data.message || (isAudio ? t('正在导出音频') : t('正在导出字幕')),
+          data.message || runningMessage,
           value
         ));
         if (data.done) {
           if (!data.success) throw new Error(data.cancel_requested ? t('已取消') : (data.error || data.message || t('导出失败')));
           lastProgress = 100;
           updateProgress(100, progressMessage(
-            (isAudio ? t('音频导出完成：') : t('字幕导出完成：')) + String(data.name || ''),
+            completionMessage + String(data.name || ''),
             100
           ), 'done');
           if (local) await loadLocalDisk(activeLocalDiskPath || localDiskParentPath(path) || '');
           else await loadFiles();
-          showStatus((isAudio ? t('音频导出完成：') : t('字幕导出完成：')) + String(data.name || ''), 'ok');
+          showStatus(completionMessage + String(data.name || ''), 'ok');
           break;
         }
         await new Promise(function (resolve) { window.setTimeout(resolve, 800); });
       }
     } catch (err) {
       updateProgress(lastProgress, progressMessage(
-        (isAudio ? t('导出音频失败：') : t('导出字幕失败：')) + err.message,
+        failureMessage + err.message,
         lastProgress
       ), 'failed');
     } finally {

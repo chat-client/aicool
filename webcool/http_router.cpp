@@ -340,6 +340,9 @@ void http_router::setup() const {
 		.Get("/api/v1/local-disk/video/subtitle/export", &http_router::routeLocalDiskVideoSubtitleExport)
 		.Get("/api/v1/local-disk/video/subtitle/export/progress", &http_router::routeLocalDiskVideoSubtitleExportProgress)
 		.Get("/api/v1/local-disk/video/subtitle/export/cancel", &http_router::routeLocalDiskVideoSubtitleExportCancel)
+		.Get("/api/v1/local-disk/video/keyframes/export", &http_router::routeLocalDiskVideoKeyframeExport)
+		.Get("/api/v1/local-disk/video/keyframes/export/progress", &http_router::routeLocalDiskVideoKeyframeExportProgress)
+		.Get("/api/v1/local-disk/video/keyframes/export/cancel", &http_router::routeLocalDiskVideoKeyframeExportCancel)
 		.Get("/api/v1/local-disk/video/ai-enhance", &http_router::routeLocalDiskAiVideoEnhance)
 		.Get("/api/v1/local-disk/video/ai-enhance/progress", &http_router::routeLocalDiskAiVideoEnhanceProgress)
 		.Get("/api/v1/local-disk/video/ai-enhance/cancel", &http_router::routeLocalDiskAiVideoEnhanceCancel)
@@ -363,6 +366,9 @@ void http_router::setup() const {
 		.Get("/api/v1/video/subtitle/export", &http_router::routeVideoSubtitleExport)
 		.Get("/api/v1/video/subtitle/export/progress", &http_router::routeVideoSubtitleExportProgress)
 		.Get("/api/v1/video/subtitle/export/cancel", &http_router::routeVideoSubtitleExportCancel)
+		.Get("/api/v1/video/keyframes/export", &http_router::routeVideoKeyframeExport)
+		.Get("/api/v1/video/keyframes/export/progress", &http_router::routeVideoKeyframeExportProgress)
+		.Get("/api/v1/video/keyframes/export/cancel", &http_router::routeVideoKeyframeExportCancel)
 		.Get("/api/v1/video/ai-enhance", &http_router::routeAiVideoEnhance)
 		.Get("/api/v1/video/ai-enhance/progress", &http_router::routeAiVideoEnhanceProgress)
 		.Get("/api/v1/video/ai-enhance/cancel", &http_router::routeAiVideoEnhanceCancel)
@@ -440,6 +446,9 @@ void http_router::setup() const {
 		.Post("/api/v1/video/subtitle/export", &http_router::routeVideoSubtitleExport)
 		.Post("/api/v1/video/subtitle/export/progress", &http_router::routeVideoSubtitleExportProgress)
 		.Post("/api/v1/video/subtitle/export/cancel", &http_router::routeVideoSubtitleExportCancel)
+		.Post("/api/v1/video/keyframes/export", &http_router::routeVideoKeyframeExport)
+		.Post("/api/v1/video/keyframes/export/progress", &http_router::routeVideoKeyframeExportProgress)
+		.Post("/api/v1/video/keyframes/export/cancel", &http_router::routeVideoKeyframeExportCancel)
 		.Post("/api/v1/video/ai-enhance", &http_router::routeAiVideoEnhance)
 		.Post("/api/v1/video/ai-enhance/progress", &http_router::routeAiVideoEnhanceProgress)
 		.Post("/api/v1/video/ai-enhance/cancel", &http_router::routeAiVideoEnhanceCancel)
@@ -483,6 +492,9 @@ void http_router::setup() const {
 		.Post("/api/v1/local-disk/video/subtitle/export", &http_router::routeLocalDiskVideoSubtitleExport)
 		.Post("/api/v1/local-disk/video/subtitle/export/progress", &http_router::routeLocalDiskVideoSubtitleExportProgress)
 		.Post("/api/v1/local-disk/video/subtitle/export/cancel", &http_router::routeLocalDiskVideoSubtitleExportCancel)
+		.Post("/api/v1/local-disk/video/keyframes/export", &http_router::routeLocalDiskVideoKeyframeExport)
+		.Post("/api/v1/local-disk/video/keyframes/export/progress", &http_router::routeLocalDiskVideoKeyframeExportProgress)
+		.Post("/api/v1/local-disk/video/keyframes/export/cancel", &http_router::routeLocalDiskVideoKeyframeExportCancel)
 		.Post("/api/v1/local-disk/video/ai-enhance", &http_router::routeLocalDiskAiVideoEnhance)
 		.Post("/api/v1/local-disk/video/ai-enhance/progress", &http_router::routeLocalDiskAiVideoEnhanceProgress)
 		.Post("/api/v1/local-disk/video/ai-enhance/cancel", &http_router::routeLocalDiskAiVideoEnhanceCancel)
@@ -935,6 +947,12 @@ bool http_router::routeVideoSubtitleExportProgress(request_t& req, response_t& r
 bool http_router::routeVideoSubtitleExportCancel(request_t& req, response_t& res) { std::string d; return userUploadDir(req, res, d) && action::VideoEditAction::subtitleCancel(req, res, d, false); }
 bool http_router::routeLocalDiskVideoSubtitleExportProgress(request_t& req, response_t& res) { return action::VideoEditAction::subtitleProgress(req, res, action::runtime_upload_dir_get(), true); }
 bool http_router::routeLocalDiskVideoSubtitleExportCancel(request_t& req, response_t& res) { return action::VideoEditAction::subtitleCancel(req, res, action::runtime_upload_dir_get(), true); }
+bool http_router::routeVideoKeyframeExport(request_t& req, response_t& res) { std::string d; return userUploadDir(req, res, d) && action::VideoEditAction::exportKeyframes(req, res, d, false); }
+bool http_router::routeLocalDiskVideoKeyframeExport(request_t& req, response_t& res) { return action::VideoEditAction::exportKeyframes(req, res, action::runtime_upload_dir_get(), true); }
+bool http_router::routeVideoKeyframeExportProgress(request_t& req, response_t& res) { std::string d; return userUploadDir(req, res, d) && action::VideoEditAction::keyframeProgress(req, res, d, false); }
+bool http_router::routeVideoKeyframeExportCancel(request_t& req, response_t& res) { std::string d; return userUploadDir(req, res, d) && action::VideoEditAction::keyframeCancel(req, res, d, false); }
+bool http_router::routeLocalDiskVideoKeyframeExportProgress(request_t& req, response_t& res) { return action::VideoEditAction::keyframeProgress(req, res, action::runtime_upload_dir_get(), true); }
+bool http_router::routeLocalDiskVideoKeyframeExportCancel(request_t& req, response_t& res) { return action::VideoEditAction::keyframeCancel(req, res, action::runtime_upload_dir_get(), true); }
 bool http_router::routeAiVideoEnhance(request_t& req, response_t& res) { std::string d; return userUploadDir(req, res, d) && action::AiVideoEnhanceAction::run(req, res, d, false); }
 bool http_router::routeAiVideoEnhanceProgress(request_t& req, response_t& res) { std::string d; return userUploadDir(req, res, d) && action::AiVideoEnhanceAction::progress(req, res, d, false); }
 bool http_router::routeAiVideoEnhanceCancel(request_t& req, response_t& res) { std::string d; return userUploadDir(req, res, d) && action::AiVideoEnhanceAction::cancel(req, res, d, false); }

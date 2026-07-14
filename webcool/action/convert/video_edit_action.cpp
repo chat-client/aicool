@@ -311,10 +311,155 @@ void run_subtitle_export(const std::shared_ptr<transcode_task_t>& task,
 	finish_task(task, true, "字幕导出完成", "", file_size_of(output.c_str()));
 }
 
+bool is_keyframe_image_name(const char* name)
+{
+	if (!name) return false;
+	const char* prefix = "keyframe_";
+	const size_t prefix_len = strlen(prefix);
+	const size_t length = strlen(name);
+	if (length <= prefix_len + 4 || strncmp(name, prefix, prefix_len) != 0
+		|| strcasecmp(name + length - 4, ".jpg") != 0) return false;
+	for (size_t i = prefix_len; i < length - 4; ++i) {
+		if (name[i] < '0' || name[i] > '9') return false;
+	}
+	return true;
+}
+
+void cleanup_keyframe_directory(const std::string& directory, bool remove_directory)
+{
+	DIR* dir = opendir(directory.c_str());
+	if (dir) {
+		for (dirent* entry = readdir(dir); entry; entry = readdir(dir)) {
+			if (is_keyframe_image_name(entry->d_name)) {
+				unlink(local_join_path(directory, entry->d_name).c_str());
+			}
+		}
+		closedir(dir);
+	}
+	if (remove_directory) rmdir(directory.c_str());
+}
+
+bool publish_keyframe_directory(const std::string& temporary,
+	const std::string& output, long long& total_size, long long& image_count,
+	std::string& err)
+{
+	DIR* source_dir = opendir(temporary.c_str());
+	if (!source_dir) {
+		err = "open temporary keyframe directory failed";
+		return false;
+	}
+	long long available_images = 0;
+	for (dirent* entry = readdir(source_dir); entry; entry = readdir(source_dir)) {
+		if (is_keyframe_image_name(entry->d_name)) ++available_images;
+	}
+	closedir(source_dir);
+	if (available_images <= 0) {
+		cleanup_keyframe_directory(temporary, true);
+		err = "no keyframes found in selected range";
+		return false;
+	}
+	struct stat st{};
+	if (stat(output.c_str(), &st) == 0) {
+		if (!S_ISDIR(st.st_mode)) {
+			err = "keyframe output path is not a directory";
+			return false;
+		}
+	} else if (mkdir(output.c_str(), 0755) != 0) {
+		err = acl::last_serror();
+		return false;
+	}
+	cleanup_keyframe_directory(output, false);
+	DIR* dir = opendir(temporary.c_str());
+	if (!dir) {
+		err = "open temporary keyframe directory failed";
+		return false;
+	}
+	total_size = 0;
+	image_count = 0;
+	bool ok = true;
+	for (dirent* entry = readdir(dir); entry; entry = readdir(dir)) {
+		if (!is_keyframe_image_name(entry->d_name)) continue;
+		const std::string source = local_join_path(temporary, entry->d_name);
+		const std::string destination = local_join_path(output, entry->d_name);
+		if (rename(source.c_str(), destination.c_str()) != 0) {
+			err = "move keyframe image failed";
+			ok = false;
+			break;
+		}
+		total_size += std::max(0LL, file_size_of(destination.c_str()));
+		++image_count;
+	}
+	closedir(dir);
+	cleanup_keyframe_directory(temporary, true);
+	if (!ok) return false;
+	return true;
+}
+
+void run_keyframe_export(const std::shared_ptr<transcode_task_t>& task,
+	const std::string& ffmpeg, const std::string& input,
+	const std::string& temporary_directory, const std::string& output_directory,
+	long long start_ms, long long end_ms)
+{
+	cleanup_keyframe_directory(temporary_directory, true);
+	if (mkdir(temporary_directory.c_str(), 0755) != 0) {
+		finish_task(task, false, "关键帧截屏启动失败", acl::last_serror(), -1);
+		return;
+	}
+	const long long source_duration = probe_duration_ms(ffmpeg, input);
+	const long long duration = end_ms > start_ms ? end_ms - start_ms
+		: (source_duration > start_ms ? source_duration - start_ms : source_duration);
+	const std::string start_text = decimal_text(start_ms / 1000.0);
+	const std::string duration_text = end_ms > start_ms
+		? decimal_text((end_ms - start_ms) / 1000.0) : "";
+	const std::string output_pattern = local_join_path(temporary_directory,
+		"keyframe_%06d.jpg");
+	ACL_ARGV* args = acl_argv_alloc(32);
+	acl_argv_add(args, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", nullptr);
+	if (start_ms > 0) acl_argv_add(args, "-ss", start_text.c_str(), nullptr);
+	acl_argv_add(args, "-i", input.c_str(), nullptr);
+	if (!duration_text.empty()) acl_argv_add(args, "-t", duration_text.c_str(), nullptr);
+	acl_argv_add(args, "-map", "0:v:0", "-an",
+		"-vf", "select=eq(pict_type\\,I)", "-vsync", "vfr", "-q:v", "2",
+		"-progress", "pipe:1", "-nostats", output_pattern.c_str(), nullptr);
+	const ffmpeg_process_ptr process = start_ffmpeg_process(args);
+	if (!process) {
+		cleanup_keyframe_directory(temporary_directory, true);
+		finish_task(task, false, "关键帧截屏启动失败", acl::last_serror(), -1);
+		return;
+	}
+	const int code = wait_transcode_progress(task, *process, duration, 2, 95,
+		"正在截取关键帧", 97, "正在整理截屏图片");
+	if (code != 0 || is_task_cancel_requested(task)) {
+		cleanup_keyframe_directory(temporary_directory, true);
+		finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "关键帧截屏失败",
+			is_task_cancel_requested(task) ? "cancelled" : "ffmpeg keyframe export failed", -1);
+		return;
+	}
+	long long total_size = 0;
+	long long image_count = 0;
+	std::string err;
+	if (!publish_keyframe_directory(temporary_directory, output_directory,
+		total_size, image_count, err)) {
+		finish_task(task, false, "关键帧截屏失败", err.c_str(), -1);
+		return;
+	}
+	acl::string message;
+	message.format("关键帧截屏完成，共 %lld 张", image_count);
+	finish_task(task, true, message.c_str(), "", total_size);
+}
+
 bool subtitle_task_snapshot(const request_t& req, const std::string& scope,
 	bool local, transcode_task_snapshot_t& task)
 {
 	const char* prefix = local ? "subtitle-export-local:" : "subtitle-export:";
+	return snapshot_task_by_id(req.getParameter("task_id"), scope, task)
+		&& task.file_name.compare(0, strlen(prefix), prefix) == 0;
+}
+
+bool keyframe_task_snapshot(const request_t& req, const std::string& scope,
+	bool local, transcode_task_snapshot_t& task)
+{
+	const char* prefix = local ? "keyframe-export-local:" : "keyframe-export:";
 	return snapshot_task_by_id(req.getParameter("task_id"), scope, task)
 		&& task.file_name.compare(0, strlen(prefix), prefix) == 0;
 }
@@ -629,6 +774,120 @@ bool VideoEditAction::subtitleCancel(request_t& req, response_t& res,
 	bool signal_sent = false;
 	if (!request_cancel_task(task.id.c_str(), upload_dir, task, signal_sent)) {
 		json_error(res, 404, "subtitle export task not found", req.isKeepAlive()); return true;
+	}
+	acl::json json; acl::json_node& root = json.create_node(); root.add_bool("ok", true);
+	root.add_bool("cancel_requested", true); root.add_bool("signal_sent", signal_sent);
+	return sendJson(res, 200, root, req.isKeepAlive());
+}
+
+bool VideoEditAction::exportKeyframes(request_t& req, response_t& res,
+	const std::string& upload_dir, bool local)
+{
+	const long long start_ms = integer_param(req, "start_ms");
+	const long long end_ms = integer_param(req, "end_ms");
+	if (start_ms < 0 || (end_ms > 0 && end_ms - start_ms < 100)) {
+		json_error(res, 400, "invalid keyframe export range", req.isKeepAlive()); return true;
+	}
+	std::string source;
+	std::string err;
+	if (local) {
+		if (!normalize_local_video_path(req.getParameter("path"), source, err)) {
+			json_error(res, 400, err.c_str(), req.isKeepAlive()); return true;
+		}
+		struct stat st{};
+		if (stat(source.c_str(), &st) != 0 || !S_ISREG(st.st_mode)
+			|| !is_video_name(local_base_name(source).c_str())) {
+			json_error(res, 404, "source video not found", req.isKeepAlive()); return true;
+		}
+		int status = 500;
+		if (!ensure_local_video_transcode_lock_policy(upload_dir, source, err, status)) {
+			json_error(res, status, err.c_str(), req.isKeepAlive()); return true;
+		}
+	} else {
+		if (!normalize_relative_path(req.getParameter("file") ? req.getParameter("file") : "",
+			source, err, false) || !resolve_upload_regular_file_path(upload_dir, source, source)
+			|| !is_video_name(base_name_from_relative_path(source).c_str())) {
+			json_error(res, 404, "source video not found", req.isKeepAlive()); return true;
+		}
+		int status = 500;
+		if (!ensure_remote_video_transcode_lock_policy(upload_dir, source, err, status)) {
+			json_error(res, status, err.c_str(), req.isKeepAlive()); return true;
+		}
+	}
+	const std::string ffmpeg = choose_ffmpeg_path();
+	if (ffmpeg.empty()) { json_error(res, 500, "ffmpeg not found", req.isKeepAlive()); return true; }
+	const std::string prefix = local ? "keyframe-export-local:" : "keyframe-export:";
+	const std::string task_file = prefix + source;
+	const std::string task_key = scoped_task_key(upload_dir, task_file);
+	{
+		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
+		const auto running = g_running_task_by_file.find(task_key);
+		if (running != g_running_task_by_file.end()) {
+			const auto found = g_transcode_tasks.find(running->second);
+			if (found != g_transcode_tasks.end() && !found->second->done) {
+				acl::json json; acl::json_node& root = json.create_node();
+				root.add_bool("ok", true); root.add_bool("started", false);
+				root.add_text("task_id", found->second->id.c_str());
+				root.add_text("name", found->second->output_name.c_str());
+				return sendJson(res, 200, root, req.isKeepAlive());
+			}
+		}
+	}
+	const std::string input_path = local ? source : join_upload_path(upload_dir, source);
+	const std::string output_name = replace_ext(source, "");
+	const std::string output_path = local ? output_name : join_upload_path(upload_dir, output_name);
+	acl::string temporary;
+	temporary.format("%s/.keyframe_export_tmp.%u.%lu",
+		local_parent_path(output_path).c_str(), static_cast<unsigned>(getpid()),
+		static_cast<unsigned long>(g_transcode_seq.load()));
+	auto task = std::make_shared<transcode_task_t>();
+	task->id = make_task_id(); task->scope = upload_dir; task->file_name = task_file;
+	task->output_name = output_name; task->message = "等待截取关键帧"; task->local = local;
+	{
+		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
+		g_transcode_tasks[task->id] = task;
+		g_running_task_by_file[task_key] = task->id;
+	}
+	const std::string temporary_directory = temporary.c_str();
+	go[task, ffmpeg, input_path, temporary_directory, output_path, start_ms, end_ms] {
+		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary_directory,
+			output_path, start_ms, end_ms] {
+			run_keyframe_export(task, ffmpeg, input_path, temporary_directory,
+				output_path, start_ms, end_ms);
+		});
+	};
+	acl::json json; acl::json_node& root = json.create_node();
+	root.add_bool("ok", true); root.add_bool("started", true);
+	root.add_text("task_id", task->id.c_str()); root.add_text("name", output_name.c_str());
+	return sendJson(res, 200, root, req.isKeepAlive());
+}
+
+bool VideoEditAction::keyframeProgress(request_t& req, response_t& res,
+	const std::string& upload_dir, bool local)
+{
+	transcode_task_snapshot_t task;
+	if (!keyframe_task_snapshot(req, upload_dir, local, task)) {
+		json_error(res, 404, "keyframe export task not found", req.isKeepAlive()); return true;
+	}
+	acl::json json; acl::json_node& root = json.create_node();
+	root.add_bool("ok", true); root.add_text("task_id", task.id.c_str());
+	root.add_text("name", task.output_name.c_str()); root.add_bool("done", task.done);
+	root.add_bool("success", task.success); root.add_bool("cancel_requested", task.cancel_requested);
+	root.add_number("progress", static_cast<long long>(task.progress)); root.add_text("message", task.message.c_str());
+	if (!task.error.empty()) root.add_text("error", task.error.c_str());
+	return sendJson(res, 200, root, req.isKeepAlive());
+}
+
+bool VideoEditAction::keyframeCancel(request_t& req, response_t& res,
+	const std::string& upload_dir, bool local)
+{
+	transcode_task_snapshot_t task;
+	if (!keyframe_task_snapshot(req, upload_dir, local, task)) {
+		json_error(res, 404, "keyframe export task not found", req.isKeepAlive()); return true;
+	}
+	bool signal_sent = false;
+	if (!request_cancel_task(task.id.c_str(), upload_dir, task, signal_sent)) {
+		json_error(res, 404, "keyframe export task not found", req.isKeepAlive()); return true;
 	}
 	acl::json json; acl::json_node& root = json.create_node(); root.add_bool("ok", true);
 	root.add_bool("cancel_requested", true); root.add_bool("signal_sent", signal_sent);

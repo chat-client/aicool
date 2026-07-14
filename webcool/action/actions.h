@@ -533,6 +533,9 @@ public:
 	static bool exportSubtitle(request_t& req, response_t& res, const std::string& upload_dir, bool local);
 	static bool subtitleProgress(request_t& req, response_t& res, const std::string& upload_dir, bool local);
 	static bool subtitleCancel(request_t& req, response_t& res, const std::string& upload_dir, bool local);
+	static bool exportKeyframes(request_t& req, response_t& res, const std::string& upload_dir, bool local);
+	static bool keyframeProgress(request_t& req, response_t& res, const std::string& upload_dir, bool local);
+	static bool keyframeCancel(request_t& req, response_t& res, const std::string& upload_dir, bool local);
 };
 
 class AiVideoEnhanceAction {

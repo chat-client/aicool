@@ -56,7 +56,7 @@
   window.addEventListener('resize', scheduleAdaptiveUiScale);
   window.addEventListener('orientationchange', scheduleAdaptiveUiScale);
 
-  const assetVersion = 'video-track-export-timing-20260714-11';
+  const assetVersion = 'video-keyframe-export-20260714-12';
   const modules = [
     '/webcool/html/js/core-state.js',
     '/webcool/html/js/locks-context.js',
