@@ -260,7 +260,28 @@ copy_realesrgan_runtime() {
     else
       log "warning: Core ML Real-ESRGAN runtime not found; Apple Silicon will use NCNN fallback"
     fi
+
+    local restormer_models="${source_root}/restormer-models"
+    if [ -d "$restormer_models" ]; then
+      mkdir -p "${install_root}/models/restormer"
+      cp -a "${restormer_models}/." "${install_root}/models/restormer/"
+      copy_if_exists "${TOOLS_ROOT}/RESTORMER-LICENSE" "${install_root}/"
+    else
+      log "warning: Restormer models not found; deblur-before-upscale will be unavailable"
+    fi
   fi
+}
+
+copy_codeformer_assets() {
+  local install_root="$1"
+  local source="${TOOLS_ROOT}/codeformer/CodeFormer"
+  if [ ! -f "${source}/inference_codeformer.py" ] \
+    || [ ! -f "${source}/weights/CodeFormer/codeformer.pth" ]; then
+    log "warning: CodeFormer source or weights not found; face restoration will be unavailable"
+    return 0
+  fi
+  mkdir -p "${install_root}/codeformer"
+  cp -a "$source" "${install_root}/codeformer/CodeFormer"
 }
 
 stage_runtime_tree() {
@@ -272,6 +293,7 @@ stage_runtime_tree() {
     "$install_root/conf" \
     "$install_root/uploads" \
     "$install_root/lib" \
+    "$install_root/libexec" \
     "$install_root/bin" \
     "$install_root/var" \
     "$install_root/logs" \
@@ -296,6 +318,11 @@ stage_runtime_tree() {
   copy_sqlite_runtime_lib "$install_root/lib"
   copy_ffmpeg_runtime_bin "$install_root/bin"
   copy_realesrgan_runtime "$install_root"
+  copy_codeformer_assets "$install_root"
+  copy_if_exists "${TOOLS_ROOT}/codeformer_runner.py" "$install_root/libexec/"
+  copy_if_exists "${TOOLS_ROOT}/CODEFORMER.md" "$install_root/"
+  copy_if_exists "${TOOLS_ROOT}/codeformer-constraints.txt" "$install_root/CODEFORMER-CONSTRAINTS.txt"
+  copy_if_exists "${TOOLS_ROOT}/setup_codeformer_runtime.sh" "$install_root/setup-codeformer-runtime.sh"
 
   create_launcher_script "${stage_root}/usr/local/bin/webcool"
 }

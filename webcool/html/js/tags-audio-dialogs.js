@@ -1117,10 +1117,15 @@ function getLocalDirPassword(path) {
           model: macPlatform ? 'coreml-x2plus' : 'realesrgan-x4plus',
           scale: macPlatform ? 2 : 4,
           denoise: 0,
-          sharpen: 20,
+          sharpen: 0,
           computeUnits: 'auto',
           tile: 0,
-          overlap: 'balanced'
+          overlap: 'balanced',
+          restormerMode: 'motion',
+          restormerStrength: 35,
+          faceRestoration: 'none',
+          faceFidelity: 90,
+          faceOnlyCenter: true
         };
         const openAiSettings = function () {
           if (document.querySelector('.image-ai-settings-dialog')) return;
@@ -1137,18 +1142,35 @@ function getLocalDirPassword(path) {
                 '<option value="realesrgan-x4plus">RealESRGAN x4plus</option>' +
                 '<option value="realesr-animevideov3">RealESRGAN AnimeVideo v3</option>' +
               '</select></label>' +
+              '<label data-image-restormer-row><span>' + escapeHtml(t('去模糊类型')) + '</span><select data-image-restormer-mode><option value="motion">' + escapeHtml(t('运动模糊')) + '</option><option value="defocus">' + escapeHtml(t('失焦模糊')) + '</option></select></label>' +
+              '<label data-image-restormer-strength-row><span>' + escapeHtml(t('去模糊强度（保留原貌）')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="100" step="5" data-image-restormer-strength><output data-image-restormer-strength-value></output></span></label>' +
+              '<label><span>' + escapeHtml(t('人脸修复')) + '</span><select data-image-face-restoration><option value="none">' + escapeHtml(t('关闭')) + '</option><option value="codeformer">CodeFormer</option></select></label>' +
+              '<label data-image-face-fidelity-row><span>' + escapeHtml(t('人脸保真度（越高越接近原貌）')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="100" step="5" data-image-face-fidelity><output data-image-face-fidelity-value></output></span></label>' +
+              '<label data-image-face-center-row><span>' + escapeHtml(t('仅修复主体人脸（防止局部误识别）')) + '</span><input type="checkbox" data-image-face-only-center checked></label>' +
               '<label><span>' + escapeHtml(t('AI放大倍数')) + '</span><select data-image-ai-scale><option value="2">2×</option><option value="4">4×</option></select></label>' +
               '<label><span>' + escapeHtml(t('AI前降噪')) + '</span><select data-image-ai-denoise><option value="0">' + escapeHtml(t('关闭')) + '</option><option value="1">' + escapeHtml(t('轻度')) + '</option><option value="2">' + escapeHtml(t('中度')) + '</option></select></label>' +
               '<label><span>' + escapeHtml(t('轻微去模糊/预锐化')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="50" step="5" data-image-ai-sharpen><output data-image-ai-sharpen-value></output></span></label>' +
               '<label><span>' + escapeHtml(t('计算单元')) + '</span><select data-image-ai-compute><option value="auto">' + escapeHtml(t('自动（CPU/GPU/ANE）')) + '</option><option value="ane">' + escapeHtml(t('Neural Engine优先')) + '</option><option value="gpu">' + escapeHtml(t('GPU优先')) + '</option><option value="cpu">' + escapeHtml(t('仅CPU（对照）')) + '</option></select></label>' +
               '<label><span>Tile</span><select data-image-ai-tile><option value="0">' + escapeHtml(t('自动')) + '</option><option value="128">128</option><option value="256">256</option><option value="512">512</option></select></label>' +
               '<label><span>' + escapeHtml(t('Tile重叠')) + '</span><select data-image-ai-overlap><option value="low">' + escapeHtml(t('较少（更快）')) + '</option><option value="balanced">' + escapeHtml(t('均衡')) + '</option><option value="quality">' + escapeHtml(t('较多（减少接缝）')) + '</option></select></label>' +
+              '<p>' + escapeHtml(t('CodeFormer使用官方独立运行环境；未安装时选择该选项会给出配置提示。')) + '</p>' +
               '<p>' + escapeHtml(t('AI会推测并生成纹理细节，结果不一定与原始真实内容完全一致。')) + '</p>' +
             '</div><footer><button type="button" data-image-ai-cancel>' + escapeHtml(t('取消')) + '</button><button type="button" class="primary" data-image-ai-save>' + escapeHtml(t('保存设置')) + '</button></footer>' +
           '</section>';
           document.body.appendChild(settingsDialog);
           const model = settingsDialog.querySelector('[data-image-ai-model]');
           const scale = settingsDialog.querySelector('[data-image-ai-scale]');
+          const restormerRow = settingsDialog.querySelector('[data-image-restormer-row]');
+          const restormerMode = settingsDialog.querySelector('[data-image-restormer-mode]');
+          const restormerStrengthRow = settingsDialog.querySelector('[data-image-restormer-strength-row]');
+          const restormerStrength = settingsDialog.querySelector('[data-image-restormer-strength]');
+          const restormerStrengthValue = settingsDialog.querySelector('[data-image-restormer-strength-value]');
+          const faceRestoration = settingsDialog.querySelector('[data-image-face-restoration]');
+          const faceFidelityRow = settingsDialog.querySelector('[data-image-face-fidelity-row]');
+          const faceFidelity = settingsDialog.querySelector('[data-image-face-fidelity]');
+          const faceFidelityValue = settingsDialog.querySelector('[data-image-face-fidelity-value]');
+          const faceCenterRow = settingsDialog.querySelector('[data-image-face-center-row]');
+          const faceOnlyCenter = settingsDialog.querySelector('[data-image-face-only-center]');
           const denoise = settingsDialog.querySelector('[data-image-ai-denoise]');
           const sharpen = settingsDialog.querySelector('[data-image-ai-sharpen]');
           const sharpenValue = settingsDialog.querySelector('[data-image-ai-sharpen-value]');
@@ -1157,6 +1179,11 @@ function getLocalDirPassword(path) {
           const overlap = settingsDialog.querySelector('[data-image-ai-overlap]');
           model.value = aiSettings.model;
           scale.value = String(aiSettings.scale);
+          restormerMode.value = aiSettings.restormerMode;
+          restormerStrength.value = String(aiSettings.restormerStrength);
+          faceRestoration.value = aiSettings.faceRestoration;
+          faceFidelity.value = String(aiSettings.faceFidelity);
+          faceOnlyCenter.checked = aiSettings.faceOnlyCenter;
           denoise.value = String(aiSettings.denoise);
           sharpen.value = String(aiSettings.sharpen);
           compute.value = aiSettings.computeUnits;
@@ -1169,10 +1196,23 @@ function getLocalDirPassword(path) {
             scale.disabled = coreml || model.value === 'realesrgan-x4plus';
             compute.disabled = !coreml;
           };
+          restormerRow.hidden = select.value !== 'deblur_ai';
+          restormerStrengthRow.hidden = select.value !== 'deblur_ai';
+          const syncRestormerStrength = function () { restormerStrengthValue.textContent = restormerStrength.value + '%'; };
+          const syncFaceRestoration = function () {
+            faceFidelityRow.hidden = faceRestoration.value !== 'codeformer';
+            faceCenterRow.hidden = faceRestoration.value !== 'codeformer';
+            faceFidelityValue.textContent = faceFidelity.value + '%';
+          };
           const syncSharpen = function () { sharpenValue.textContent = sharpen.value + '%'; };
           model.addEventListener('change', syncModel);
           sharpen.addEventListener('input', syncSharpen);
+          restormerStrength.addEventListener('input', syncRestormerStrength);
+          faceRestoration.addEventListener('change', syncFaceRestoration);
+          faceFidelity.addEventListener('input', syncFaceRestoration);
           syncModel();
+          syncRestormerStrength();
+          syncFaceRestoration();
           syncSharpen();
           const close = function () { settingsDialog.remove(); };
           settingsDialog.querySelector('[data-image-ai-close]').addEventListener('click', close);
@@ -1181,6 +1221,11 @@ function getLocalDirPassword(path) {
           settingsDialog.querySelector('[data-image-ai-save]').addEventListener('click', function () {
             aiSettings.model = model.value;
             aiSettings.scale = Number(scale.value) || 2;
+            aiSettings.restormerMode = restormerMode.value;
+            aiSettings.restormerStrength = Number(restormerStrength.value) || 0;
+            aiSettings.faceRestoration = faceRestoration.value;
+            aiSettings.faceFidelity = Number(faceFidelity.value) || 0;
+            aiSettings.faceOnlyCenter = faceOnlyCenter.checked;
             aiSettings.denoise = Number(denoise.value) || 0;
             aiSettings.sharpen = Number(sharpen.value) || 0;
             aiSettings.computeUnits = compute.value;
@@ -1190,7 +1235,7 @@ function getLocalDirPassword(path) {
           });
         };
         select.addEventListener('change', function () {
-          const ai = select.value === 'ai';
+          const ai = select.value === 'ai' || select.value === 'deblur_ai';
           settingsButton.hidden = !ai;
           if (ai) openAiSettings();
         });
@@ -1203,22 +1248,30 @@ function getLocalDirPassword(path) {
           message.textContent = value + '% · ' + String(text || '');
         };
         button.addEventListener('click', async function () {
-          const method = select.value === 'ai' ? 'ai' : 'sharpen';
+          const method = select.value === 'deblur_ai' ? 'deblur_ai' : (select.value === 'ai' ? 'ai' : 'sharpen');
           button.disabled = true;
           select.disabled = true;
-          setProgress(0, method === 'ai' ? t('正在启动AI超分辨率') : t('正在启动图片锐化'), 'running');
+          setProgress(0, method === 'deblur_ai' ? t('正在启动去模糊并超分')
+            : (method === 'ai' ? t('正在启动AI超分辨率') : t('正在启动图片锐化')), 'running');
           try {
             let startUrl = (local ? api.localDiskImageEnhance : api.imageEnhance)
               + '?' + (local ? 'path=' : 'file=') + encodeURIComponent(path)
               + '&method=' + encodeURIComponent(method);
-            if (method === 'ai') {
+            if (method === 'ai' || method === 'deblur_ai') {
               startUrl += '&ai_model=' + encodeURIComponent(aiSettings.model)
                 + '&ai_scale=' + encodeURIComponent(String(aiSettings.scale))
                 + '&ai_denoise=' + encodeURIComponent(String(aiSettings.denoise))
                 + '&ai_sharpen=' + encodeURIComponent(String(aiSettings.sharpen))
                 + '&ai_compute_units=' + encodeURIComponent(aiSettings.computeUnits)
                 + '&ai_tile=' + encodeURIComponent(String(aiSettings.tile))
-                + '&ai_overlap=' + encodeURIComponent(aiSettings.overlap);
+                + '&ai_overlap=' + encodeURIComponent(aiSettings.overlap)
+                + '&face_restoration=' + encodeURIComponent(aiSettings.faceRestoration)
+                + '&face_fidelity=' + encodeURIComponent(String(aiSettings.faceFidelity))
+                + '&face_only_center=' + encodeURIComponent(aiSettings.faceOnlyCenter ? '1' : '0');
+              if (method === 'deblur_ai') {
+                startUrl += '&restormer_mode=' + encodeURIComponent(aiSettings.restormerMode)
+                  + '&restormer_strength=' + encodeURIComponent(String(aiSettings.restormerStrength));
+              }
             }
             if (local) {
               startUrl = appendLocalDirPassword(appendFilePassword(startUrl, path, true), localDiskParentPath(path));
@@ -1281,6 +1334,7 @@ function getLocalDirPassword(path) {
                 '<select data-file-summary-enhance aria-label="' + escapeHtml(t('处理方式')) + '">' +
                   '<option value="sharpen">' + escapeHtml(t('锐化')) + '</option>' +
                   '<option value="ai">' + escapeHtml(t('AI超分辨率')) + '</option>' +
+                  '<option value="deblur_ai">' + escapeHtml(t('去模糊后AI超分')) + '</option>' +
                 '</select>' +
                 '<button type="button" class="file-summary-ai-settings" data-file-summary-ai-settings hidden>' + escapeHtml(t('详细设置')) + '</button>' +
                 '<button type="button" data-file-summary-enhance-convert>' + escapeHtml(t('转换')) + '</button>' +
