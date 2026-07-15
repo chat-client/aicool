@@ -333,7 +333,13 @@ function selectRenameInputText(input) {
 
       var remoteDiskShowHidden = document.getElementById('remote-disk-show-hidden');
 
-      var localDiskContext = document.getElementById('local-disk-context');
+      var localDiskContext = document.getElementById('local-disk-path-form');
+
+      var localDiskPathForm = document.getElementById('local-disk-path-form');
+
+      var localDiskPathInput = document.getElementById('local-disk-path-input');
+
+      var localDiskPathGoBtn = document.getElementById('local-disk-path-go-btn');
 
       var localDiskHomeBtn = document.getElementById('local-disk-home-btn');
 

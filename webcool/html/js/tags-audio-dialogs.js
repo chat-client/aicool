@@ -845,6 +845,8 @@ function getLocalDirPassword(path) {
             scalePreviewImage(win, 0.8);
           } else if (type === 'enhance') {
             openImageEnhanceDialog(win.__imageEnhancePath, !!win.__imageEnhanceLocal);
+          } else if (type === 'red-eye') {
+            openImageEnhanceDialog(win.__imageEnhancePath, !!win.__imageEnhanceLocal, 'red_eye');
           } else if (type === 'crop') {
             setPreviewCropMode(win, true);
           } else if (type === 'apply-crop') {
@@ -1104,7 +1106,7 @@ function getLocalDirPassword(path) {
         });
       }
 
-      function bindFileSummaryEnhance(dialog, path, local) {
+      function bindFileSummaryEnhance(dialog, path, local, initialMethod) {
         const button = dialog && dialog.querySelector('[data-file-summary-enhance-convert]');
         const select = dialog && dialog.querySelector('[data-file-summary-enhance]');
         const settingsButton = dialog && dialog.querySelector('[data-file-summary-ai-settings]');
@@ -1124,8 +1126,133 @@ function getLocalDirPassword(path) {
           restormerMode: 'motion',
           restormerStrength: 35,
           faceRestoration: 'none',
+          codeformerMode: 'whole',
           faceFidelity: 90,
           faceOnlyCenter: true
+        };
+        const redEyeSettings = { strength: 80, onlyCenterFace: false };
+        const brightnessSettings = { amount: 20 };
+        const codeformerSettings = {
+          mode: 'aligned',
+          fidelity: 50,
+          onlyCenterFace: true,
+          upscale: false
+        };
+        if (initialMethod && select.querySelector('option[value="' + initialMethod + '"]')) {
+          select.value = initialMethod;
+        }
+        const openRedEyeSettings = function () {
+          if (document.querySelector('.image-red-eye-settings-dialog')) return;
+          const settingsDialog = document.createElement('div');
+          settingsDialog.className = 'video-screenshot-ai-dialog image-ai-settings-dialog image-red-eye-settings-dialog';
+          settingsDialog.innerHTML = '<section class="video-screenshot-ai-card" role="dialog" aria-modal="true" aria-label="' + escapeHtml(t('去红眼设置')) + '">' +
+            '<header><h3>' + escapeHtml(t('去红眼设置')) + '</h3><button type="button" data-red-eye-close aria-label="' + escapeHtml(t('关闭')) + '">×</button></header>' +
+            '<div class="video-screenshot-ai-body">' +
+              '<label><span>' + escapeHtml(t('校正强度')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="100" step="5" data-red-eye-strength><output data-red-eye-strength-value></output></span></label>' +
+              '<label><span>' + escapeHtml(t('仅处理主体人脸')) + '</span><input type="checkbox" data-red-eye-center></label>' +
+              '<p>' + escapeHtml(t('仅在检测到的瞳孔区域内校正红色像素，不会生成或重绘五官。')) + '</p>' +
+            '</div><footer><button type="button" data-red-eye-cancel>' + escapeHtml(t('取消')) + '</button><button type="button" class="primary" data-red-eye-save>' + escapeHtml(t('保存设置')) + '</button></footer>' +
+          '</section>';
+          document.body.appendChild(settingsDialog);
+          const strength = settingsDialog.querySelector('[data-red-eye-strength]');
+          const value = settingsDialog.querySelector('[data-red-eye-strength-value]');
+          const center = settingsDialog.querySelector('[data-red-eye-center]');
+          strength.value = String(redEyeSettings.strength);
+          center.checked = redEyeSettings.onlyCenterFace;
+          const sync = function () { value.textContent = strength.value + '%'; };
+          strength.addEventListener('input', sync);
+          sync();
+          const close = function () { settingsDialog.remove(); };
+          settingsDialog.querySelector('[data-red-eye-close]').addEventListener('click', close);
+          settingsDialog.querySelector('[data-red-eye-cancel]').addEventListener('click', close);
+          settingsDialog.addEventListener('click', function (event) { if (event.target === settingsDialog) close(); });
+          settingsDialog.querySelector('[data-red-eye-save]').addEventListener('click', function () {
+            redEyeSettings.strength = Number(strength.value) || 0;
+            redEyeSettings.onlyCenterFace = center.checked;
+            close();
+          });
+        };
+        const openBrightnessSettings = function () {
+          if (document.querySelector('.image-brightness-settings-dialog')) return;
+          const settingsDialog = document.createElement('div');
+          settingsDialog.className = 'video-screenshot-ai-dialog image-ai-settings-dialog image-brightness-settings-dialog';
+          settingsDialog.innerHTML = '<section class="video-screenshot-ai-card" role="dialog" aria-modal="true" aria-label="' + escapeHtml(t('亮度设置')) + '">' +
+            '<header><h3>' + escapeHtml(t('亮度设置')) + '</h3><button type="button" data-brightness-close aria-label="' + escapeHtml(t('关闭')) + '">×</button></header>' +
+            '<div class="video-screenshot-ai-body">' +
+              '<label><span>' + escapeHtml(t('亮度')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="-100" max="100" step="5" data-brightness-amount><output data-brightness-value></output></span></label>' +
+              '<p>' + escapeHtml(t('正值提亮照片，负值压暗照片；建议先从20%开始。')) + '</p>' +
+            '</div><footer><button type="button" data-brightness-cancel>' + escapeHtml(t('取消')) + '</button><button type="button" class="primary" data-brightness-save>' + escapeHtml(t('保存设置')) + '</button></footer>' +
+          '</section>';
+          document.body.appendChild(settingsDialog);
+          const amount = settingsDialog.querySelector('[data-brightness-amount]');
+          const value = settingsDialog.querySelector('[data-brightness-value]');
+          amount.value = String(brightnessSettings.amount);
+          const sync = function () {
+            const current = Number(amount.value) || 0;
+            value.textContent = (current > 0 ? '+' : '') + current + '%';
+          };
+          amount.addEventListener('input', sync);
+          sync();
+          const close = function () { settingsDialog.remove(); };
+          settingsDialog.querySelector('[data-brightness-close]').addEventListener('click', close);
+          settingsDialog.querySelector('[data-brightness-cancel]').addEventListener('click', close);
+          settingsDialog.addEventListener('click', function (event) { if (event.target === settingsDialog) close(); });
+          settingsDialog.querySelector('[data-brightness-save]').addEventListener('click', function () {
+            brightnessSettings.amount = Number(amount.value) || 0;
+            close();
+          });
+        };
+        const openCodeformerSettings = function () {
+          if (document.querySelector('.image-codeformer-settings-dialog')) return;
+          const settingsDialog = document.createElement('div');
+          settingsDialog.className = 'video-screenshot-ai-dialog image-ai-settings-dialog image-codeformer-settings-dialog';
+          settingsDialog.innerHTML = '<section class="video-screenshot-ai-card" role="dialog" aria-modal="true" aria-label="' + escapeHtml(t('CodeFormer人脸重建设置')) + '">' +
+            '<header><h3>' + escapeHtml(t('CodeFormer人脸重建设置')) + '</h3><button type="button" data-codeformer-close aria-label="' + escapeHtml(t('关闭')) + '">×</button></header>' +
+            '<div class="video-screenshot-ai-body">' +
+              '<label><span>' + escapeHtml(t('修复模式')) + '</span><select data-codeformer-mode><option value="aligned">' + escapeHtml(t('白色遮挡人脸重建')) + '</option><option value="whole">' + escapeHtml(t('普通照片人脸修复')) + '</option></select></label>' +
+              '<label data-codeformer-fidelity-row><span>' + escapeHtml(t('人脸保真度（越高越接近原貌）')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="100" step="5" data-codeformer-fidelity><output data-codeformer-fidelity-value></output></span></label>' +
+              '<label data-codeformer-center-row><span>' + escapeHtml(t('仅修复主体人脸（防止局部误识别）')) + '</span><input type="checkbox" data-codeformer-center></label>' +
+              '<label><span>' + escapeHtml(t('修复后继续AI超分')) + '</span><input type="checkbox" data-codeformer-upscale></label>' +
+              '<p data-codeformer-mode-hint></p>' +
+              '<p>' + escapeHtml(t('遮挡区域没有真实信息，模型重建结果可能与原人物不同。')) + '</p>' +
+            '</div><footer><button type="button" data-codeformer-cancel>' + escapeHtml(t('取消')) + '</button><button type="button" class="primary" data-codeformer-save>' + escapeHtml(t('保存设置')) + '</button></footer>' +
+          '</section>';
+          document.body.appendChild(settingsDialog);
+          const mode = settingsDialog.querySelector('[data-codeformer-mode]');
+          const fidelity = settingsDialog.querySelector('[data-codeformer-fidelity]');
+          const fidelityValue = settingsDialog.querySelector('[data-codeformer-fidelity-value]');
+          const fidelityRow = settingsDialog.querySelector('[data-codeformer-fidelity-row]');
+          const centerRow = settingsDialog.querySelector('[data-codeformer-center-row]');
+          const center = settingsDialog.querySelector('[data-codeformer-center]');
+          const upscale = settingsDialog.querySelector('[data-codeformer-upscale]');
+          const hint = settingsDialog.querySelector('[data-codeformer-mode-hint]');
+          mode.value = codeformerSettings.mode;
+          fidelity.value = String(codeformerSettings.fidelity);
+          center.checked = codeformerSettings.onlyCenterFace;
+          upscale.checked = codeformerSettings.upscale;
+          const sync = function () {
+            const aligned = mode.value === 'aligned';
+            centerRow.hidden = aligned;
+            fidelityRow.hidden = aligned;
+            fidelityValue.textContent = fidelity.value + '%';
+            hint.textContent = aligned
+              ? t('使用CodeFormer专用遮挡修复模型，将纯白遮挡区域重建为512×512人脸。')
+              : t('先检测照片中的人脸，修复后回贴到原图，保持原图尺寸。');
+          };
+          mode.addEventListener('change', sync);
+          fidelity.addEventListener('input', sync);
+          sync();
+          const close = function () { settingsDialog.remove(); };
+          settingsDialog.querySelector('[data-codeformer-close]').addEventListener('click', close);
+          settingsDialog.querySelector('[data-codeformer-cancel]').addEventListener('click', close);
+          settingsDialog.addEventListener('click', function (event) { if (event.target === settingsDialog) close(); });
+          settingsDialog.querySelector('[data-codeformer-save]').addEventListener('click', function () {
+            codeformerSettings.mode = mode.value;
+            codeformerSettings.fidelity = Number(fidelity.value) || 0;
+            codeformerSettings.onlyCenterFace = center.checked;
+            codeformerSettings.upscale = upscale.checked;
+            close();
+          });
         };
         const openAiSettings = function () {
           if (document.querySelector('.image-ai-settings-dialog')) return;
@@ -1145,8 +1272,9 @@ function getLocalDirPassword(path) {
               '<label data-image-restormer-row><span>' + escapeHtml(t('去模糊类型')) + '</span><select data-image-restormer-mode><option value="motion">' + escapeHtml(t('运动模糊')) + '</option><option value="defocus">' + escapeHtml(t('失焦模糊')) + '</option></select></label>' +
               '<label data-image-restormer-strength-row><span>' + escapeHtml(t('去模糊强度（保留原貌）')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="100" step="5" data-image-restormer-strength><output data-image-restormer-strength-value></output></span></label>' +
               '<label><span>' + escapeHtml(t('人脸修复')) + '</span><select data-image-face-restoration><option value="none">' + escapeHtml(t('关闭')) + '</option><option value="codeformer">CodeFormer</option></select></label>' +
-              '<label data-image-face-fidelity-row><span>' + escapeHtml(t('人脸保真度（越高越接近原貌）')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="100" step="5" data-image-face-fidelity><output data-image-face-fidelity-value></output></span></label>' +
-              '<label data-image-face-center-row><span>' + escapeHtml(t('仅修复主体人脸（防止局部误识别）')) + '</span><input type="checkbox" data-image-face-only-center checked></label>' +
+              '<label data-image-codeformer-mode-row hidden><span>' + escapeHtml(t('CodeFormer修复模式')) + '</span><select data-image-codeformer-mode><option value="whole">' + escapeHtml(t('普通照片人脸修复')) + '</option><option value="inpaint">' + escapeHtml(t('白色遮挡人脸重建')) + '</option></select></label>' +
+              '<label data-image-face-fidelity-row hidden><span>' + escapeHtml(t('人脸保真度（越高越接近原貌）')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="100" step="5" data-image-face-fidelity><output data-image-face-fidelity-value></output></span></label>' +
+              '<label data-image-face-center-row hidden><span>' + escapeHtml(t('仅修复主体人脸（防止局部误识别）')) + '</span><input type="checkbox" data-image-face-only-center checked></label>' +
               '<label><span>' + escapeHtml(t('AI放大倍数')) + '</span><select data-image-ai-scale><option value="2">2×</option><option value="4">4×</option></select></label>' +
               '<label><span>' + escapeHtml(t('AI前降噪')) + '</span><select data-image-ai-denoise><option value="0">' + escapeHtml(t('关闭')) + '</option><option value="1">' + escapeHtml(t('轻度')) + '</option><option value="2">' + escapeHtml(t('中度')) + '</option></select></label>' +
               '<label><span>' + escapeHtml(t('轻微去模糊/预锐化')) + '</span><span class="video-screenshot-ai-range"><input type="range" min="0" max="50" step="5" data-image-ai-sharpen><output data-image-ai-sharpen-value></output></span></label>' +
@@ -1166,6 +1294,8 @@ function getLocalDirPassword(path) {
           const restormerStrength = settingsDialog.querySelector('[data-image-restormer-strength]');
           const restormerStrengthValue = settingsDialog.querySelector('[data-image-restormer-strength-value]');
           const faceRestoration = settingsDialog.querySelector('[data-image-face-restoration]');
+          const codeformerModeRow = settingsDialog.querySelector('[data-image-codeformer-mode-row]');
+          const codeformerMode = settingsDialog.querySelector('[data-image-codeformer-mode]');
           const faceFidelityRow = settingsDialog.querySelector('[data-image-face-fidelity-row]');
           const faceFidelity = settingsDialog.querySelector('[data-image-face-fidelity]');
           const faceFidelityValue = settingsDialog.querySelector('[data-image-face-fidelity-value]');
@@ -1182,6 +1312,7 @@ function getLocalDirPassword(path) {
           restormerMode.value = aiSettings.restormerMode;
           restormerStrength.value = String(aiSettings.restormerStrength);
           faceRestoration.value = aiSettings.faceRestoration;
+          codeformerMode.value = aiSettings.codeformerMode;
           faceFidelity.value = String(aiSettings.faceFidelity);
           faceOnlyCenter.checked = aiSettings.faceOnlyCenter;
           denoise.value = String(aiSettings.denoise);
@@ -1200,8 +1331,11 @@ function getLocalDirPassword(path) {
           restormerStrengthRow.hidden = select.value !== 'deblur_ai';
           const syncRestormerStrength = function () { restormerStrengthValue.textContent = restormerStrength.value + '%'; };
           const syncFaceRestoration = function () {
-            faceFidelityRow.hidden = faceRestoration.value !== 'codeformer';
-            faceCenterRow.hidden = faceRestoration.value !== 'codeformer';
+            const codeformer = faceRestoration.value === 'codeformer';
+            const inpaint = codeformerMode.value === 'inpaint';
+            codeformerModeRow.hidden = !codeformer;
+            faceFidelityRow.hidden = !codeformer || inpaint;
+            faceCenterRow.hidden = !codeformer || inpaint;
             faceFidelityValue.textContent = faceFidelity.value + '%';
           };
           const syncSharpen = function () { sharpenValue.textContent = sharpen.value + '%'; };
@@ -1209,6 +1343,7 @@ function getLocalDirPassword(path) {
           sharpen.addEventListener('input', syncSharpen);
           restormerStrength.addEventListener('input', syncRestormerStrength);
           faceRestoration.addEventListener('change', syncFaceRestoration);
+          codeformerMode.addEventListener('change', syncFaceRestoration);
           faceFidelity.addEventListener('input', syncFaceRestoration);
           syncModel();
           syncRestormerStrength();
@@ -1224,6 +1359,7 @@ function getLocalDirPassword(path) {
             aiSettings.restormerMode = restormerMode.value;
             aiSettings.restormerStrength = Number(restormerStrength.value) || 0;
             aiSettings.faceRestoration = faceRestoration.value;
+            aiSettings.codeformerMode = codeformerMode.value;
             aiSettings.faceFidelity = Number(faceFidelity.value) || 0;
             aiSettings.faceOnlyCenter = faceOnlyCenter.checked;
             aiSettings.denoise = Number(denoise.value) || 0;
@@ -1236,10 +1372,23 @@ function getLocalDirPassword(path) {
         };
         select.addEventListener('change', function () {
           const ai = select.value === 'ai' || select.value === 'deblur_ai';
-          settingsButton.hidden = !ai;
+          const redEye = select.value === 'red_eye';
+          const brightness = select.value === 'brightness';
+          const codeformer = select.value === 'codeformer';
+          settingsButton.hidden = !ai && !redEye && !brightness && !codeformer;
           if (ai) openAiSettings();
+          else if (redEye) openRedEyeSettings();
+          else if (brightness) openBrightnessSettings();
+          else if (codeformer) openCodeformerSettings();
         });
-        settingsButton.addEventListener('click', openAiSettings);
+        settingsButton.addEventListener('click', function () {
+          if (select.value === 'red_eye') openRedEyeSettings();
+          else if (select.value === 'brightness') openBrightnessSettings();
+          else if (select.value === 'codeformer') openCodeformerSettings();
+          else openAiSettings();
+        });
+        settingsButton.hidden = select.value !== 'ai' && select.value !== 'deblur_ai'
+          && select.value !== 'red_eye' && select.value !== 'brightness' && select.value !== 'codeformer';
         const setProgress = function (percent, text, state) {
           const value = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
           status.hidden = false;
@@ -1248,11 +1397,12 @@ function getLocalDirPassword(path) {
           message.textContent = value + '% · ' + String(text || '');
         };
         button.addEventListener('click', async function () {
-          const method = select.value === 'deblur_ai' ? 'deblur_ai' : (select.value === 'ai' ? 'ai' : 'sharpen');
+          const method = select.value;
           button.disabled = true;
           select.disabled = true;
-          setProgress(0, method === 'deblur_ai' ? t('正在启动去模糊并超分')
-            : (method === 'ai' ? t('正在启动AI超分辨率') : t('正在启动图片锐化')), 'running');
+          setProgress(0, method === 'codeformer' ? t('正在启动CodeFormer人脸重建') : (method === 'brightness' ? t('正在启动亮度调整')
+            : (method === 'red_eye' ? t('正在启动自动去红眼') : (method === 'deblur_ai' ? t('正在启动去模糊并超分')
+            : (method === 'ai' ? t('正在启动AI超分辨率') : t('正在启动图片锐化'))))), 'running');
           try {
             let startUrl = (local ? api.localDiskImageEnhance : api.imageEnhance)
               + '?' + (local ? 'path=' : 'file=') + encodeURIComponent(path)
@@ -1266,12 +1416,23 @@ function getLocalDirPassword(path) {
                 + '&ai_tile=' + encodeURIComponent(String(aiSettings.tile))
                 + '&ai_overlap=' + encodeURIComponent(aiSettings.overlap)
                 + '&face_restoration=' + encodeURIComponent(aiSettings.faceRestoration)
+                + '&codeformer_aligned=' + encodeURIComponent(aiSettings.codeformerMode === 'inpaint' ? '1' : '0')
                 + '&face_fidelity=' + encodeURIComponent(String(aiSettings.faceFidelity))
                 + '&face_only_center=' + encodeURIComponent(aiSettings.faceOnlyCenter ? '1' : '0');
               if (method === 'deblur_ai') {
                 startUrl += '&restormer_mode=' + encodeURIComponent(aiSettings.restormerMode)
                   + '&restormer_strength=' + encodeURIComponent(String(aiSettings.restormerStrength));
               }
+            } else if (method === 'red_eye') {
+              startUrl += '&red_eye_strength=' + encodeURIComponent(String(redEyeSettings.strength))
+                + '&red_eye_only_center=' + encodeURIComponent(redEyeSettings.onlyCenterFace ? '1' : '0');
+            } else if (method === 'brightness') {
+              startUrl += '&brightness=' + encodeURIComponent(String(brightnessSettings.amount));
+            } else if (method === 'codeformer') {
+              startUrl += '&codeformer_aligned=' + encodeURIComponent(codeformerSettings.mode === 'aligned' ? '1' : '0')
+                + '&face_fidelity=' + encodeURIComponent(String(codeformerSettings.fidelity))
+                + '&face_only_center=' + encodeURIComponent(codeformerSettings.onlyCenterFace ? '1' : '0')
+                + '&codeformer_upscale=' + encodeURIComponent(codeformerSettings.upscale ? '1' : '0');
             }
             if (local) {
               startUrl = appendLocalDirPassword(appendFilePassword(startUrl, path, true), localDiskParentPath(path));
@@ -1313,7 +1474,7 @@ function getLocalDirPassword(path) {
         });
       }
 
-      function openImageEnhanceDialog(path, local) {
+      function openImageEnhanceDialog(path, local, initialMethod) {
         const filePath = String(path || '');
         if (!filePath) return;
         const oldDialog = document.getElementById('image-enhance-dialog');
@@ -1325,16 +1486,19 @@ function getLocalDirPassword(path) {
           '<div class="tag-dialog-backdrop" data-image-enhance-close></div>' +
           '<div class="tag-dialog-card image-enhance-card" role="dialog" aria-modal="true" aria-labelledby="image-enhance-title">' +
             '<div class="tag-dialog-head image-enhance-head">' +
-              '<div><h2 id="image-enhance-title">' + escapeHtml(t('提升图片清晰度')) + '</h2><p>' + escapeHtml(filePath) + '</p></div>' +
+              '<div><h2 id="image-enhance-title">' + escapeHtml(t('图片编辑')) + '</h2><p>' + escapeHtml(filePath) + '</p></div>' +
               '<button type="button" class="image-enhance-close" data-image-enhance-close aria-label="' + escapeHtml(t('关闭')) + '">×</button>' +
             '</div>' +
             '<div class="image-enhance-options">' +
               '<label class="file-summary-enhance-control">' +
                 '<span>' + escapeHtml(t('处理方式')) + '</span>' +
                 '<select data-file-summary-enhance aria-label="' + escapeHtml(t('处理方式')) + '">' +
+                  '<option value="brightness">' + escapeHtml(t('亮度调整')) + '</option>' +
+                  '<option value="codeformer">' + escapeHtml(t('CodeFormer人脸重建')) + '</option>' +
                   '<option value="sharpen">' + escapeHtml(t('锐化')) + '</option>' +
                   '<option value="ai">' + escapeHtml(t('AI超分辨率')) + '</option>' +
                   '<option value="deblur_ai">' + escapeHtml(t('去模糊后AI超分')) + '</option>' +
+                  '<option value="red_eye">' + escapeHtml(t('自动去红眼')) + '</option>' +
                 '</select>' +
                 '<button type="button" class="file-summary-ai-settings" data-file-summary-ai-settings hidden>' + escapeHtml(t('详细设置')) + '</button>' +
                 '<button type="button" data-file-summary-enhance-convert>' + escapeHtml(t('转换')) + '</button>' +
@@ -1348,7 +1512,7 @@ function getLocalDirPassword(path) {
             '<div class="tag-dialog-actions"><button type="button" class="tag-dialog-btn secondary" data-image-enhance-close>' + escapeHtml(t('关闭')) + '</button></div>' +
           '</div>';
         document.body.appendChild(dialog);
-        bindFileSummaryEnhance(dialog, filePath, !!local);
+        bindFileSummaryEnhance(dialog, filePath, !!local, initialMethod);
         dialog.querySelectorAll('[data-image-enhance-close]').forEach(function (node) {
           node.addEventListener('click', function () { dialog.remove(); });
         });

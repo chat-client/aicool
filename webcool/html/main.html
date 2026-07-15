@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>文件管理控制台</title>
   <link rel="icon" href="/webcool/html/icon/favicon.ico" type="image/vnd.microsoft.icon">
-  <link rel="stylesheet" href="/webcool/html/main.css?v=codeformer-main-face-20260715-25">
+  <link rel="stylesheet" href="/webcool/html/main.css?v=local-disk-path-jump-20260715-32">
   <style>
     html.auth-booting .shell,
     html.auth-booting .auth-gate {
@@ -224,7 +224,11 @@
 
       <section class="panel section" id="panel-local-disk">
         <h1>本地磁盘</h1>
-        <div id="local-disk-context" class="file-view-context">当前路径：/</div>
+        <form id="local-disk-path-form" class="file-view-context local-disk-path-context" autocomplete="off">
+          <label for="local-disk-path-input" data-i18n="当前路径">当前路径</label>
+          <input id="local-disk-path-input" type="text" value="/" aria-label="当前路径" spellcheck="false">
+          <button id="local-disk-path-go-btn" type="submit" data-i18n="转到">转到</button>
+        </form>
         <div class="local-disk-toolbar">
           <button id="local-disk-home-btn" class="folder-action-btn icon-only" type="button" title="当前用户目录" aria-label="当前用户目录">⌂</button>
           <button id="local-disk-root-btn" class="folder-action-btn" type="button">根目录</button>
@@ -621,6 +625,6 @@
     </div>
   </div>
 
-  <script src="/webcool/html/main.js?v=codeformer-main-face-20260715-25"></script>
+  <script src="/webcool/html/main.js?v=local-disk-path-jump-20260715-32"></script>
 </body>
 </html>

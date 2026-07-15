@@ -112,7 +112,9 @@ function isRecycleFolderPath(path) {
         const list = activeLocalDiskItems.slice().sort(compareLocalDiskItems);
         updateLocalDiskSortIndicator();
         if (localDiskContext) {
-          localDiskContext.textContent = '当前路径：' + activeLocalDiskPath;
+          if (localDiskPathInput && document.activeElement !== localDiskPathInput) {
+            localDiskPathInput.value = activeLocalDiskPath || '/';
+          }
         }
 
         if (localDiskViewMode === 'split') {

@@ -724,6 +724,44 @@
         });
       }
 
+      if (localDiskPathForm && localDiskPathInput) {
+        localDiskPathForm.addEventListener('submit', async function (event) {
+          event.preventDefault();
+          let target = String(localDiskPathInput.value || '').trim();
+          if ((target.charAt(0) === '"' && target.charAt(target.length - 1) === '"')
+            || (target.charAt(0) === "'" && target.charAt(target.length - 1) === "'")) {
+            target = target.slice(1, -1);
+          }
+          if (/^file:\/\//i.test(target)) {
+            try { target = decodeURIComponent(target.replace(/^file:\/\//i, '')); } catch (_) {
+              target = target.replace(/^file:\/\//i, '');
+            }
+          }
+          if (!target) {
+            localDiskPathInput.value = activeLocalDiskPath || '/';
+            return;
+          }
+          localDiskPathInput.disabled = true;
+          if (localDiskPathGoBtn) localDiskPathGoBtn.disabled = true;
+          const loaded = await loadLocalDisk(target, {
+            resetTreeRoot: true,
+            fallbackToParentOnLocked: false,
+            preserveOnError: true
+          });
+          localDiskPathInput.disabled = false;
+          if (localDiskPathGoBtn) localDiskPathGoBtn.disabled = false;
+          localDiskPathInput.value = activeLocalDiskPath || target;
+          if (!loaded) localDiskPathInput.select();
+        });
+        localDiskPathInput.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            localDiskPathInput.value = activeLocalDiskPath || '/';
+            localDiskPathInput.blur();
+          }
+        });
+      }
+
       if (localDiskExplorer) {
         try {
           const savedDirWidth = Number(window.localStorage.getItem('webcool.localDiskDirWidth') || '0');
@@ -2730,7 +2768,7 @@
             } else {
               showFileSummaryDialog(path);
             }
-          } else if (action === 'image-enhance') {
+          } else if (action === 'image-edit') {
             openImageEnhanceDialog(path, local);
           } else if (action === 'download') {
             downloadRemoteListFile(path, local);

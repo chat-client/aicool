@@ -235,6 +235,15 @@ copy_realesrgan_runtime() {
   local source_root="${TOOLS_ROOT}/${platform}"
   local executable="${source_root}/realesrgan-ncnn-vulkan"
   local models="${source_root}/realesrgan-models"
+  if [ "$platform" = "mac" ]; then
+    local red_eye_executable="${source_root}/red-eye-correct"
+    if [ -x "$red_eye_executable" ]; then
+      cp -a "$red_eye_executable" "${install_root}/bin/red-eye-correct"
+      chmod 0755 "${install_root}/bin/red-eye-correct"
+    else
+      log "warning: red-eye correction runtime not found; automatic red-eye removal will be unavailable"
+    fi
+  fi
   if [ ! -x "$executable" ] || [ ! -d "$models" ]; then
     log "warning: Real-ESRGAN runtime not found; AI enhancement will be unavailable"
     return 0

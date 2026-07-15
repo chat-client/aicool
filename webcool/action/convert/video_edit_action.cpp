@@ -452,14 +452,21 @@ struct screenshot_options_t {
 	int scale;
 	int denoise;
 	int sharpen;
+	int brightness;
 	int restoration_strength;
 	int face_fidelity;
 	int face_only_center;
+	int codeformer_aligned;
+	int codeformer_upscale;
+	int red_eye_strength;
+	int red_eye_only_center;
 	int quality;
 	int tile;
 	screenshot_options_t() : mode("original"), model("realesrgan-x4plus"),
 		compute_units("auto"), overlap("balanced"), face_restoration("none"), scale(4), denoise(0),
-		sharpen(35), restoration_strength(35), face_fidelity(90), face_only_center(1), quality(95), tile(0) {}
+		sharpen(35), brightness(20), restoration_strength(35), face_fidelity(90), face_only_center(1),
+		codeformer_aligned(0), codeformer_upscale(0),
+		red_eye_strength(80), red_eye_only_center(0), quality(95), tile(0) {}
 };
 
 struct screenshot_ai_runtime_t {
@@ -481,6 +488,18 @@ std::string first_executable(const std::vector<std::string>& candidates)
 		if (access(candidates[i].c_str(), X_OK) == 0) return candidates[i];
 	}
 	return "";
+}
+
+std::string choose_red_eye_runtime()
+{
+#ifdef __APPLE__
+	const char* env_bin = getenv("AICOOL_RED_EYE_CORRECT");
+	return env_bin && *env_bin ? env_bin : first_executable({
+		"/opt/soft/webcool/bin/red-eye-correct", "tools/mac/red-eye-correct",
+		"../tools/mac/red-eye-correct"});
+#else
+	return "";
+#endif
 }
 
 screenshot_ai_runtime_t choose_screenshot_ai_runtime(const screenshot_options_t& options)
@@ -857,10 +876,10 @@ std::string unique_image_enhance_output(const std::string& source, bool local,
 	const std::string& face_restoration)
 {
 	const std::string stem = replace_ext(source, "");
-	std::string label = method == "deblur_ai"
+	std::string label = method == "codeformer" ? "_codeformer" : (method == "brightness" ? "_brightness" : (method == "red_eye" ? "_red_eye" : (method == "deblur_ai"
 		? ("_deblur_ai_x" + std::to_string(scale))
-		: (method == "ai" ? ("_ai_x" + std::to_string(scale)) : "_sharpen");
-	if (face_restoration == "codeformer") label = "_codeformer" + label;
+		: (method == "ai" ? ("_ai_x" + std::to_string(scale)) : "_sharpen"))));
+	if (method != "codeformer" && face_restoration == "codeformer") label = "_codeformer" + label;
 	for (int i = 1; i < 10000; ++i) {
 		const std::string suffix = i == 1 ? "" : ("_" + std::to_string(i));
 		const std::string candidate = stem + label + suffix + ".png";
@@ -882,7 +901,102 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 		finish_task(task, false, "图片增强启动失败", acl::last_serror(), -1); return;
 	}
 	const std::string staged_output = local_join_path(temporary_directory, "enhanced.png");
-	if (method == "sharpen") {
+	if (method == "codeformer") {
+		const codeformer_runtime_t codeformer = choose_codeformer_runtime();
+		if (codeformer.python.empty() || codeformer.runner.empty() || codeformer.repository.empty()) {
+			cleanup_screenshot_work_directory(temporary_directory);
+			finish_task(task, false, "CodeFormer人脸重建不可用",
+				"CodeFormer runtime is not installed", -1); return;
+		}
+		const std::string restored = local_join_path(temporary_directory, "codeformer.png");
+		const std::string fidelity = decimal_text(options.face_fidelity / 100.0);
+		ACL_ARGV* rebuild = acl_argv_alloc(30);
+		acl_argv_add(rebuild, codeformer.python.c_str(), codeformer.runner.c_str(),
+			"--repo", codeformer.repository.c_str(), "--input", input.c_str(),
+			"--output", restored.c_str(), "--fidelity", fidelity.c_str(),
+			"--detector", "retinaface_resnet50", nullptr);
+		if (options.codeformer_aligned) acl_argv_add(rebuild, "--inpaint", nullptr);
+		else if (options.face_only_center) acl_argv_add(rebuild, "--only-center-face", nullptr);
+		const double codeformer_span = options.codeformer_upscale ? 72 : 93;
+		if (!run_screenshot_stage(task, rebuild, 3, codeformer_span,
+			options.codeformer_aligned ? "CodeFormer正在重建白色遮挡人脸" : "CodeFormer正在检测并修复人脸",
+			3 + codeformer_span, options.codeformer_upscale ? "人脸重建完成，准备AI超分" : "正在保存人脸重建图片")) {
+			cleanup_screenshot_work_directory(temporary_directory);
+			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "CodeFormer人脸重建失败",
+				is_task_cancel_requested(task) ? "cancelled" : "CodeFormer inference failed", -1); return;
+		}
+		if (!options.codeformer_upscale) {
+			if (rename(restored.c_str(), staged_output.c_str()) != 0) {
+				cleanup_screenshot_work_directory(temporary_directory);
+				finish_task(task, false, "CodeFormer人脸重建失败", "CodeFormer output image not found", -1); return;
+			}
+		} else {
+			const std::string frames_in = local_join_path(temporary_directory, "input");
+			const std::string frames_out = local_join_path(temporary_directory, "output");
+			if (mkdir(frames_in.c_str(), 0755) != 0 || mkdir(frames_out.c_str(), 0755) != 0
+				|| rename(restored.c_str(), local_join_path(frames_in, "image.png").c_str()) != 0) {
+				cleanup_screenshot_work_directory(temporary_directory);
+				finish_task(task, false, "CodeFormer后AI超分失败", "cannot prepare super-resolution input", -1); return;
+			}
+			const screenshot_ai_runtime_t runtime = choose_screenshot_ai_runtime(options);
+			if (runtime.executable.empty() || runtime.model_path.empty()) {
+				cleanup_screenshot_work_directory(temporary_directory);
+				finish_task(task, false, "CodeFormer后AI超分失败", "selected Real-ESRGAN runtime or model is not installed", -1); return;
+			}
+			ACL_ARGV* inference = acl_argv_alloc(30);
+			if (runtime.coreml) {
+				acl_argv_add(inference, runtime.executable.c_str(), "--model", runtime.model_path.c_str(),
+					"--input", frames_in.c_str(), "--output", frames_out.c_str(), "--workers", "1",
+					"--compute-units", options.compute_units.c_str(), "--tile-batch", "1",
+					"--overlap", options.overlap.c_str(), "--cleanup-path", temporary_directory.c_str(), nullptr);
+			} else {
+				const std::string scale = std::to_string(options.scale);
+				const std::string tile = std::to_string(options.tile);
+				acl_argv_add(inference, runtime.executable.c_str(), "-i", frames_in.c_str(),
+					"-o", frames_out.c_str(), "-n", options.model.c_str(), "-s", scale.c_str(),
+					"-m", runtime.model_path.c_str(), "-t", tile.c_str(), "-j", "1:2:2",
+					"-f", "png", "-v", nullptr);
+			}
+			if (!run_screenshot_stage(task, inference, 75, 21, "AI正在放大CodeFormer重建结果", 96, "AI超分完成")) {
+				cleanup_screenshot_work_directory(temporary_directory);
+				finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "CodeFormer后AI超分失败",
+					is_task_cancel_requested(task) ? "cancelled" : "Real-ESRGAN inference failed", -1); return;
+			}
+			if (rename(local_join_path(frames_out, "image.png").c_str(), staged_output.c_str()) != 0) {
+				cleanup_screenshot_work_directory(temporary_directory);
+				finish_task(task, false, "CodeFormer后AI超分失败", "AI output image not found", -1); return;
+			}
+		}
+	} else if (method == "brightness") {
+		const std::string amount = decimal_text(options.brightness / 100.0);
+		const std::string filter = "eq=brightness=" + amount;
+		ACL_ARGV* adjust = acl_argv_alloc(24);
+		acl_argv_add(adjust, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
+			"-i", input.c_str(), "-map", "0:v:0", "-frames:v", "1", "-vf", filter.c_str(),
+			"-progress", "pipe:1", "-nostats", staged_output.c_str(), nullptr);
+		if (!run_screenshot_stage(task, adjust, 2, 94, "正在调整图片亮度", 97, "正在保存亮度调整图片")) {
+			cleanup_screenshot_work_directory(temporary_directory);
+			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "图片亮度调整失败",
+				is_task_cancel_requested(task) ? "cancelled" : "ffmpeg image brightness adjustment failed", -1);
+			return;
+		}
+	} else if (method == "red_eye") {
+		const std::string runtime = choose_red_eye_runtime();
+		if (runtime.empty()) {
+			cleanup_screenshot_work_directory(temporary_directory);
+			finish_task(task, false, "自动去红眼不可用", "red-eye correction runtime is not installed", -1); return;
+		}
+		const std::string strength = std::to_string(options.red_eye_strength);
+		ACL_ARGV* correct = acl_argv_alloc(16);
+		acl_argv_add(correct, runtime.c_str(), "--input", input.c_str(), "--output",
+			staged_output.c_str(), "--strength", strength.c_str(), nullptr);
+		if (options.red_eye_only_center) acl_argv_add(correct, "--only-center-face", nullptr);
+		if (!run_screenshot_stage(task, correct, 3, 93, "正在检测并校正红眼", 97, "正在保存去红眼图片")) {
+			cleanup_screenshot_work_directory(temporary_directory);
+			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "自动去红眼失败",
+				is_task_cancel_requested(task) ? "cancelled" : "red-eye correction failed", -1); return;
+		}
+	} else if (method == "sharpen") {
 		const std::string amount = decimal_text(options.sharpen / 50.0);
 		const std::string filter = "unsharp=5:5:" + amount + ":3:3:0";
 		ACL_ARGV* sharpen = acl_argv_alloc(24);
@@ -921,7 +1035,9 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 				is_task_cancel_requested(task) ? "cancelled" : "AI image preprocessing failed", -1); return;
 		}
 		std::string inference_input = frames_in;
-		if (method == "deblur_ai" && options.restoration_strength > 0) {
+		const bool run_restormer = method == "deblur_ai" && options.restoration_strength > 0
+			&& !(options.face_restoration == "codeformer" && options.codeformer_aligned);
+		if (run_restormer) {
 			const std::string restored = local_join_path(temporary_directory, "restored");
 			if (mkdir(restored.c_str(), 0755) != 0) {
 				cleanup_screenshot_work_directory(temporary_directory);
@@ -992,12 +1108,15 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 				"--repo", codeformer.repository.c_str(), "--input", face_input.c_str(),
 				"--output", face_output.c_str(), "--fidelity", fidelity.c_str(),
 				"--detector", "retinaface_resnet50", nullptr);
-			if (options.face_only_center == 1)
+			if (options.codeformer_aligned == 1)
+				acl_argv_add(restore_faces, "--inpaint", nullptr);
+			else if (options.face_only_center == 1)
 				acl_argv_add(restore_faces, "--only-center-face", nullptr);
-			const double face_start = method == "deblur_ai" && options.restoration_strength > 0 ? 54 : 22;
-			const double face_end = method == "deblur_ai" && options.restoration_strength > 0 ? 72 : 52;
+			const double face_start = run_restormer ? 54 : 22;
+			const double face_end = run_restormer ? 72 : 52;
 			if (!run_screenshot_stage(task, restore_faces, face_start, face_end - face_start,
-				"CodeFormer正在检测并修复人脸", face_end, "人脸修复完成，准备AI超分")) {
+				options.codeformer_aligned ? "CodeFormer正在重建白色遮挡人脸" : "CodeFormer正在检测并修复人脸",
+				face_end, "人脸修复完成，准备AI超分")) {
 				cleanup_screenshot_work_directory(temporary_directory);
 				finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "CodeFormer人脸修复失败",
 					is_task_cancel_requested(task) ? "cancelled" : "CodeFormer inference failed", -1); return;
@@ -1024,9 +1143,9 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 				"-m", runtime.model_path.c_str(), "-t", tile.c_str(), "-j", "1:2:2",
 				"-f", "png", "-v", nullptr);
 		}
-		double ai_start = method == "deblur_ai" && options.restoration_strength > 0 ? 54 : 22;
+		double ai_start = run_restormer ? 54 : 22;
 		if (options.face_restoration == "codeformer") ai_start =
-			method == "deblur_ai" && options.restoration_strength > 0 ? 72 : 52;
+			run_restormer ? 72 : 52;
 		const double ai_span = 96 - ai_start;
 		if (!run_screenshot_stage(task, inference, ai_start, ai_span, "AI正在恢复纹理与细节", 96, "AI超分辨率完成")) {
 			cleanup_screenshot_work_directory(temporary_directory);
@@ -1046,9 +1165,12 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 	const long long output_size = file_size_of(output.c_str());
 	cleanup_screenshot_work_directory(temporary_directory);
 	acl::string message;
-	message.format(method == "deblur_ai" ? "去模糊并超分完成：%s"
-		: (method == "ai" ? "AI超分辨率完成：%s" : "图片锐化完成：%s"),
-		task->output_name.c_str());
+	const char* success_message = method == "codeformer" ? "CodeFormer人脸重建完成：%s"
+		: (method == "brightness" ? "亮度调整完成：%s"
+		: (method == "red_eye" ? "去红眼完成：%s"
+		: (method == "deblur_ai" ? "去模糊并超分完成：%s"
+		: (method == "ai" ? "AI超分辨率完成：%s" : "图片锐化完成：%s"))));
+	message.format(success_message, task->output_name.c_str());
 	finish_task(task, true, message.c_str(), "", output_size);
 }
 
@@ -1534,7 +1656,8 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 	const std::string& upload_dir, bool local)
 {
 	const std::string method = req.getParameter("method") ? req.getParameter("method") : "sharpen";
-	if (method != "sharpen" && method != "ai" && method != "deblur_ai") {
+	if (method != "sharpen" && method != "ai" && method != "deblur_ai"
+		&& method != "red_eye" && method != "brightness" && method != "codeformer") {
 		json_error(res, 400, "invalid image enhancement method", req.isKeepAlive()); return true;
 	}
 	std::string source;
@@ -1578,6 +1701,59 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 #endif
 	std::string restormer_mode = req.getParameter("restormer_mode")
 		? req.getParameter("restormer_mode") : "motion";
+	if (method == "codeformer") {
+		options.face_fidelity = static_cast<int>(integer_param(req, "face_fidelity", 50));
+		options.face_only_center = static_cast<int>(integer_param(req, "face_only_center", 1));
+		options.codeformer_aligned = static_cast<int>(integer_param(req, "codeformer_aligned", 1));
+		options.codeformer_upscale = static_cast<int>(integer_param(req, "codeformer_upscale", 0));
+		if (options.face_fidelity < 0 || options.face_fidelity > 100
+			|| (options.face_only_center != 0 && options.face_only_center != 1)
+			|| (options.codeformer_aligned != 0 && options.codeformer_aligned != 1)
+			|| (options.codeformer_upscale != 0 && options.codeformer_upscale != 1)) {
+			json_error(res, 400, "invalid CodeFormer reconstruction options", req.isKeepAlive()); return true;
+		}
+		const codeformer_runtime_t codeformer = choose_codeformer_runtime();
+		if (codeformer.python.empty() || codeformer.runner.empty() || codeformer.repository.empty()) {
+			json_error(res, 503,
+				"CodeFormer运行环境未安装，请执行bash tools/setup_codeformer_runtime.sh或配置AICOOL_CODEFORMER_PYTHON和AICOOL_CODEFORMER_REPO",
+				req.isKeepAlive()); return true;
+		}
+		if (options.codeformer_aligned) {
+			const std::string inpainting_model = local_join_path(
+				local_join_path(local_join_path(codeformer.repository, "weights"), "CodeFormer"),
+				"codeformer_inpainting.pth");
+			if (access(inpainting_model.c_str(), R_OK) != 0) {
+				json_error(res, 503,
+					"CodeFormer遮挡修复模型未安装，请执行python3 tools/download_codeformer_models.py",
+					req.isKeepAlive()); return true;
+			}
+		}
+		if (options.codeformer_upscale) {
+			const screenshot_ai_runtime_t runtime = choose_screenshot_ai_runtime(options);
+			if (runtime.executable.empty() || runtime.model_path.empty()) {
+				json_error(res, 503, "selected Real-ESRGAN runtime or model is not installed",
+					req.isKeepAlive()); return true;
+			}
+		}
+	}
+	if (method == "brightness") {
+		options.brightness = static_cast<int>(integer_param(req, "brightness", 20));
+		if (options.brightness < -100 || options.brightness > 100) {
+			json_error(res, 400, "invalid image brightness", req.isKeepAlive()); return true;
+		}
+	}
+	if (method == "red_eye") {
+		options.red_eye_strength = static_cast<int>(integer_param(req, "red_eye_strength", 80));
+		options.red_eye_only_center = static_cast<int>(integer_param(req, "red_eye_only_center", 0));
+		if (options.red_eye_strength < 0 || options.red_eye_strength > 100
+			|| (options.red_eye_only_center != 0 && options.red_eye_only_center != 1)) {
+			json_error(res, 400, "invalid red-eye correction options", req.isKeepAlive()); return true;
+		}
+		if (choose_red_eye_runtime().empty()) {
+			json_error(res, 503, "自动去红眼仅支持已安装Vision运行组件的macOS服务端",
+				req.isKeepAlive()); return true;
+		}
+	}
 	if (method == "ai" || method == "deblur_ai") {
 		if (req.getParameter("ai_model")) options.model = req.getParameter("ai_model");
 		options.scale = static_cast<int>(integer_param(req, "ai_scale", options.scale));
@@ -1588,6 +1764,7 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 			? req.getParameter("face_restoration") : "none";
 		options.face_fidelity = static_cast<int>(integer_param(req, "face_fidelity", 90));
 		options.face_only_center = static_cast<int>(integer_param(req, "face_only_center", 1));
+		options.codeformer_aligned = static_cast<int>(integer_param(req, "codeformer_aligned", 0));
 		options.tile = static_cast<int>(integer_param(req, "ai_tile", 0));
 		if (req.getParameter("ai_compute_units")) options.compute_units = req.getParameter("ai_compute_units");
 		if (req.getParameter("ai_overlap")) options.overlap = req.getParameter("ai_overlap");
@@ -1608,6 +1785,7 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 			|| (options.face_restoration != "none" && options.face_restoration != "codeformer")
 			|| options.face_fidelity < 0 || options.face_fidelity > 100
 			|| (options.face_only_center != 0 && options.face_only_center != 1)
+			|| (options.codeformer_aligned != 0 && options.codeformer_aligned != 1)
 			|| (options.tile != 0 && options.tile != 128 && options.tile != 256 && options.tile != 512)
 			|| (options.compute_units != "auto" && options.compute_units != "gpu"
 				&& options.compute_units != "ane" && options.compute_units != "cpu")
@@ -1623,7 +1801,8 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 			json_error(res, 503, "selected Real-ESRGAN runtime or model is not installed",
 				req.isKeepAlive()); return true;
 		}
-		if (method == "deblur_ai" && options.restoration_strength > 0) {
+		if (method == "deblur_ai" && options.restoration_strength > 0
+			&& !(options.face_restoration == "codeformer" && options.codeformer_aligned)) {
 			const screenshot_ai_runtime_t restormer = choose_restormer_runtime(restormer_mode);
 			if (restormer.executable.empty() || restormer.model_path.empty()) {
 				json_error(res, 503, "Restormer runtime or selected model is not installed",
@@ -1636,6 +1815,16 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 				json_error(res, 503,
 					"CodeFormer运行环境未安装，请执行bash tools/setup_codeformer_runtime.sh或配置AICOOL_CODEFORMER_PYTHON和AICOOL_CODEFORMER_REPO",
 					req.isKeepAlive()); return true;
+			}
+			if (options.codeformer_aligned) {
+				const std::string inpainting_model = local_join_path(
+					local_join_path(local_join_path(codeformer.repository, "weights"), "CodeFormer"),
+					"codeformer_inpainting.pth");
+				if (access(inpainting_model.c_str(), R_OK) != 0) {
+					json_error(res, 503,
+						"CodeFormer遮挡修复模型未安装，请执行python3 tools/download_codeformer_models.py",
+						req.isKeepAlive()); return true;
+				}
 			}
 		}
 	}
@@ -1667,9 +1856,13 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 	auto task = std::make_shared<transcode_task_t>();
 	task->id = make_task_id(); task->scope = upload_dir; task->file_name = task_file;
 	task->output_name = output_name; task->local = local;
-	task->message = options.face_restoration == "codeformer" ? "等待CodeFormer人脸修复"
+	task->message = method == "codeformer"
+		? (options.codeformer_aligned ? "等待CodeFormer白色遮挡人脸重建" : "等待CodeFormer普通人脸修复")
+		: (method == "brightness" ? "等待调整图片亮度"
+		: (method == "red_eye" ? "等待自动检测并校正红眼"
+		: (options.face_restoration == "codeformer" ? "等待CodeFormer人脸修复"
 		: (method == "deblur_ai" ? "等待Restormer去模糊处理"
-		: (method == "ai" ? "等待AI超分辨率处理" : "等待图片锐化处理"));
+		: (method == "ai" ? "等待AI超分辨率处理" : "等待图片锐化处理")))));
 	{
 		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 		g_transcode_tasks[task->id] = task;

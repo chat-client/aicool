@@ -237,6 +237,7 @@ function folderNameFromPath(path) {
               '<button class="preview-edit-btn" type="button" data-image-edit="zoom-in" title="等比例放大" aria-label="等比例放大">＋</button>' +
               '<button class="preview-edit-btn" type="button" data-image-edit="zoom-out" title="等比例缩小" aria-label="等比例缩小">－</button>' +
               '<button class="preview-edit-btn preview-image-enhance-btn" type="button" data-image-edit="enhance" title="' + escapeHtml(t('提升图片清晰度')) + '" aria-label="' + escapeHtml(t('提升图片清晰度')) + '">✨ ' + escapeHtml(t('提升清晰度')) + '</button>' +
+              '<button class="preview-edit-btn preview-image-enhance-btn" type="button" data-image-edit="red-eye" title="' + escapeHtml(t('自动检测并校正照片红眼')) + '" aria-label="' + escapeHtml(t('去红眼')) + '">👁 ' + escapeHtml(t('去红眼')) + '</button>' +
               '<span class="preview-image-size" title="当前图像尺寸">' +
                 '<input class="preview-size-input" data-image-size="width" type="number" min="1" step="1" aria-label="图片宽度">' +
                 '<span>x</span>' +

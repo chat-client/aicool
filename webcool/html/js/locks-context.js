@@ -828,7 +828,7 @@ function loadUnlockedFilePasswords() {
           if (!isMultiList) {
             html += '<button type="button" class="folder-context-item" data-file-menu-action="summary">' + t('摘要') + '</button>';
             if (isImage && !opts.recycleMode) {
-              html += '<button type="button" class="folder-context-item" data-file-menu-action="image-enhance">' + t('提升清晰度') + '</button>';
+              html += '<button type="button" class="folder-context-item" data-file-menu-action="image-edit">' + t('编辑') + '</button>';
             }
             html += '<button type="button" class="folder-context-item" data-file-menu-action="download">' + t('下载') + '</button>';
           }
