@@ -1369,6 +1369,45 @@
       border-color: #c9ddf0;
     }
 
+    .file-preview-menu {
+      position: relative;
+    }
+
+    .file-preview-menu-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .file-preview-submenu {
+      position: absolute;
+      left: calc(100% - 2px);
+      top: -6px;
+      z-index: 1510;
+      min-width: 148px;
+      padding: 6px;
+      border: 1px solid #d6e4f2;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.99);
+      box-shadow: 0 14px 28px rgba(31, 52, 79, 0.18);
+      display: grid;
+      gap: 4px;
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-4px);
+      transition: opacity 120ms ease, transform 120ms ease;
+    }
+
+    .file-preview-menu:hover .file-preview-submenu,
+    .file-preview-menu:focus-within .file-preview-submenu {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+    }
+
     .folder-tree-children {
       display: grid;
       gap: 4px;
@@ -3880,6 +3919,59 @@
       align-items: center;
       gap: 8px;
       flex-shrink: 0;
+    }
+
+    .preview-image-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 8px 10px 0;
+      overflow-x: auto;
+      background: #f8fbff;
+      border-bottom: 1px solid #e6edf6;
+    }
+
+    .preview-image-tab-wrap {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      max-width: 240px;
+      border: 1px solid #d7e3f2;
+      border-radius: 9px 9px 0 0;
+      background: #edf5fd;
+      overflow: hidden;
+    }
+
+    .preview-image-tab,
+    .preview-image-tab-close {
+      border: 0;
+      background: transparent;
+      color: #47627d;
+      cursor: pointer;
+      height: 32px;
+    }
+
+    .preview-image-tab {
+      max-width: 190px;
+      padding: 0 8px 0 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 700;
+    }
+
+    .preview-image-tab.active {
+      background: #fff;
+      color: #1769aa;
+    }
+
+    .preview-image-tab-close {
+      width: 30px;
+      font-size: 16px;
+    }
+
+    .preview-image-tab-close:hover {
+      background: #dcecff;
+      color: #b42318;
     }
 
     .preview-window-btn,

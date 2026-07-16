@@ -56,7 +56,7 @@
   window.addEventListener('resize', scheduleAdaptiveUiScale);
   window.addEventListener('orientationchange', scheduleAdaptiveUiScale);
 
-  const assetVersion = 'local-disk-path-jump-20260715-32';
+  const assetVersion = 'image-context-preview-modes-20260716-33';
   const modules = [
     '/webcool/html/js/core-state.js',
     '/webcool/html/js/locks-context.js',

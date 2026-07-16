@@ -90,13 +90,26 @@ function folderNameFromPath(path) {
         if (existed && existed.isConnected) {
           bringToFront(existed);
           if (kind === 'image' && Array.isArray(opts.gallery) && opts.gallery.length) {
-            updateImagePreviewWindow(existed, opts.gallery, Number(opts.galleryIndex || 0));
+            if (opts.previewMode === 'tabs') {
+              const merged = Array.isArray(existed.__imageGallery) ? existed.__imageGallery.slice() : [];
+              const incoming = opts.gallery[Number(opts.galleryIndex || 0)] || opts.gallery[0];
+              let incomingIndex = merged.findIndex(function (item) {
+                return String(item.file || '') === String(incoming.file || '') && !!item.local === !!incoming.local;
+              });
+              if (incomingIndex < 0) {
+                merged.push(incoming);
+                incomingIndex = merged.length - 1;
+              }
+              updateImagePreviewWindow(existed, merged, incomingIndex);
+            } else {
+              updateImagePreviewWindow(existed, opts.gallery, Number(opts.galleryIndex || 0));
+            }
           }
           const video = existed.querySelector('video');
           if (video) {
             video.play().catch(function () {});
           }
-          return;
+          return existed;
         }
 
         const rawFileForUrl = decodeURIComponent(String(file || ''));
@@ -128,6 +141,11 @@ function folderNameFromPath(path) {
         const win = document.createElement('div');
         win.className = 'floating-preview';
         win.classList.add('preview-kind-' + kind);
+        win.__previewMode = String(opts.previewMode || '');
+        win.__previewKey = previewKey;
+        if (win.__previewMode === 'tabs') {
+          win.classList.add('preview-image-tabbed');
+        }
         previewZ += 1;
         win.style.zIndex = String(previewZ);
 
@@ -259,6 +277,9 @@ function folderNameFromPath(path) {
             + '</div>';
         }
 
+        const imageTabsHtml = kind === 'image' && opts.previewMode === 'tabs'
+          ? '<div class="preview-image-tabs" role="tablist" aria-label="' + escapeHtml(t('图片预览标签')) + '"></div>'
+          : '';
         win.innerHTML =
           '<div class="preview-head">' +
             '<div class="preview-title">' + titleText + escapedTitle + '</div>' +
@@ -267,7 +288,7 @@ function folderNameFromPath(path) {
               '<button class="preview-window-btn" type="button" data-preview-window-action="maximize" title="' + escapeHtml(t('最大化')) + '" aria-label="' + escapeHtml(t('最大化')) + '">□</button>' +
               '<button class="preview-close" type="button" title="' + escapeHtml(t('关闭')) + '" aria-label="' + escapeHtml(t('关闭')) + '">×</button>' +
             '</div>' +
-          '</div>' +
+          '</div>' + imageTabsHtml +
           '<div class="' + bodyClass + '">' + mediaHtml + '</div>';
 
         previewLayer.appendChild(win);
@@ -663,6 +684,7 @@ function folderNameFromPath(path) {
           bringToFront(win);
           togglePreviewWindowMaximize(win);
         });
+        return win;
       }
 
       function handleLocalDiskClickEvent(e) {

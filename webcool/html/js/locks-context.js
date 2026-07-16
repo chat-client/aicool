@@ -378,6 +378,47 @@ function loadUnlockedFilePasswords() {
         openPreview('image', encodeURIComponent(rawPath), displayName || current.name || rawPath, opts);
       }
 
+      function openImageContextPreview(filePath, local, mode) {
+        const rawPath = String(filePath || '');
+        if (!rawPath || !isImageName(rawPath)) {
+          return;
+        }
+        const previewMode = mode === 'cascade' || mode === 'tabs' ? mode : 'single';
+        const displayName = rawPath.split(/[\\/]/).pop() || rawPath;
+        const item = { file: rawPath, name: displayName, local: !!local };
+        let previewKey = 'image-preview:single';
+        if (previewMode === 'cascade') {
+          imageCascadePreviewSequence += 1;
+          previewKey = 'image-preview:cascade:' + imageCascadePreviewSequence;
+        } else if (previewMode === 'tabs') {
+          previewKey = 'image-preview:tabs';
+        }
+        const opts = {
+          local: !!local,
+          previewMode: previewMode,
+          previewKey: previewKey,
+          gallery: [item],
+          galleryIndex: 0
+        };
+        if (local) {
+          opts.url = localDiskDownloadUrl(rawPath);
+        }
+        openPreview('image', encodeURIComponent(rawPath), displayName, opts);
+      }
+
+      function imagePreviewContextMenuHtml() {
+        return '<div class="file-preview-menu">' +
+          '<button type="button" class="folder-context-item file-preview-menu-trigger" aria-haspopup="menu">' +
+            t('预览') + '<span aria-hidden="true">›</span>' +
+          '</button>' +
+          '<div class="file-preview-submenu" role="menu">' +
+            '<button type="button" class="folder-context-item" data-file-menu-action="preview-single">' + t('单一窗口') + '</button>' +
+            '<button type="button" class="folder-context-item" data-file-menu-action="preview-cascade">' + t('层叠窗口') + '</button>' +
+            '<button type="button" class="folder-context-item" data-file-menu-action="preview-tabs">' + t('多标签窗口') + '</button>' +
+          '</div>' +
+        '</div>';
+      }
+
       function clearLocalDiskSelection() {
         selectedLocalDiskPaths.clear();
         updateLocalDiskBulkRemoveButton();
@@ -826,6 +867,9 @@ function loadUnlockedFilePasswords() {
         let html = '';
         if (opts.remoteList || opts.localDiskList) {
           if (!isMultiList) {
+            if (isImage && !opts.recycleMode) {
+              html += imagePreviewContextMenuHtml();
+            }
             html += '<button type="button" class="folder-context-item" data-file-menu-action="summary">' + t('摘要') + '</button>';
             if (isImage && !opts.recycleMode) {
               html += '<button type="button" class="folder-context-item" data-file-menu-action="image-edit">' + t('编辑') + '</button>';
@@ -865,6 +909,11 @@ function loadUnlockedFilePasswords() {
         menu.style.left = Math.round(clientX) + 'px';
         menu.style.top = Math.round(clientY) + 'px';
         clampFloatingMenuPosition(menu, clientX, clientY);
+        const previewSubmenu = menu.querySelector('.file-preview-submenu');
+        if (previewSubmenu && menu.getBoundingClientRect().right + 160 > window.innerWidth) {
+          previewSubmenu.style.left = 'auto';
+          previewSubmenu.style.right = 'calc(100% - 2px)';
+        }
         activeFileContextMenu = menu;
       }
 

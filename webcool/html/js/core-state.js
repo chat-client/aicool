@@ -761,6 +761,8 @@ function selectRenameInputText(input) {
 
       var openedPreviewWindows = new Map();
 
+      var imageCascadePreviewSequence = 0;
+
       var transcodeProgressTimers = new Map();
 
       var videoResumeSaveTimers = new Map();

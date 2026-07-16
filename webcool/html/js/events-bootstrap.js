@@ -2762,7 +2762,9 @@
           const local = menu.getAttribute('data-file-local') === '1';
           const localDiskListMenu = menu.getAttribute('data-local-disk-list') === '1';
           closeFileContextMenu();
-          if (action === 'summary') {
+          if (action === 'preview-single' || action === 'preview-cascade' || action === 'preview-tabs') {
+            openImageContextPreview(path, local, action.replace('preview-', ''));
+          } else if (action === 'summary') {
             if (localDiskListMenu) {
               showLocalDiskFileSummaryDialog(path);
             } else {

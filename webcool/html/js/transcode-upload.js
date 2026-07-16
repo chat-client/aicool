@@ -2239,6 +2239,39 @@ function deleteUnlockedFolderPassword(path) {
           nextBtn.disabled = nextIndex >= gallery.length - 1;
           nextBtn.hidden = gallery.length <= 1;
         }
+        renderImagePreviewTabs(win);
+      }
+
+      function renderImagePreviewTabs(win) {
+        const tabs = win ? win.querySelector('.preview-image-tabs') : null;
+        if (!tabs || !Array.isArray(win.__imageGallery)) {
+          return;
+        }
+        const activeIndex = Number(win.__imageIndex || 0);
+        tabs.innerHTML = win.__imageGallery.map(function (item, index) {
+          const name = String(item.name || item.file || t('图片'));
+          return '<div class="preview-image-tab-wrap">' +
+            '<button type="button" class="preview-image-tab' + (index === activeIndex ? ' active' : '') + '" role="tab" aria-selected="' + (index === activeIndex ? 'true' : 'false') + '" data-preview-tab-index="' + index + '" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</button>' +
+            '<button type="button" class="preview-image-tab-close" data-preview-tab-close="' + index + '" title="' + escapeHtml(t('关闭')) + '" aria-label="' + escapeHtml(t('关闭')) + '">×</button>' +
+          '</div>';
+        }).join('');
+        tabs.querySelectorAll('[data-preview-tab-index]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            updateImagePreviewWindow(win, win.__imageGallery, Number(button.getAttribute('data-preview-tab-index') || 0));
+          });
+        });
+        tabs.querySelectorAll('[data-preview-tab-close]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            const closeIndex = Number(button.getAttribute('data-preview-tab-close') || 0);
+            const nextGallery = win.__imageGallery.filter(function (_, index) { return index !== closeIndex; });
+            if (!nextGallery.length) {
+              closePreviewWindow(win, win.__previewKey || '');
+              return;
+            }
+            const nextIndex = closeIndex < activeIndex ? activeIndex - 1 : Math.min(activeIndex, nextGallery.length - 1);
+            updateImagePreviewWindow(win, nextGallery, nextIndex);
+          });
+        });
       }
 
       function getVisibleLocalDiskPathSet() {
