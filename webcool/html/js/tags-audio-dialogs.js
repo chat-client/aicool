@@ -457,6 +457,7 @@ function getLocalDirPassword(path) {
         const opts = options || {};
         win.__imageDirty = false;
         win.__imageCropMode = false;
+        win.__imageCropOperation = '';
         win.__imageCropRect = null;
         win.__imageBaseCanvas = null;
         win.__imageScale = 1;
@@ -848,9 +849,20 @@ function getLocalDirPassword(path) {
           } else if (type === 'red-eye') {
             openImageEnhanceDialog(win.__imageEnhancePath, !!win.__imageEnhanceLocal, 'red_eye');
           } else if (type === 'crop') {
+            win.__imageCropOperation = 'crop';
+            setPreviewCropMode(win, true);
+          } else if (type === 'watermark') {
+            win.__imageCropOperation = 'watermark';
+            win.__imageCropRect = null;
+            cropRect.hidden = true;
+            cropRect.removeAttribute('style');
             setPreviewCropMode(win, true);
           } else if (type === 'apply-crop') {
-            applyPreviewImageCrop(win);
+            if (win.__imageCropOperation === 'watermark') {
+              removePreviewImageWatermark(win);
+            } else {
+              applyPreviewImageCrop(win);
+            }
           } else if (type === 'cancel-crop') {
             cancelPreviewImageCrop(win);
           } else if (type === 'download') {
@@ -869,6 +881,76 @@ function getLocalDirPassword(path) {
             applyPreviewImageManualSize(win);
           }
         });
+      }
+
+      async function removePreviewImageWatermark(win) {
+        if (!win || win.__imageWatermarkBusy) return;
+        const rect = win.__imageCropRect;
+        const img = win.querySelector('.preview-image');
+        const path = String(win.__imageEnhancePath || '');
+        const local = !!win.__imageEnhanceLocal;
+        if (!rect || !img || !img.naturalWidth || !path) {
+          setImageEditHint(win, t('请先在图片上拖拽框选水印区域。'), true);
+          return;
+        }
+        if (img.naturalWidth < 4 || img.naturalHeight < 4) {
+          setImageEditHint(win, t('图片尺寸太小，无法去水印。'), true);
+          return;
+        }
+        const x = Math.max(0, Math.min(img.naturalWidth - 4, Math.floor(rect.x)));
+        const y = Math.max(0, Math.min(img.naturalHeight - 4, Math.floor(rect.y)));
+        const width = Math.min(img.naturalWidth - x, Math.max(4, Math.round(rect.width)));
+        const height = Math.min(img.naturalHeight - y, Math.max(4, Math.round(rect.height)));
+        if (width < 4 || height < 4) {
+          setImageEditHint(win, t('水印框选区域太小，请重新框选。'), true);
+          return;
+        }
+
+        win.__imageWatermarkBusy = true;
+        setImageEditHint(win, t('正在启动去水印处理…'));
+        try {
+          let startUrl = (local ? api.localDiskImageEnhance : api.imageEnhance)
+            + '?' + (local ? 'path=' : 'file=') + encodeURIComponent(path)
+            + '&method=watermark'
+            + '&watermark_x=' + encodeURIComponent(String(x))
+            + '&watermark_y=' + encodeURIComponent(String(y))
+            + '&watermark_width=' + encodeURIComponent(String(width))
+            + '&watermark_height=' + encodeURIComponent(String(height));
+          if (local) {
+            startUrl = appendLocalDirPassword(appendFilePassword(startUrl, path, true), localDiskParentPath(path));
+          } else {
+            startUrl = appendFilePassword(withFolderPassword(startUrl, parentFolderPathFromFilePath(path)), path, false);
+          }
+          const started = await fetchJson(startUrl, { method: 'POST' });
+          const taskId = String(started.task_id || '');
+          if (!taskId) throw new Error(t('无法启动图片转换'));
+          const progressBase = local ? api.localDiskImageEnhanceProgress : api.imageEnhanceProgress;
+          const poll = async function () {
+            let progressUrl = progressBase + '?task_id=' + encodeURIComponent(taskId);
+            if (local) progressUrl = appendLocalDirPassword(progressUrl, localDiskParentPath(path));
+            const task = await fetchJson(progressUrl);
+            if (win.isConnected) {
+              setImageEditHint(win, Math.max(0, Math.min(100, Math.round(Number(task.progress) || 0)))
+                + '% · ' + String(task.message || t('正在去水印')));
+            }
+            if (!task.done) {
+              await new Promise(function (resolve) { window.setTimeout(resolve, 700); });
+              return poll();
+            }
+            if (!task.success) throw new Error(task.error || task.message || t('图片去水印失败'));
+            if (win.isConnected) {
+              cancelPreviewImageCrop(win);
+              setImageEditHint(win, t('去水印完成，已生成新图片：') + String(task.name || started.name || ''));
+            }
+            if (local) await loadLocalDisk(activeLocalDiskPath || localDiskParentPath(path) || '');
+            else await loadFiles();
+          };
+          await poll();
+        } catch (err) {
+          if (win.isConnected) setImageEditHint(win, t('图片去水印失败：') + (err && err.message ? err.message : err), true);
+        } finally {
+          win.__imageWatermarkBusy = false;
+        }
       }
 
       function syncPreviewWindowButtons(win) {

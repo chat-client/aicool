@@ -249,6 +249,7 @@ function isRecycleFolderPath(path) {
           return;
         }
         win.__imageCropRect = null;
+        win.__imageCropOperation = '';
         const cropRect = win.querySelector('.preview-crop-rect');
         if (cropRect) {
           cropRect.hidden = true;

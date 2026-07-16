@@ -250,8 +250,9 @@ function folderNameFromPath(path) {
                 '</svg>' +
               '</button>' +
               '<button class="preview-edit-btn" type="button" data-image-edit="crop" title="剪切" aria-label="剪切">✂</button>' +
-              '<button class="preview-edit-btn" type="button" data-image-edit="apply-crop" title="应用剪切" aria-label="应用剪切">✓</button>' +
-              '<button class="preview-edit-btn" type="button" data-image-edit="cancel-crop" title="取消剪切" aria-label="取消剪切">×</button>' +
+              '<button class="preview-edit-btn preview-image-enhance-btn" type="button" data-image-edit="watermark" title="' + escapeHtml(t('框选水印区域并去除')) + '" aria-label="' + escapeHtml(t('去水印')) + '">🩹 ' + escapeHtml(t('去水印')) + '</button>' +
+              '<button class="preview-edit-btn" type="button" data-image-edit="apply-crop" title="' + escapeHtml(t('应用')) + '" aria-label="' + escapeHtml(t('应用')) + '">✓</button>' +
+              '<button class="preview-edit-btn" type="button" data-image-edit="cancel-crop" title="' + escapeHtml(t('取消')) + '" aria-label="' + escapeHtml(t('取消')) + '">×</button>' +
               '<button class="preview-edit-btn" type="button" data-image-edit="zoom-in" title="等比例放大" aria-label="等比例放大">＋</button>' +
               '<button class="preview-edit-btn" type="button" data-image-edit="zoom-out" title="等比例缩小" aria-label="等比例缩小">－</button>' +
               '<button class="preview-edit-btn preview-image-enhance-btn" type="button" data-image-edit="enhance" title="' + escapeHtml(t('提升图片清晰度')) + '" aria-label="' + escapeHtml(t('提升图片清晰度')) + '">✨ ' + escapeHtml(t('提升清晰度')) + '</button>' +

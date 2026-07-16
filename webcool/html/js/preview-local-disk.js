@@ -1354,7 +1354,10 @@ function saveUnlockedFolderPasswords() {
           cropRect.hidden = true;
           cropRect.removeAttribute('style');
         }
-        setImageEditHint(win, enabled ? '在图片上拖拽选择剪切区域，然后点击“应用剪切”。' : '');
+        const watermarkMode = enabled && win.__imageCropOperation === 'watermark';
+        setImageEditHint(win, enabled
+          ? (watermarkMode ? t('在图片上拖拽框选水印区域，然后点击“应用”。') : t('在图片上拖拽选择剪切区域，然后点击“应用”。'))
+          : '');
       }
 
       async function toggleLocalDiskTreePath(path) {

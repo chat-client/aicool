@@ -461,13 +461,18 @@ struct screenshot_options_t {
 	int codeformer_upscale;
 	int red_eye_strength;
 	int red_eye_only_center;
+	int watermark_x;
+	int watermark_y;
+	int watermark_width;
+	int watermark_height;
 	int quality;
 	int tile;
 	screenshot_options_t() : mode("original"), model("realesrgan-x4plus"),
 		compute_units("auto"), overlap("balanced"), face_restoration("none"), scale(4), denoise(0),
 		sharpen(35), brightness(20), restoration_strength(35), face_fidelity(90), face_only_center(1),
 		codeformer_aligned(0), codeformer_upscale(0),
-		red_eye_strength(80), red_eye_only_center(0), quality(95), tile(0) {}
+		red_eye_strength(80), red_eye_only_center(0), watermark_x(0), watermark_y(0),
+		watermark_width(0), watermark_height(0), quality(95), tile(0) {}
 };
 
 struct screenshot_ai_runtime_t {
@@ -912,9 +917,9 @@ std::string unique_image_enhance_output(const std::string& source, bool local,
 	const std::string& face_restoration)
 {
 	const std::string stem = replace_ext(source, "");
-	std::string label = method == "codeformer" ? "_codeformer" : (method == "brightness" ? "_brightness" : (method == "red_eye" ? "_red_eye" : (method == "deblur_ai"
+	std::string label = method == "codeformer" ? "_codeformer" : (method == "watermark" ? "_watermark_removed" : (method == "brightness" ? "_brightness" : (method == "red_eye" ? "_red_eye" : (method == "deblur_ai"
 		? ("_deblur_ai_x" + std::to_string(scale))
-		: (method == "ai" ? ("_ai_x" + std::to_string(scale)) : "_sharpen"))));
+		: (method == "ai" ? ("_ai_x" + std::to_string(scale)) : "_sharpen")))));
 	if (method != "codeformer" && face_restoration == "codeformer") label = "_codeformer" + label;
 	for (int i = 1; i < 10000; ++i) {
 		const std::string suffix = i == 1 ? "" : ("_" + std::to_string(i));
@@ -1002,6 +1007,21 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 				cleanup_screenshot_work_directory(temporary_directory);
 				finish_task(task, false, "CodeFormer后AI超分失败", "AI output image not found", -1); return;
 			}
+		}
+	} else if (method == "watermark") {
+		const std::string filter = "delogo=x=" + std::to_string(options.watermark_x)
+			+ ":y=" + std::to_string(options.watermark_y)
+			+ ":w=" + std::to_string(options.watermark_width)
+			+ ":h=" + std::to_string(options.watermark_height) + ":show=0";
+		ACL_ARGV* repair = acl_argv_alloc(24);
+		acl_argv_add(repair, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
+			"-i", input.c_str(), "-map", "0:v:0", "-frames:v", "1", "-vf", filter.c_str(),
+			"-progress", "pipe:1", "-nostats", staged_output.c_str(), nullptr);
+		if (!run_screenshot_stage(task, repair, 2, 94, "正在修复水印区域", 97, "正在保存去水印图片")) {
+			cleanup_screenshot_work_directory(temporary_directory);
+			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "图片去水印失败",
+				is_task_cancel_requested(task) ? "cancelled" : "ffmpeg delogo failed", -1);
+			return;
 		}
 	} else if (method == "brightness") {
 		const std::string amount = decimal_text(options.brightness / 100.0);
@@ -1202,10 +1222,11 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 	cleanup_screenshot_work_directory(temporary_directory);
 	acl::string message;
 	const char* success_message = method == "codeformer" ? "CodeFormer人脸重建完成：%s"
+		: (method == "watermark" ? "图片去水印完成：%s"
 		: (method == "brightness" ? "亮度调整完成：%s"
 		: (method == "red_eye" ? "去红眼完成：%s"
 		: (method == "deblur_ai" ? "去模糊并超分完成：%s"
-		: (method == "ai" ? "AI超分辨率完成：%s" : "图片锐化完成：%s"))));
+		: (method == "ai" ? "AI超分辨率完成：%s" : "图片锐化完成：%s")))));
 	message.format(success_message, task->output_name.c_str());
 	finish_task(task, true, message.c_str(), "", output_size);
 }
@@ -1693,7 +1714,8 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 {
 	const std::string method = req.getParameter("method") ? req.getParameter("method") : "sharpen";
 	if (method != "sharpen" && method != "ai" && method != "deblur_ai"
-		&& method != "red_eye" && method != "brightness" && method != "codeformer") {
+		&& method != "red_eye" && method != "brightness" && method != "codeformer"
+		&& method != "watermark") {
 		json_error(res, 400, "invalid image enhancement method", req.isKeepAlive()); return true;
 	}
 	std::string source;
@@ -1777,6 +1799,21 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 		if (options.brightness < -100 || options.brightness > 100) {
 			json_error(res, 400, "invalid image brightness", req.isKeepAlive()); return true;
 		}
+	}
+	if (method == "watermark") {
+		const long long x = integer_param(req, "watermark_x", -1);
+		const long long y = integer_param(req, "watermark_y", -1);
+		const long long width = integer_param(req, "watermark_width", 0);
+		const long long height = integer_param(req, "watermark_height", 0);
+		if (x < 0 || y < 0 || width < 4 || height < 4
+			|| x > 1000000 || y > 1000000 || width > 1000000 || height > 1000000
+			|| x + width > 1000000 || y + height > 1000000) {
+			json_error(res, 400, "invalid watermark repair area", req.isKeepAlive()); return true;
+		}
+		options.watermark_x = static_cast<int>(x);
+		options.watermark_y = static_cast<int>(y);
+		options.watermark_width = static_cast<int>(width);
+		options.watermark_height = static_cast<int>(height);
 	}
 	if (method == "red_eye") {
 		options.red_eye_strength = static_cast<int>(integer_param(req, "red_eye_strength", 80));
@@ -1894,11 +1931,12 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 	task->output_name = output_name; task->local = local;
 	task->message = method == "codeformer"
 		? (options.codeformer_aligned ? "等待CodeFormer白色遮挡人脸重建" : "等待CodeFormer普通人脸修复")
+		: (method == "watermark" ? "等待修复水印区域"
 		: (method == "brightness" ? "等待调整图片亮度"
 		: (method == "red_eye" ? "等待自动检测并校正红眼"
 		: (options.face_restoration == "codeformer" ? "等待CodeFormer人脸修复"
 		: (method == "deblur_ai" ? "等待Restormer去模糊处理"
-		: (method == "ai" ? "等待AI超分辨率处理" : "等待图片锐化处理")))));
+		: (method == "ai" ? "等待AI超分辨率处理" : "等待图片锐化处理"))))));
 	{
 		std::lock_guard<webcool::mutex> guard(g_transcode_mutex);
 		g_transcode_tasks[task->id] = task;
