@@ -76,6 +76,8 @@ sudo dpkg -i deb/webcool-ai-models_2.0.0-1_amd64.deb
 
 Windows 打包脚本同样默认生成主包和可选 AI 包各自的 ZIP 与 Setup EXE；详细命令和文件名见 `windows/README.md`。
 
+所有平台共用的大型 AI 模型统一存放在项目根目录 `models/`，`tools/` 只保留平台运行程序、动态库、CodeFormer 源码及 Python 环境。具体目录结构见 `models/README.md`。
+
 主包会把运行内容放到 `/opt/soft/webcool`，并仅安装一个启动入口到 `/usr/local/bin/webcool`。
 
 其中：

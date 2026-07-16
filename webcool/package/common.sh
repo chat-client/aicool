@@ -8,6 +8,7 @@ PROJECT_ROOT="$(cd "${WEBCOOL_ROOT}/.." && pwd)"
 ACL_ROOT="${PROJECT_ROOT}/third-party/acl"
 SQLITE_ROOT="${PROJECT_ROOT}/third-party/sqlite"
 TOOLS_ROOT="${PROJECT_ROOT}/tools"
+MODELS_ROOT="${PROJECT_ROOT}/models"
 
 # Unix 安装根目录（deb/rpm/mac pkg 共用）
 INSTALL_PREFIX="/opt/soft/webcool"
@@ -238,7 +239,7 @@ copy_realesrgan_runtime() {
   esac
   local source_root="${TOOLS_ROOT}/${platform}"
   local executable="${source_root}/realesrgan-ncnn-vulkan"
-  local models="${source_root}/realesrgan-models"
+  local models="${MODELS_ROOT}/realesrgan/ncnn"
   if [ "$platform" = "mac" ]; then
     local red_eye_executable="${source_root}/red-eye-correct"
     if [ -x "$red_eye_executable" ]; then
@@ -260,21 +261,17 @@ copy_realesrgan_runtime() {
 
   if [ "$platform" = "mac" ]; then
     local coreml_executable="${source_root}/coreml-realesrgan"
-    local coreml_model="${source_root}/realesrgan512.mlmodelc"
-    local coreml_models="${source_root}/coreml-models"
-    if [ -x "$coreml_executable" ] && [ -d "$coreml_model" ]; then
+    local coreml_models="${MODELS_ROOT}/realesrgan/coreml"
+    if [ -x "$coreml_executable" ] && [ -d "$coreml_models" ]; then
       cp -a "$coreml_executable" "${install_root}/bin/coreml-realesrgan"
       chmod 0755 "${install_root}/bin/coreml-realesrgan"
       mkdir -p "${install_root}/models/coreml"
-      cp -a "$coreml_model" "${install_root}/models/coreml/realesrgan512.mlmodelc"
-      if [ -d "$coreml_models" ]; then
-        cp -a "${coreml_models}/." "${install_root}/models/coreml/"
-      fi
+      cp -a "${coreml_models}/." "${install_root}/models/coreml/"
     else
       log "warning: Core ML Real-ESRGAN runtime not found; Apple Silicon will use NCNN fallback"
     fi
 
-    local restormer_models="${source_root}/restormer-models"
+    local restormer_models="${MODELS_ROOT}/restormer/coreml"
     if [ -d "$restormer_models" ]; then
       mkdir -p "${install_root}/models/restormer"
       cp -a "${restormer_models}/." "${install_root}/models/restormer/"
@@ -290,24 +287,27 @@ copy_codeformer_assets() {
   local source_root="${TOOLS_ROOT}/codeformer"
   local source="${source_root}/CodeFormer"
   local venv="${source_root}/venv"
+  local weights="${MODELS_ROOT}/codeformer/weights"
   local required
   for required in \
     "${source}/inference_codeformer.py" \
     "${source}/inference_inpainting.py" \
-    "${source}/weights/CodeFormer/codeformer.pth" \
-    "${source}/weights/CodeFormer/codeformer_inpainting.pth" \
-    "${source}/weights/facelib/detection_Resnet50_Final.pth" \
-    "${source}/weights/facelib/parsing_parsenet.pth" \
+    "${weights}/CodeFormer/codeformer.pth" \
+    "${weights}/CodeFormer/codeformer_inpainting.pth" \
+    "${weights}/facelib/detection_Resnet50_Final.pth" \
+    "${weights}/facelib/parsing_parsenet.pth" \
     "${venv}/bin/python3"; do
     if [ ! -e "$required" ]; then
       printf 'incomplete CodeFormer runtime; missing: %s\n' "$required" >&2
-      printf 'run bash tools/setup_codeformer_runtime.sh and python3 tools/download_codeformer_models.py\n' >&2
+      printf 'run bash tools/codeformer/setup_codeformer_runtime.sh and python3 tools/codeformer/download_codeformer_models.py\n' >&2
       exit 1
     fi
   done
 
   mkdir -p "${install_root}/codeformer"
   cp -a "$source" "${install_root}/codeformer/CodeFormer"
+  rm -rf "${install_root}/codeformer/CodeFormer/weights"
+  cp -a "$weights" "${install_root}/codeformer/CodeFormer/weights"
   cp -a "$venv" "${install_root}/codeformer/venv"
 
   local staged_venv="${install_root}/codeformer/venv"
@@ -370,10 +370,10 @@ stage_ai_runtime_assets() {
 
   copy_realesrgan_runtime "$install_root"
   copy_codeformer_assets "$install_root"
-  copy_if_exists "${TOOLS_ROOT}/codeformer_runner.py" "$install_root/libexec/"
-  copy_if_exists "${TOOLS_ROOT}/CODEFORMER.md" "$install_root/"
-  copy_if_exists "${TOOLS_ROOT}/codeformer-constraints.txt" "$install_root/CODEFORMER-CONSTRAINTS.txt"
-  copy_if_exists "${TOOLS_ROOT}/setup_codeformer_runtime.sh" "$install_root/setup-codeformer-runtime.sh"
+  copy_if_exists "${TOOLS_ROOT}/codeformer/codeformer_runner.py" "$install_root/libexec/"
+  copy_if_exists "${TOOLS_ROOT}/codeformer/CODEFORMER.md" "$install_root/"
+  copy_if_exists "${TOOLS_ROOT}/codeformer/codeformer-constraints.txt" "$install_root/CODEFORMER-CONSTRAINTS.txt"
+  copy_if_exists "${TOOLS_ROOT}/codeformer/setup_codeformer_runtime.sh" "$install_root/setup-codeformer-runtime.sh"
 }
 
 stage_ai_runtime_tree() {

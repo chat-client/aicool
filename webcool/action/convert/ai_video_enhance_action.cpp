@@ -38,10 +38,8 @@ coreml_runtime_t choose_coreml_runtime(const std::string& model_name, int target
 	std::vector<std::string> models;
 	for (const auto& candidate : file_names) {
 		models.push_back("/opt/soft/webcool/models/coreml/" + candidate);
-		models.push_back("tools/mac/coreml-models/" + candidate);
-		models.push_back("../tools/mac/coreml-models/" + candidate);
-		models.push_back("tools/mac/" + candidate);
-		models.push_back("../tools/mac/" + candidate);
+		models.push_back("models/realesrgan/coreml/" + candidate);
+		models.push_back("../models/realesrgan/coreml/" + candidate);
 	}
 	runtime.executable = env_bin && *env_bin ? env_bin : "";
 	if (runtime.executable.empty()) {
@@ -75,9 +73,9 @@ std::string choose_realesrgan(std::string& models) {
 	if (bin.empty()) for (const auto& item : bins) if (access(item.c_str(), X_OK) == 0) { bin = item; break; }
 	if (env_models && *env_models) models = env_models;
 	else {
-		std::vector<std::string> dirs = {"/opt/soft/webcool/models/realesrgan", "tools/mac/realesrgan-models", "../tools/mac/realesrgan-models", "tools/linux/realesrgan-models", "../tools/linux/realesrgan-models"};
+		std::vector<std::string> dirs = {"/opt/soft/webcool/models/realesrgan", "models/realesrgan/ncnn", "../models/realesrgan/ncnn"};
 #ifdef _WIN32
-		dirs = {"models\\realesrgan", "tools\\windows\\realesrgan-models", "..\\tools\\windows\\realesrgan-models"};
+		dirs = {"models\\realesrgan", "models\\realesrgan\\ncnn", "..\\models\\realesrgan\\ncnn"};
 #endif
 		for (const auto& dir : dirs) { struct stat st{}; if (stat(dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) { models = dir; break; } }
 	}

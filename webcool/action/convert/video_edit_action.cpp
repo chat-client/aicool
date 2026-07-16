@@ -526,8 +526,8 @@ screenshot_ai_runtime_t choose_screenshot_ai_runtime(const screenshot_options_t&
 		else {
 			const std::vector<std::string> models = {
 				"/opt/soft/webcool/models/coreml/" + file_name,
-				"tools/mac/coreml-models/" + file_name,
-				"../tools/mac/coreml-models/" + file_name
+				"models/realesrgan/coreml/" + file_name,
+				"../models/realesrgan/coreml/" + file_name
 			};
 			for (size_t i = 0; i < models.size(); ++i) {
 				struct stat st{};
@@ -558,14 +558,13 @@ screenshot_ai_runtime_t choose_screenshot_ai_runtime(const screenshot_options_t&
 	else {
 #ifdef _WIN32
 		const std::vector<std::string> models = {
-			"models\\realesrgan", "tools\\windows\\realesrgan-models",
-			"..\\tools\\windows\\realesrgan-models"
+			"models\\realesrgan", "models\\realesrgan\\ncnn",
+			"..\\models\\realesrgan\\ncnn"
 		};
 #else
 		const std::vector<std::string> models = {
-			"/opt/soft/webcool/models/realesrgan", "tools/mac/realesrgan-models",
-			"../tools/mac/realesrgan-models", "tools/linux/realesrgan-models",
-			"../tools/linux/realesrgan-models"
+			"/opt/soft/webcool/models/realesrgan", "models/realesrgan/ncnn",
+			"../models/realesrgan/ncnn"
 		};
 #endif
 		for (size_t i = 0; i < models.size(); ++i) {
@@ -595,8 +594,8 @@ screenshot_ai_runtime_t choose_restormer_runtime(const std::string& restoration)
 			? "restormer-defocus-deblur.mlmodelc" : "restormer-motion-deblur.mlmodelc";
 		const std::vector<std::string> models = {
 			"/opt/soft/webcool/models/restormer/" + name,
-			"tools/mac/restormer-models/" + name,
-			"../tools/mac/restormer-models/" + name
+			"models/restormer/coreml/" + name,
+			"../models/restormer/coreml/" + name
 		};
 		for (size_t i = 0; i < models.size(); ++i) {
 			struct stat st{};
@@ -635,8 +634,8 @@ codeformer_runtime_t choose_codeformer_runtime()
 		candidates.push_back({python, local_join_path(root, "../codeformer_runner.py"), repository});
 		candidates.push_back({python, local_join_path(root, "../libexec/codeformer_runner.py"), repository});
 		candidates.push_back({python, "/opt/soft/webcool/libexec/codeformer_runner.py", repository});
-		candidates.push_back({python, "tools/codeformer_runner.py", repository});
-		candidates.push_back({python, "../tools/codeformer_runner.py", repository});
+		candidates.push_back({python, "tools/codeformer/codeformer_runner.py", repository});
+		candidates.push_back({python, "../tools/codeformer/codeformer_runner.py", repository});
 	}
 	const char* packaged_env = getenv("AICOOL_PACKAGED_RUNTIME");
 	const bool packaged = packaged_env && *packaged_env
@@ -649,9 +648,9 @@ codeformer_runtime_t choose_codeformer_runtime()
 			"/opt/soft/webcool/codeformer/CodeFormer"});
 		if (!packaged) {
 			candidates.push_back({"tools/codeformer/venv/bin/python3",
-				"tools/codeformer_runner.py", "tools/codeformer/CodeFormer"});
+				"tools/codeformer/codeformer_runner.py", "tools/codeformer/CodeFormer"});
 			candidates.push_back({"../tools/codeformer/venv/bin/python3",
-				"../tools/codeformer_runner.py", "../tools/codeformer/CodeFormer"});
+				"../tools/codeformer/codeformer_runner.py", "../tools/codeformer/CodeFormer"});
 		}
 	}
 	for (size_t i = 0; i < candidates.size(); ++i) {
@@ -1780,7 +1779,7 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 		const codeformer_runtime_t codeformer = choose_codeformer_runtime();
 		if (codeformer.python.empty() || codeformer.runner.empty() || codeformer.repository.empty()) {
 			json_error(res, 503,
-				"CodeFormer运行环境未安装，请执行bash tools/setup_codeformer_runtime.sh或配置AICOOL_CODEFORMER_PYTHON和AICOOL_CODEFORMER_REPO",
+				"CodeFormer运行环境未安装，请执行bash tools/codeformer/setup_codeformer_runtime.sh或配置AICOOL_CODEFORMER_PYTHON和AICOOL_CODEFORMER_REPO",
 				req.isKeepAlive()); return true;
 		}
 		if (options.codeformer_aligned) {
@@ -1789,7 +1788,7 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 				"codeformer_inpainting.pth");
 			if (access(inpainting_model.c_str(), R_OK) != 0) {
 				json_error(res, 503,
-					"CodeFormer遮挡修复模型未安装，请执行python3 tools/download_codeformer_models.py",
+					"CodeFormer遮挡修复模型未安装，请执行python3 tools/codeformer/download_codeformer_models.py",
 					req.isKeepAlive()); return true;
 			}
 		}
@@ -1893,7 +1892,7 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 			const codeformer_runtime_t codeformer = choose_codeformer_runtime();
 			if (codeformer.python.empty() || codeformer.runner.empty() || codeformer.repository.empty()) {
 				json_error(res, 503,
-					"CodeFormer运行环境未安装，请执行bash tools/setup_codeformer_runtime.sh或配置AICOOL_CODEFORMER_PYTHON和AICOOL_CODEFORMER_REPO",
+					"CodeFormer运行环境未安装，请执行bash tools/codeformer/setup_codeformer_runtime.sh或配置AICOOL_CODEFORMER_PYTHON和AICOOL_CODEFORMER_REPO",
 					req.isKeepAlive()); return true;
 			}
 			if (options.codeformer_aligned) {
@@ -1902,7 +1901,7 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 					"codeformer_inpainting.pth");
 				if (access(inpainting_model.c_str(), R_OK) != 0) {
 					json_error(res, 503,
-						"CodeFormer遮挡修复模型未安装，请执行python3 tools/download_codeformer_models.py",
+						"CodeFormer遮挡修复模型未安装，请执行python3 tools/codeformer/download_codeformer_models.py",
 						req.isKeepAlive()); return true;
 				}
 			}

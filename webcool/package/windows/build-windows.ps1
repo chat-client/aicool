@@ -552,7 +552,7 @@ if ($buildAiPackage) {
             Copy-Item -LiteralPath $dllPath -Destination (Join-Path $aiRoot $dll) -Force
         }
     }
-    $modelPath = Join-Path $repoRoot "tools\windows\realesrgan-models"
+    $modelPath = Join-Path $repoRoot "models\realesrgan\ncnn"
     if (!(Test-Path -LiteralPath $modelPath)) {
         throw "Real-ESRGAN models not found: $modelPath"
     }
