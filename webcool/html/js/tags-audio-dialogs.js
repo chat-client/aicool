@@ -240,6 +240,12 @@ function getLocalDirPassword(path) {
         return { width: width, height: height };
       }
 
+      function previewImageItemStateKey(win) {
+        if (!win) return '';
+        const path = String(win.__imageEnhancePath || '');
+        return path ? ((win.__imageEnhanceLocal ? 'local:' : 'remote:') + path) : '';
+      }
+
       function previewImageFitScale(win) {
         const shell = win ? win.querySelector('.preview-image-shell') : null;
         const size = previewImageSourceSize(win);
@@ -255,7 +261,47 @@ function getLocalDirPassword(path) {
           : 0;
         const availableWidth = Math.max(1, shell.clientWidth - padX);
         const availableHeight = Math.max(1, shell.clientHeight - padY);
-        return Math.max(0.05, Math.min(1, availableWidth / size.width, availableHeight / size.height));
+        const widthScale = availableWidth / size.width;
+        const heightScale = availableHeight / size.height;
+        const extraTall = size.height >= size.width * 3;
+        if (extraTall) {
+          const itemKey = previewImageItemStateKey(win);
+          if (!win.__imageExtraTallFitWidths) {
+            win.__imageExtraTallFitWidths = Object.create(null);
+          }
+          let rememberedWidth = itemKey ? Number(win.__imageExtraTallFitWidths[itemKey]) : 0;
+          if (!rememberedWidth) {
+            rememberedWidth = Math.min(size.width * 4, availableWidth);
+            if (itemKey) win.__imageExtraTallFitWidths[itemKey] = rememberedWidth;
+          }
+          win.__imageExtraTallFitWidth = rememberedWidth;
+          const stableWidth = Math.min(availableWidth, rememberedWidth);
+          return Math.max(0.05, Math.min(4, stableWidth / size.width));
+        }
+        return Math.max(0.05, Math.min(1, widthScale, heightScale));
+      }
+
+      function previewImageMinimumScale(win) {
+        const shell = win ? win.querySelector('.preview-image-shell') : null;
+        const size = previewImageSourceSize(win);
+        if (!shell || !size.width || !size.height) return 0.05;
+        const style = window.getComputedStyle ? window.getComputedStyle(shell) : null;
+        const padX = style ? (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0) : 0;
+        const padY = style ? (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0) : 0;
+        return Math.max(0.05, Math.min(1,
+          Math.max(1, shell.clientWidth - padX) / size.width,
+          Math.max(1, shell.clientHeight - padY) / size.height));
+      }
+
+      function updatePreviewImagePanState(win) {
+        const shell = win ? win.querySelector('.preview-image-shell') : null;
+        if (!shell) return;
+        const canPan = !win.__imageCropMode
+          && (shell.scrollWidth > shell.clientWidth + 1 || shell.scrollHeight > shell.clientHeight + 1);
+        const canPanHorizontal = !win.__imageCropMode && shell.scrollWidth > shell.clientWidth + 1;
+        shell.classList.toggle('can-pan', canPan);
+        shell.classList.toggle('can-pan-horizontal', canPanHorizontal);
+        if (!canPan) shell.classList.remove('is-panning');
       }
 
       function setPreviewImageDisplayScale(win, scale, message) {
@@ -264,13 +310,21 @@ function getLocalDirPassword(path) {
         if (!img || !size.width || !size.height) {
           return;
         }
-        const safeScale = Math.max(0.05, Math.min(1, Number(scale) || 1));
+        const safeScale = Math.max(0.05, Math.min(4, Number(scale) || 1));
         const displayWidth = Math.max(1, Math.round(size.width * safeScale));
         const displayHeight = Math.max(1, Math.round(size.height * safeScale));
         win.__imageDisplayScale = safeScale;
         img.style.width = displayWidth + 'px';
         img.style.height = displayHeight + 'px';
+        if (win.__imageUserZoom) {
+          const itemKey = previewImageItemStateKey(win);
+          if (itemKey) {
+            if (!win.__imageDisplayScales) win.__imageDisplayScales = Object.create(null);
+            win.__imageDisplayScales[itemKey] = safeScale;
+          }
+        }
         updatePreviewImageSizeLabel(win, displayWidth, displayHeight);
+        window.requestAnimationFrame(function () { updatePreviewImagePanState(win); });
         if (message) {
           setImageEditHint(win, message);
         }
@@ -281,6 +335,7 @@ function getLocalDirPassword(path) {
           return;
         }
         if (win.__imageUserZoom && !force) {
+          window.requestAnimationFrame(function () { updatePreviewImagePanState(win); });
           return;
         }
         const img = win.querySelector('.preview-image');
@@ -288,6 +343,13 @@ function getLocalDirPassword(path) {
           return;
         }
         setPreviewImageDisplayScale(win, previewImageFitScale(win));
+        if (force) {
+          const shell = win.querySelector('.preview-image-shell');
+          if (shell) {
+            shell.scrollLeft = 0;
+            shell.scrollTop = 0;
+          }
+        }
       }
 
       function localDiskPathContains(base, path) {
@@ -458,6 +520,7 @@ function getLocalDirPassword(path) {
         win.__imageDirty = false;
         win.__imageCropMode = false;
         win.__imageCropOperation = '';
+        win.__imageExtraTallFitWidth = 0;
         win.__imageCropRect = null;
         win.__imageBaseCanvas = null;
         win.__imageScale = 1;
@@ -476,6 +539,9 @@ function getLocalDirPassword(path) {
         }
         if (shell) {
           shell.classList.remove('crop-mode');
+          shell.classList.remove('can-pan');
+          shell.classList.remove('can-pan-horizontal');
+          shell.classList.remove('is-panning');
         }
         if (cropRect) {
           cropRect.hidden = true;
@@ -779,6 +845,7 @@ function getLocalDirPassword(path) {
         }
 
         let drag = null;
+        let pan = null;
         function clampPoint(e) {
           const rect = img.getBoundingClientRect();
           const x = Math.max(rect.left, Math.min(rect.right, e.clientX));
@@ -792,8 +859,8 @@ function getLocalDirPassword(path) {
           const width = Math.abs(a.x - b.x);
           const height = Math.abs(a.y - b.y);
           cropRect.hidden = false;
-          cropRect.style.left = (left - shellRect.left) + 'px';
-          cropRect.style.top = (top - shellRect.top) + 'px';
+          cropRect.style.left = (left - shellRect.left + shell.scrollLeft) + 'px';
+          cropRect.style.top = (top - shellRect.top + shell.scrollTop) + 'px';
           cropRect.style.width = width + 'px';
           cropRect.style.height = height + 'px';
           win.__imageCropRect = {
@@ -805,7 +872,19 @@ function getLocalDirPassword(path) {
         }
 
         shell.addEventListener('mousedown', function (e) {
-          if (!win.__imageCropMode || !img.complete || !img.naturalWidth) {
+          if (e.button !== 0 || !img.complete || !img.naturalWidth) {
+            return;
+          }
+          if (!win.__imageCropMode) {
+            if (!shell.classList.contains('can-pan') || e.target.closest('button')) return;
+            e.preventDefault();
+            pan = {
+              x: e.clientX,
+              y: e.clientY,
+              left: shell.scrollLeft,
+              top: shell.scrollTop
+            };
+            shell.classList.add('is-panning');
             return;
           }
           e.preventDefault();
@@ -814,6 +893,12 @@ function getLocalDirPassword(path) {
           drawRect(start, start);
         });
         window.addEventListener('mousemove', function (e) {
+          if (pan) {
+            e.preventDefault();
+            shell.scrollLeft = pan.left - (e.clientX - pan.x);
+            shell.scrollTop = pan.top - (e.clientY - pan.y);
+            return;
+          }
           if (!drag) {
             return;
           }
@@ -821,6 +906,12 @@ function getLocalDirPassword(path) {
           drawRect(drag.start, clampPoint(e));
         });
         window.addEventListener('mouseup', function (e) {
+          if (pan) {
+            e.preventDefault();
+            pan = null;
+            shell.classList.remove('is-panning');
+            return;
+          }
           if (!drag) {
             return;
           }
@@ -828,6 +919,14 @@ function getLocalDirPassword(path) {
           drawRect(drag.start, clampPoint(e));
           drag = null;
         });
+        img.addEventListener('dragstart', function (e) { e.preventDefault(); });
+        if (typeof window.ResizeObserver === 'function') {
+          if (win.__imagePanResizeObserver) win.__imagePanResizeObserver.disconnect();
+          win.__imagePanResizeObserver = new window.ResizeObserver(function () {
+            updatePreviewImagePanState(win);
+          });
+          win.__imagePanResizeObserver.observe(shell);
+        }
 
         win.addEventListener('click', function (e) {
           const action = e.target.closest('[data-image-edit]');

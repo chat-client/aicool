@@ -658,9 +658,11 @@ function loadUnlockedFilePasswords() {
           setImageEditHint(win, '图片还没有加载完成，请稍后再试。', true);
           return;
         }
-        const minScale = previewImageFitScale(win);
-        const currentScale = Math.max(minScale, Math.min(1, Number(win.__imageDisplayScale || minScale || 1)));
-        const nextScale = Math.max(minScale, Math.min(1, currentScale * Number(factor || 1)));
+        const fitScale = previewImageFitScale(win);
+        const minScale = previewImageMinimumScale(win);
+        const maxScale = Math.max(1, fitScale);
+        const currentScale = Math.max(minScale, Math.min(maxScale, Number(win.__imageDisplayScale || fitScale || 1)));
+        const nextScale = Math.max(minScale, Math.min(maxScale, currentScale * Number(factor || 1)));
         const nextWidth = Math.max(1, Math.round(base.width * nextScale));
         const nextHeight = Math.max(1, Math.round(base.height * nextScale));
         win.__imageUserZoom = true;

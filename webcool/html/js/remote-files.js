@@ -270,10 +270,12 @@ function folderNameFromPath(path) {
               '<button class="preview-edit-btn primary" type="button" data-image-edit="save" title="保存到服务" aria-label="保存到服务">💾</button>' +
               '<div class="preview-edit-hint" aria-live="polite"></div>' +
             '</div>' +
-            '<div class="preview-image-shell">'
-            + '<button class="preview-nav-btn preview-nav-prev" type="button" data-preview-nav="prev" aria-label="上一张"' + (showNav ? '' : ' hidden') + '>‹</button>'
-            + '<img class="preview-image" alt="图片预览" src="' + url + '">'
+            '<div class="preview-image-stage">'
+            + '<div class="preview-image-shell">'
+            + '<img class="preview-image" draggable="false" alt="图片预览" src="' + url + '">'
             + '<div class="preview-crop-rect" hidden></div>'
+            + '</div>'
+            + '<button class="preview-nav-btn preview-nav-prev" type="button" data-preview-nav="prev" aria-label="上一张"' + (showNav ? '' : ' hidden') + '>‹</button>'
             + '<button class="preview-nav-btn preview-nav-next" type="button" data-preview-nav="next" aria-label="下一张"' + (showNav ? '' : ' hidden') + '>›</button>'
             + '</div>';
         }

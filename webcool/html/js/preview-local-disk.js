@@ -1349,6 +1349,7 @@ function saveUnlockedFolderPasswords() {
         const cropRect = win.querySelector('.preview-crop-rect');
         if (shell) {
           shell.classList.toggle('crop-mode', !!enabled);
+          shell.classList.remove('is-panning');
         }
         if (cropRect && !enabled && !win.__imageCropRect) {
           cropRect.hidden = true;
@@ -1358,6 +1359,7 @@ function saveUnlockedFolderPasswords() {
         setImageEditHint(win, enabled
           ? (watermarkMode ? t('在图片上拖拽框选水印区域，然后点击“应用”。') : t('在图片上拖拽选择剪切区域，然后点击“应用”。'))
           : '');
+        window.requestAnimationFrame(function () { updatePreviewImagePanState(win); });
       }
 
       async function toggleLocalDiskTreePath(path) {

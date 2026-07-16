@@ -4051,9 +4051,14 @@
 
     .preview-body-image {
       display: flex;
+      flex: 1 1 auto;
       flex-direction: column;
       min-height: 0;
       overflow: hidden;
+    }
+
+    .floating-preview.preview-kind-image:not(.is-minimized) {
+      height: 90vh;
     }
 
     .floating-preview.is-maximized .preview-body-image {
@@ -4227,12 +4232,24 @@
       box-shadow: 0 0 0 2px rgba(118, 173, 221, 0.16);
     }
 
+    .preview-image-stage {
+      position: relative;
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
     .preview-image-shell {
       position: relative;
       display: block;
+      flex: 1 1 auto;
       width: 100%;
-      min-height: calc(90vh - 134px);
-      max-height: calc(90vh - 178px);
+      height: 100%;
+      min-height: 0;
+      max-height: none;
       padding: 12px 58px;
       box-sizing: border-box;
       overflow: auto;
@@ -4243,8 +4260,15 @@
       overscroll-behavior: contain;
     }
 
+    .floating-preview.is-maximized .preview-image-stage {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
     .floating-preview.is-maximized .preview-image-shell {
       flex: 1 1 auto;
+      height: 100%;
+      width: 100%;
       min-height: 0;
       max-height: none;
     }
@@ -4253,11 +4277,29 @@
       cursor: crosshair;
     }
 
+    .preview-image-shell.can-pan {
+      cursor: grab;
+      user-select: none;
+    }
+
+    .preview-image-shell.can-pan-horizontal {
+      text-align: left;
+    }
+
+    .preview-image-shell.can-pan.is-panning {
+      cursor: grabbing;
+    }
+
+    .preview-image-shell.crop-mode.can-pan {
+      cursor: crosshair;
+    }
+
     .preview-image {
       max-width: none;
       max-height: none;
       width: auto;
       height: auto;
+      box-sizing: border-box;
       object-fit: contain;
       border-radius: 8px;
       border: 1px solid #deebf7;
@@ -4295,6 +4337,7 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      z-index: 5;
       box-shadow: 0 8px 18px rgba(18, 33, 50, 0.18);
       transition: background 0.15s ease, opacity 0.15s ease;
     }

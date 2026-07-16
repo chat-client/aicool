@@ -262,6 +262,10 @@ function isRecycleFolderPath(path) {
         if (!win) {
           return;
         }
+        if (win.__imagePanResizeObserver) {
+          win.__imagePanResizeObserver.disconnect();
+          win.__imagePanResizeObserver = null;
+        }
         const media = win.querySelector('video, audio');
         if (media) {
           if (typeof win.__saveStreamState === 'function') {
