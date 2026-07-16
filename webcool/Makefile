@@ -62,12 +62,17 @@ ifeq ($(findstring Darwin, $(UNIXNAME)), Darwin)
 	COREML_SWIFT_FLAGS := -swift-version 5 -O -target arm64-apple-macosx13.0 \
 		-framework CoreML -framework CoreImage -framework CoreVideo -framework AVFoundation
 	COREML_BUILD_TARGET := $(COREML_RUNNER)
+	CODEFORMER_SWIFT_SRC := coreml/coreml_codeformer.swift
+	CODEFORMER_RUNNER := ../tools/mac/coreml-codeformer
+	CODEFORMER_SWIFT_FLAGS := -swift-version 5 -O -target arm64-apple-macosx13.0 \
+		-framework CoreML -framework CoreGraphics -framework ImageIO
+	COREML_BUILD_TARGET += $(CODEFORMER_RUNNER)
 	RED_EYE_SWIFT_SRC := coreml/red_eye_correct.swift
 	RED_EYE_RUNNER := ../tools/mac/red-eye-correct
 	RED_EYE_SWIFT_FLAGS := -swift-version 5 -O \
 		-framework Vision -framework CoreImage -framework ImageIO -framework CoreGraphics
 	COREML_BUILD_TARGET += $(RED_EYE_RUNNER)
-	COREML_CLEAN_TARGET := $(COREML_RUNNER) $(RED_EYE_RUNNER)
+	COREML_CLEAN_TARGET := $(COREML_RUNNER) $(CODEFORMER_RUNNER) $(RED_EYE_RUNNER)
 endif
 
 # Linux
@@ -182,6 +187,16 @@ $(COREML_RUNNER): $(COREML_SWIFT_SRC)
 
 coreml-runner: $(COREML_RUNNER)
 
+$(CODEFORMER_RUNNER): $(CODEFORMER_SWIFT_SRC)
+	@mkdir -p $(dir $@)
+	env CLANG_MODULE_CACHE_PATH=/tmp/webcool-clang-module-cache \
+		SWIFT_MODULECACHE_PATH=/tmp/webcool-swift-module-cache \
+		$(SWIFTC) $(CODEFORMER_SWIFT_FLAGS) $< -o $@
+	chmod 0755 $@
+	@echo "构建成功：$(CODEFORMER_RUNNER) (arm64)"
+
+codeformer-runner: $(CODEFORMER_RUNNER)
+
 $(RED_EYE_RUNNER): $(RED_EYE_SWIFT_SRC)
 	@mkdir -p $(dir $@)
 	env CLANG_MODULE_CACHE_PATH=/tmp/webcool-clang-module-cache \
@@ -198,7 +213,7 @@ $(RED_EYE_RUNNER): $(RED_EYE_SWIFT_SRC)
 red-eye-runner: $(RED_EYE_RUNNER)
 endif
 
-.PHONY: all clean rebuild acl_libs mac-universal-acl coreml-runner red-eye-runner
+.PHONY: all clean rebuild acl_libs mac-universal-acl coreml-runner codeformer-runner red-eye-runner
 
 all: $(COREML_BUILD_TARGET) $(PROG)
 

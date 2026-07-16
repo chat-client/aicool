@@ -103,14 +103,22 @@ Install to the current user profile:
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-The main package intentionally contains no AI runtime or model files. The
-current Windows AI package contains the repository's Windows Real-ESRGAN
-runtime, supporting DLLs, and `models/realesrgan/`. Install its Setup EXE after
-the main Setup EXE, or extract its ZIP and run:
+The main package intentionally contains no AI runtime or model files. Before
+building the Windows AI package, prepare the Windows-only CodeFormer venv:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\codeformer\setup_codeformer_runtime.ps1
+python .\tools\codeformer\download_codeformer_models.py
+```
+
+The AI package contains the Windows Real-ESRGAN runtime, supporting DLLs,
+shared models, and a self-contained Windows CodeFormer Python runtime. Install
+its Setup EXE after the main Setup EXE, or extract its ZIP and run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install-ai.ps1
 ```
 
-Windows CodeFormer, Core ML, and Restormer assets are not included because the
-repository currently has no corresponding Windows runtime payload for them.
+Core ML and Restormer assets remain macOS-only because those runtimes use Apple
+Core ML. Windows CodeFormer uses `tools\codeformer\venv\windows`; it never
+packages the macOS or Ubuntu venv.

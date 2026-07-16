@@ -286,7 +286,16 @@ copy_codeformer_assets() {
   local install_root="$1"
   local source_root="${TOOLS_ROOT}/codeformer"
   local source="${source_root}/CodeFormer"
-  local venv="${source_root}/venv"
+  local platform_venv
+  case "$(uname -s)" in
+    Darwin) platform_venv="mac" ;;
+    Linux) platform_venv="linux" ;;
+    *)
+      printf 'CodeFormer packaging is unsupported on this host: %s\n' "$(uname -s)" >&2
+      exit 1
+      ;;
+  esac
+  local venv="${source_root}/venv/${platform_venv}"
   local weights="${MODELS_ROOT}/codeformer/weights"
   local required
   for required in \
@@ -299,7 +308,7 @@ copy_codeformer_assets() {
     "${venv}/bin/python3"; do
     if [ ! -e "$required" ]; then
       printf 'incomplete CodeFormer runtime; missing: %s\n' "$required" >&2
-      printf 'run bash tools/codeformer/setup_codeformer_runtime.sh and python3 tools/codeformer/download_codeformer_models.py\n' >&2
+      printf 'run bash tools/codeformer/setup_codeformer_runtime.sh on this target platform and python3 tools/codeformer/download_codeformer_models.py\n' >&2
       exit 1
     fi
   done
@@ -343,13 +352,16 @@ copy_codeformer_assets() {
   # entry-point shebangs, activation scripts, .pth files and editable-install
   # metadata.  Rewrite those references to the final installation prefix.
   local final_root="${INSTALL_PREFIX}/codeformer"
+  local source_platform_venv="${source_root}/venv/${platform_venv}"
   local text_file
   while IFS= read -r -d '' text_file; do
     if LC_ALL=C grep -Iq . "$text_file" \
       && LC_ALL=C grep -qF "$source_root" "$text_file"; then
       if [ "$(uname -s)" = "Darwin" ]; then
+        sed -i '' "s|${source_platform_venv}|${final_root}/venv|g" "$text_file"
         sed -i '' "s|${source_root}|${final_root}|g" "$text_file"
       else
+        sed -i "s|${source_platform_venv}|${final_root}/venv|g" "$text_file"
         sed -i "s|${source_root}|${final_root}|g" "$text_file"
       fi
     fi
@@ -358,6 +370,24 @@ copy_codeformer_assets() {
     find "$staged_venv/lib" -type f \( -name '*.pth' -o -name '*.egg-link' \) -print0
   )
   return 0
+}
+
+copy_native_codeformer_assets() {
+  local install_root="$1"
+  if [ "$(uname -s)" != "Darwin" ]; then
+    return 0
+  fi
+
+  local executable="${TOOLS_ROOT}/mac/coreml-codeformer"
+  local inpainting_model="${MODELS_ROOT}/codeformer/coreml/codeformer-inpainting.mlmodelc"
+  if [ ! -x "$executable" ] || [ ! -d "$inpainting_model" ]; then
+    log "warning: native Core ML CodeFormer runtime is unavailable; Python fallback will be used"
+    return 0
+  fi
+  cp -a "$executable" "${install_root}/bin/coreml-codeformer"
+  chmod 0755 "${install_root}/bin/coreml-codeformer"
+  mkdir -p "${install_root}/models/codeformer"
+  cp -a "$inpainting_model" "${install_root}/models/codeformer/"
 }
 
 stage_ai_runtime_assets() {
@@ -369,6 +399,7 @@ stage_ai_runtime_assets() {
     "$install_root/models"
 
   copy_realesrgan_runtime "$install_root"
+  copy_native_codeformer_assets "$install_root"
   copy_codeformer_assets "$install_root"
   copy_if_exists "${TOOLS_ROOT}/codeformer/codeformer_runner.py" "$install_root/libexec/"
   copy_if_exists "${TOOLS_ROOT}/codeformer/CODEFORMER.md" "$install_root/"
@@ -394,9 +425,11 @@ verify_macos_ai_payload() {
     "bin/realesrgan-ncnn-vulkan" \
     "bin/coreml-realesrgan" \
     "bin/red-eye-correct" \
+    "bin/coreml-codeformer" \
     "models/realesrgan" \
     "models/coreml" \
     "models/restormer" \
+    "models/codeformer/codeformer-inpainting.mlmodelc" \
     "codeformer/CodeFormer/inference_codeformer.py" \
     "codeformer/CodeFormer/weights/CodeFormer/codeformer.pth" \
     "codeformer/CodeFormer/weights/CodeFormer/codeformer_inpainting.pth" \
@@ -442,7 +475,7 @@ verify_linux_ai_payload() {
   if ! "${install_root}/codeformer/venv/bin/python3" -c \
     'import cv2, torch' >/dev/null 2>&1; then
     log "error: packaged CodeFormer Python runtime cannot import cv2 and torch" >&2
-    log "create tools/codeformer/venv on the target Ubuntu architecture before packaging" >&2
+    log "create tools/codeformer/venv/linux on the target Ubuntu architecture before packaging" >&2
     return 1
   fi
 }
@@ -504,6 +537,14 @@ prune_macos_package_payload() {
   if [ -f "$zip_path" ]; then
     log "removing: html/js/view-heic-browser-extension.zip (dev archive with unsigned binaries)"
     rm -f "$zip_path"
+  fi
+
+  # Remove physical Finder files and removable quarantine/resource-fork xattrs.
+  # macOS may retain protected provenance metadata; pkgbuild represents that as
+  # AppleDouble records which Installer consumes as metadata, not visible files.
+  find "$install_root" \( -name '.DS_Store' -o -name '._*' \) -delete 2>/dev/null || true
+  if command -v xattr >/dev/null 2>&1; then
+    xattr -cr "$install_root"
   fi
 }
 

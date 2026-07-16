@@ -486,6 +486,8 @@ struct codeformer_runtime_t {
 	std::string python;
 	std::string runner;
 	std::string repository;
+	std::string native_runner;
+	std::string native_inpainting_model;
 };
 
 std::string first_executable(const std::vector<std::string>& candidates)
@@ -614,6 +616,28 @@ screenshot_ai_runtime_t choose_restormer_runtime(const std::string& restoration)
 codeformer_runtime_t choose_codeformer_runtime()
 {
 	codeformer_runtime_t runtime;
+#if defined(__APPLE__) && (defined(__arm64__) || defined(__aarch64__))
+	const char* native_runner = getenv("AICOOL_CODEFORMER_COREML");
+	const char* native_inpainting_model = getenv("AICOOL_CODEFORMER_COREML_INPAINTING_MODEL");
+	runtime.native_runner = native_runner && *native_runner ? native_runner : first_executable({
+		"/opt/soft/webcool/bin/coreml-codeformer", "tools/mac/coreml-codeformer",
+		"../tools/mac/coreml-codeformer"});
+	if (native_inpainting_model && *native_inpainting_model) {
+		runtime.native_inpainting_model = native_inpainting_model;
+	} else {
+		const std::vector<std::string> models = {
+			"/opt/soft/webcool/models/codeformer/codeformer-inpainting.mlmodelc",
+			"models/codeformer/coreml/codeformer-inpainting.mlmodelc",
+			"../models/codeformer/coreml/codeformer-inpainting.mlmodelc"
+		};
+		for (size_t i = 0; i < models.size(); ++i) {
+			struct stat st{};
+			if (stat(models[i].c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+				runtime.native_inpainting_model = models[i]; break;
+			}
+		}
+	}
+#endif
 	const char* env_python = getenv("AICOOL_CODEFORMER_PYTHON");
 	const char* env_runner = getenv("AICOOL_CODEFORMER_RUNNER");
 	const char* env_repo = getenv("AICOOL_CODEFORMER_REPO");
@@ -623,33 +647,54 @@ codeformer_runtime_t choose_codeformer_runtime()
 		std::string repository;
 	};
 	std::vector<candidate_t> candidates;
+#ifdef _WIN32
+	const char* source_venv_python = "venv/windows/Scripts/python.exe";
+	const char* installed_venv_python = "venv/python.exe";
+#elif defined(__APPLE__)
+	const char* source_venv_python = "venv/mac/bin/python3";
+	const char* installed_venv_python = "venv/bin/python3";
+#else
+	const char* source_venv_python = "venv/linux/bin/python3";
+	const char* installed_venv_python = "venv/bin/python3";
+#endif
 	if (g_codeformer_dir[0]) {
 		std::string root = g_codeformer_dir;
 		const std::string nested_repo = local_join_path(
 			local_join_path(root, "codeformer"), "CodeFormer");
 		if (access(nested_repo.c_str(), R_OK) == 0) root = local_join_path(root, "codeformer");
-		const std::string python = local_join_path(local_join_path(root, "venv"), "bin/python3");
+		const std::string source_python = local_join_path(root, source_venv_python);
+		const std::string installed_python = local_join_path(root, installed_venv_python);
 		const std::string repository = local_join_path(root, "CodeFormer");
-		candidates.push_back({python, local_join_path(root, "codeformer_runner.py"), repository});
-		candidates.push_back({python, local_join_path(root, "../codeformer_runner.py"), repository});
-		candidates.push_back({python, local_join_path(root, "../libexec/codeformer_runner.py"), repository});
-		candidates.push_back({python, "/opt/soft/webcool/libexec/codeformer_runner.py", repository});
-		candidates.push_back({python, "tools/codeformer/codeformer_runner.py", repository});
-		candidates.push_back({python, "../tools/codeformer/codeformer_runner.py", repository});
+		const std::vector<std::string> pythons = {source_python, installed_python};
+		for (size_t i = 0; i < pythons.size(); ++i) {
+			candidates.push_back({pythons[i], local_join_path(root, "codeformer_runner.py"), repository});
+			candidates.push_back({pythons[i], local_join_path(root, "../codeformer_runner.py"), repository});
+			candidates.push_back({pythons[i], local_join_path(root, "../libexec/codeformer_runner.py"), repository});
+			candidates.push_back({pythons[i], "/opt/soft/webcool/libexec/codeformer_runner.py", repository});
+			candidates.push_back({pythons[i], "tools/codeformer/codeformer_runner.py", repository});
+			candidates.push_back({pythons[i], "../tools/codeformer/codeformer_runner.py", repository});
+		}
 	}
 	const char* packaged_env = getenv("AICOOL_PACKAGED_RUNTIME");
 	const bool packaged = packaged_env && *packaged_env
 		? strcmp(packaged_env, "0") != 0
 		: access("/opt/soft/webcool/sbin/webcool", X_OK) == 0;
 	if (!g_codeformer_dir[0]) {
+#ifdef _WIN32
+		candidates.push_back({"codeformer/venv/python.exe",
+			"libexec/codeformer_runner.py", "codeformer/CodeFormer"});
+		candidates.push_back({"../codeformer/venv/python.exe",
+			"../libexec/codeformer_runner.py", "../codeformer/CodeFormer"});
+#else
 		candidates.push_back({
 			"/opt/soft/webcool/codeformer/venv/bin/python3",
 			"/opt/soft/webcool/libexec/codeformer_runner.py",
 			"/opt/soft/webcool/codeformer/CodeFormer"});
+#endif
 		if (!packaged) {
-			candidates.push_back({"tools/codeformer/venv/bin/python3",
+			candidates.push_back({local_join_path("tools/codeformer", source_venv_python),
 				"tools/codeformer/codeformer_runner.py", "tools/codeformer/CodeFormer"});
-			candidates.push_back({"../tools/codeformer/venv/bin/python3",
+			candidates.push_back({local_join_path("../tools/codeformer", source_venv_python),
 				"../tools/codeformer/codeformer_runner.py", "../tools/codeformer/CodeFormer"});
 		}
 	}
@@ -675,6 +720,18 @@ codeformer_runtime_t choose_codeformer_runtime()
 		}
 	}
 	return runtime;
+}
+
+bool codeformer_python_available(const codeformer_runtime_t& runtime)
+{
+	return !runtime.python.empty() && !runtime.runner.empty()
+		&& !runtime.repository.empty();
+}
+
+bool codeformer_native_inpainting_available(const codeformer_runtime_t& runtime)
+{
+	return !runtime.native_runner.empty()
+		&& !runtime.native_inpainting_model.empty();
 }
 
 void cleanup_screenshot_work_directory(const std::string& path)
@@ -950,7 +1007,9 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 	const std::string staged_output = local_join_path(temporary_directory, "enhanced.png");
 	if (method == "codeformer") {
 		const codeformer_runtime_t codeformer = choose_codeformer_runtime();
-		if (codeformer.python.empty() || codeformer.runner.empty() || codeformer.repository.empty()) {
+		const bool native_inpainting = options.codeformer_aligned
+			&& codeformer_native_inpainting_available(codeformer);
+		if (!native_inpainting && !codeformer_python_available(codeformer)) {
 			cleanup_screenshot_work_directory(temporary_directory);
 			finish_task(task, false, "CodeFormer人脸重建不可用",
 				"CodeFormer runtime is not installed", -1); return;
@@ -958,12 +1017,19 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 		const std::string restored = local_join_path(temporary_directory, "codeformer.png");
 		const std::string fidelity = decimal_text(options.face_fidelity / 100.0);
 		ACL_ARGV* rebuild = acl_argv_alloc(30);
-		acl_argv_add(rebuild, codeformer.python.c_str(), codeformer.runner.c_str(),
-			"--repo", codeformer.repository.c_str(), "--input", input.c_str(),
-			"--output", restored.c_str(), "--fidelity", fidelity.c_str(),
-			"--detector", "retinaface_resnet50", nullptr);
-		if (options.codeformer_aligned) acl_argv_add(rebuild, "--inpaint", nullptr);
-		else if (options.face_only_center) acl_argv_add(rebuild, "--only-center-face", nullptr);
+		if (native_inpainting) {
+			acl_argv_add(rebuild, codeformer.native_runner.c_str(),
+				"--model", codeformer.native_inpainting_model.c_str(),
+				"--input", input.c_str(), "--output", restored.c_str(),
+				"--fidelity", "1", "--inpaint", nullptr);
+		} else {
+			acl_argv_add(rebuild, codeformer.python.c_str(), codeformer.runner.c_str(),
+				"--repo", codeformer.repository.c_str(), "--input", input.c_str(),
+				"--output", restored.c_str(), "--fidelity", fidelity.c_str(),
+				"--detector", "retinaface_resnet50", nullptr);
+			if (options.codeformer_aligned) acl_argv_add(rebuild, "--inpaint", nullptr);
+			else if (options.face_only_center) acl_argv_add(rebuild, "--only-center-face", nullptr);
+		}
 		const double codeformer_span = options.codeformer_upscale ? 72 : 93;
 		if (!run_screenshot_stage(task, rebuild, 3, codeformer_span,
 			options.codeformer_aligned ? "CodeFormer正在重建白色遮挡人脸" : "CodeFormer正在检测并修复人脸",
@@ -1152,7 +1218,9 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 		}
 		if (options.face_restoration == "codeformer") {
 			const codeformer_runtime_t codeformer = choose_codeformer_runtime();
-			if (codeformer.python.empty() || codeformer.runner.empty() || codeformer.repository.empty()) {
+			const bool native_inpainting = options.codeformer_aligned == 1
+				&& codeformer_native_inpainting_available(codeformer);
+			if (!native_inpainting && !codeformer_python_available(codeformer)) {
 				cleanup_screenshot_work_directory(temporary_directory);
 				finish_task(task, false, "CodeFormer人脸修复不可用",
 					"set AICOOL_CODEFORMER_PYTHON and AICOOL_CODEFORMER_REPO", -1); return;
@@ -1166,14 +1234,21 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 			const std::string face_output = local_join_path(face_frames, "image.png");
 			const std::string fidelity = decimal_text(options.face_fidelity / 100.0);
 			ACL_ARGV* restore_faces = acl_argv_alloc(30);
-			acl_argv_add(restore_faces, codeformer.python.c_str(), codeformer.runner.c_str(),
-				"--repo", codeformer.repository.c_str(), "--input", face_input.c_str(),
-				"--output", face_output.c_str(), "--fidelity", fidelity.c_str(),
-				"--detector", "retinaface_resnet50", nullptr);
-			if (options.codeformer_aligned == 1)
-				acl_argv_add(restore_faces, "--inpaint", nullptr);
-			else if (options.face_only_center == 1)
-				acl_argv_add(restore_faces, "--only-center-face", nullptr);
+			if (native_inpainting) {
+				acl_argv_add(restore_faces, codeformer.native_runner.c_str(),
+					"--model", codeformer.native_inpainting_model.c_str(),
+					"--input", face_input.c_str(), "--output", face_output.c_str(),
+					"--fidelity", "1", "--inpaint", nullptr);
+			} else {
+				acl_argv_add(restore_faces, codeformer.python.c_str(), codeformer.runner.c_str(),
+					"--repo", codeformer.repository.c_str(), "--input", face_input.c_str(),
+					"--output", face_output.c_str(), "--fidelity", fidelity.c_str(),
+					"--detector", "retinaface_resnet50", nullptr);
+				if (options.codeformer_aligned == 1)
+					acl_argv_add(restore_faces, "--inpaint", nullptr);
+				else if (options.face_only_center == 1)
+					acl_argv_add(restore_faces, "--only-center-face", nullptr);
+			}
 			const double face_start = run_restormer ? 54 : 22;
 			const double face_end = run_restormer ? 72 : 52;
 			if (!run_screenshot_stage(task, restore_faces, face_start, face_end - face_start,
@@ -1777,12 +1852,14 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 			json_error(res, 400, "invalid CodeFormer reconstruction options", req.isKeepAlive()); return true;
 		}
 		const codeformer_runtime_t codeformer = choose_codeformer_runtime();
-		if (codeformer.python.empty() || codeformer.runner.empty() || codeformer.repository.empty()) {
+		const bool native_inpainting = options.codeformer_aligned
+			&& codeformer_native_inpainting_available(codeformer);
+		if (!native_inpainting && !codeformer_python_available(codeformer)) {
 			json_error(res, 503,
 				"CodeFormer运行环境未安装，请执行bash tools/codeformer/setup_codeformer_runtime.sh或配置AICOOL_CODEFORMER_PYTHON和AICOOL_CODEFORMER_REPO",
 				req.isKeepAlive()); return true;
 		}
-		if (options.codeformer_aligned) {
+		if (options.codeformer_aligned && !native_inpainting) {
 			const std::string inpainting_model = local_join_path(
 				local_join_path(local_join_path(codeformer.repository, "weights"), "CodeFormer"),
 				"codeformer_inpainting.pth");
@@ -1890,12 +1967,14 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 		}
 		if (options.face_restoration == "codeformer") {
 			const codeformer_runtime_t codeformer = choose_codeformer_runtime();
-			if (codeformer.python.empty() || codeformer.runner.empty() || codeformer.repository.empty()) {
+			const bool native_inpainting = options.codeformer_aligned
+				&& codeformer_native_inpainting_available(codeformer);
+			if (!native_inpainting && !codeformer_python_available(codeformer)) {
 				json_error(res, 503,
 					"CodeFormer运行环境未安装，请执行bash tools/codeformer/setup_codeformer_runtime.sh或配置AICOOL_CODEFORMER_PYTHON和AICOOL_CODEFORMER_REPO",
 					req.isKeepAlive()); return true;
 			}
-			if (options.codeformer_aligned) {
+			if (options.codeformer_aligned && !native_inpainting) {
 				const std::string inpainting_model = local_join_path(
 					local_join_path(local_join_path(codeformer.repository, "weights"), "CodeFormer"),
 					"codeformer_inpainting.pth");

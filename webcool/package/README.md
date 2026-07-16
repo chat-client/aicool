@@ -74,9 +74,9 @@ sudo dpkg -i deb/webcool_2.0.0-1_amd64.deb
 sudo dpkg -i deb/webcool-ai-models_2.0.0-1_amd64.deb
 ```
 
-Windows 打包脚本同样默认生成主包和可选 AI 包各自的 ZIP 与 Setup EXE；详细命令和文件名见 `windows/README.md`。
+Windows 打包脚本同样默认生成主包和可选 AI 包各自的 ZIP 与 Setup EXE；Windows AI 包包含可搬迁的 CodeFormer Python 运行时。首次打包前需在 Windows 上运行 `tools\codeformer\setup_codeformer_runtime.ps1`，详细命令和文件名见 `windows/README.md`。
 
-所有平台共用的大型 AI 模型统一存放在项目根目录 `models/`，`tools/` 只保留平台运行程序、动态库、CodeFormer 源码及 Python 环境。具体目录结构见 `models/README.md`。
+所有平台共用的大型 AI 模型统一存放在项目根目录 `models/`，`tools/` 只保留平台运行程序、动态库、CodeFormer 源码及 Python 环境。CodeFormer 开发环境按 `venv/mac`、`venv/linux`、`venv/windows` 隔离，打包时只选择当前平台。具体目录结构见 `models/README.md`。
 
 主包会把运行内容放到 `/opt/soft/webcool`，并仅安装一个启动入口到 `/usr/local/bin/webcool`。
 
@@ -89,6 +89,7 @@ Windows 打包脚本同样默认生成主包和可选 AI 包各自的 ZIP 与 Se
 - ffmpeg 位于 `/opt/soft/webcool/bin/ffmpeg`
 - AI 可执行文件位于 `/opt/soft/webcool/bin`
 - AI 模型位于 `/opt/soft/webcool/models`
+- Apple Silicon 白色遮挡人脸重建优先使用原生 `bin/coreml-codeformer` 与 `models/codeformer/codeformer-inpainting.mlmodelc`
 - CodeFormer 位于 `/opt/soft/webcool/codeformer`
 - `/usr/local/bin/webcool` 只是启动入口：设置 `LD_LIBRARY_PATH`、`AICOOL_SQLITE_LIB`、`AICOOL_FFMPEG` 后，默认追加 `-f /opt/soft/webcool/conf/webcool.cf`，再把其余命令行参数传给 `/opt/soft/webcool/sbin/webcool`（不会 `cd` 到安装目录）
 - 若配置文件不存在，则不加 `-f`，直接执行二进制

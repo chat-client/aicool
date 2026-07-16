@@ -244,7 +244,7 @@ param([string]$InstallDir = "$env:LOCALAPPDATA\Programs\webcool")
 $ErrorActionPreference = "Stop"
 $SourceDir = Split-Path -Parent $PSCommandPath
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-$items = @("realesrgan-ncnn-vulkan.exe", "vcomp140.dll", "vcomp140d.dll", "models", "REALESRGAN-LICENSE", "AI-PACKAGE-VERSION")
+$items = @("realesrgan-ncnn-vulkan.exe", "vcomp140.dll", "vcomp140d.dll", "models", "codeformer", "libexec", "REALESRGAN-LICENSE", "CODEFORMER.md", "CODEFORMER-CONSTRAINTS.txt", "AI-PACKAGE-VERSION")
 foreach ($item in $items) {
     $src = Join-Path $SourceDir $item
     if (Test-Path -LiteralPath $src) {
@@ -263,7 +263,9 @@ Install the main webcool package first. For the portable ZIP installation run:
 powershell -ExecutionPolicy Bypass -File .\install-ai.ps1
 ```
 
-The Windows AI package currently contains the Real-ESRGAN runtime and models.
+The Windows AI package contains the Real-ESRGAN runtime and models plus a
+self-contained CodeFormer Python runtime. Build it on Windows after running
+`tools\codeformer\setup_codeformer_runtime.ps1`.
 '@
 
     Set-Content -LiteralPath (Join-Path $PackageRoot "install-ai.ps1") -Value $installScript -Encoding UTF8
@@ -557,6 +559,70 @@ if ($buildAiPackage) {
         throw "Real-ESRGAN models not found: $modelPath"
     }
     Copy-DirectoryContent -Source $modelPath -Destination (Join-Path $aiRoot "models\realesrgan")
+
+    $codeFormerTools = Join-Path $repoRoot "tools\codeformer"
+    $codeFormerSource = Join-Path $codeFormerTools "CodeFormer"
+    $codeFormerVenv = Join-Path $codeFormerTools "venv\windows"
+    $codeFormerPython = Join-Path $codeFormerVenv "Scripts\python.exe"
+    $codeFormerWeights = Join-Path $repoRoot "models\codeformer\weights"
+    foreach ($required in @(
+        (Join-Path $codeFormerSource "inference_codeformer.py"),
+        $codeFormerPython,
+        (Join-Path $codeFormerWeights "CodeFormer\codeformer.pth"),
+        (Join-Path $codeFormerWeights "CodeFormer\codeformer_inpainting.pth"),
+        (Join-Path $codeFormerWeights "facelib\detection_Resnet50_Final.pth"),
+        (Join-Path $codeFormerWeights "facelib\parsing_parsenet.pth")
+    )) {
+        if (!(Test-Path -LiteralPath $required)) {
+            throw "Incomplete Windows CodeFormer runtime; missing: $required. Run tools\codeformer\setup_codeformer_runtime.ps1 on Windows first."
+        }
+    }
+
+    $stagedCodeFormer = Join-Path $aiRoot "codeformer"
+    $stagedRepository = Join-Path $stagedCodeFormer "CodeFormer"
+    New-Item -ItemType Directory -Force -Path $stagedRepository | Out-Null
+    # Do not traverse the development weights junction while copying source.
+    # The shared model directory is copied explicitly below.
+    Get-ChildItem -LiteralPath $codeFormerSource -Force |
+        Where-Object { $_.Name -ne "weights" } |
+        ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $stagedRepository -Recurse -Force
+        }
+    $stagedWeights = Join-Path $stagedRepository "weights"
+    Copy-DirectoryContent -Source $codeFormerWeights -Destination $stagedWeights
+
+    # A normal Windows venv points back to the Python installation that created
+    # it. Build a relocatable runtime from that base Python and overlay only the
+    # packages installed in venv/windows. Without pyvenv.cfg, sys.prefix follows
+    # the packaged python.exe location and no target-machine Python is required.
+    $pythonBase = (& $codeFormerPython -c "import sys; print(sys.base_prefix)").Trim()
+    if (!$pythonBase -or !(Test-Path -LiteralPath (Join-Path $pythonBase "python.exe"))) {
+        throw "CodeFormer base Python is not packageable: $pythonBase"
+    }
+    $portablePython = Join-Path $stagedCodeFormer "venv"
+    Copy-DirectoryContent -Source $pythonBase -Destination $portablePython
+    $portableSitePackages = Join-Path $portablePython "Lib\site-packages"
+    Copy-DirectoryContent -Source (Join-Path $codeFormerVenv "Lib\site-packages") -Destination $portableSitePackages
+    $portableConfig = Join-Path $portablePython "pyvenv.cfg"
+    if (Test-Path -LiteralPath $portableConfig) {
+        Remove-Item -LiteralPath $portableConfig -Force
+    }
+
+    $libexec = Join-Path $aiRoot "libexec"
+    New-Item -ItemType Directory -Force -Path $libexec | Out-Null
+    Copy-Item -LiteralPath (Join-Path $codeFormerTools "codeformer_runner.py") -Destination $libexec -Force
+    foreach ($doc in @("CODEFORMER.md", "codeformer-constraints.txt")) {
+        $docPath = Join-Path $codeFormerTools $doc
+        if (Test-Path -LiteralPath $docPath) {
+            $targetName = if ($doc -eq "codeformer-constraints.txt") { "CODEFORMER-CONSTRAINTS.txt" } else { $doc }
+            Copy-Item -LiteralPath $docPath -Destination (Join-Path $aiRoot $targetName) -Force
+        }
+    }
+
+    & (Join-Path $portablePython "python.exe") -c "import cv2, torch, basicsr"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Packaged Windows CodeFormer runtime cannot import cv2, torch and basicsr."
+    }
 
     $licensePath = Join-Path $repoRoot "tools\REALESRGAN-LICENSE"
     if (Test-Path -LiteralPath $licensePath) {
