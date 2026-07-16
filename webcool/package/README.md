@@ -1,16 +1,18 @@
 # webcool 二进制安装包构建说明
 
-本目录提供三类安装包输出目录：
+本目录提供四类安装包输出目录：
 
 - `mac/`：macOS `.pkg` 文件
 - `deb/`：Ubuntu/Debian `.deb` 文件
 - `rpm/`：CentOS/RHEL `.rpm` 文件
+- `windows/out/`：Windows ZIP 与 Inno Setup `.exe` 文件
 
 ## 打包脚本
 
 - `build-mac.sh`：构建 macOS 安装包
 - `build-deb.sh`：构建 deb 安装包
 - `build-rpm.sh`：构建 rpm 安装包
+- `windows/build-windows.ps1`：构建 Windows 主包与 AI 包
 - `build-all.sh`：统一入口
 
 ## 使用示例
@@ -52,6 +54,27 @@ macOS 默认生成两个独立安装包：
 ```
 
 `t.sh` 默认构建、签名并公证这两个安装包。
+
+Ubuntu/Debian 也默认生成两个独立安装包：
+
+- `webcool_<version>-<release>_<arch>.deb`：主 WebCool 包，不包含 AI 运行时和模型。
+- `webcool-ai-models_<version>-<release>_<arch>.deb`：可选 AI 包，包含 Linux CodeFormer、Real-ESRGAN 运行时和模型。
+
+两个包均安装到 `/opt/soft/webcool`，AI 包声明依赖相同或更高版本的主包。可分别构建：
+
+```bash
+./build-deb.sh --version 2.0.0 --release 1 --main-only
+./build-deb.sh --version 2.0.0 --release 1 --ai-only --skip-build
+```
+
+安装时先安装主包，再按需安装 AI 包：
+
+```bash
+sudo dpkg -i deb/webcool_2.0.0-1_amd64.deb
+sudo dpkg -i deb/webcool-ai-models_2.0.0-1_amd64.deb
+```
+
+Windows 打包脚本同样默认生成主包和可选 AI 包各自的 ZIP 与 Setup EXE；详细命令和文件名见 `windows/README.md`。
 
 主包会把运行内容放到 `/opt/soft/webcool`，并仅安装一个启动入口到 `/usr/local/bin/webcool`。
 

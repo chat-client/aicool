@@ -556,11 +556,18 @@ screenshot_ai_runtime_t choose_screenshot_ai_runtime(const screenshot_options_t&
 	});
 	if (env_models && *env_models) runtime.model_path = env_models;
 	else {
+#ifdef _WIN32
+		const std::vector<std::string> models = {
+			"models\\realesrgan", "tools\\windows\\realesrgan-models",
+			"..\\tools\\windows\\realesrgan-models"
+		};
+#else
 		const std::vector<std::string> models = {
 			"/opt/soft/webcool/models/realesrgan", "tools/mac/realesrgan-models",
 			"../tools/mac/realesrgan-models", "tools/linux/realesrgan-models",
 			"../tools/linux/realesrgan-models"
 		};
+#endif
 		for (size_t i = 0; i < models.size(); ++i) {
 			struct stat st{};
 			if (stat(models[i].c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {

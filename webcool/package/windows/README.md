@@ -1,7 +1,7 @@
-# webcool Windows package
+# webcool Windows packages
 
-Build a self-contained Windows x64 package and, when Inno Setup is available,
-a guided Windows installer EXE:
+Build separate Windows x64 main and optional AI packages. When Inno Setup is
+available, each package also gets its own guided installer EXE:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows.ps1
@@ -21,6 +21,8 @@ powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows
 powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows.ps1 -SkipBuild
 powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows.ps1 -FfmpegPath D:\tools\ffmpeg.exe
 powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows.ps1 -InnoSetupPath "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows.ps1 -MainOnly
+powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows.ps1 -AiOnly -SkipBuild
 ```
 
 The batch wrappers pass through extra options:
@@ -37,10 +39,12 @@ Install Inno Setup 6 before running the package script:
 https://jrsoftware.org/isinfo.php
 
 If `ISCC.exe` is available on `PATH` or in the default Inno Setup install
-location, the script creates:
+location, a release build creates:
 
 - `webcool/package/windows/out/webcool-<version>-windows-x64-release-setup.exe`
 - `webcool/package/windows/out/webcool-<version>-windows-x64-release.iss`
+- `webcool/package/windows/out/webcool-ai-models-<version>-windows-x64-release-setup.exe`
+- `webcool/package/windows/out/webcool-ai-models-<version>-windows-x64-release.iss`
 
 The setup EXE shows a normal installation wizard. It defaults to:
 
@@ -61,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows
 powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows.ps1 -NoZip
 ```
 
-Output:
+Main package output:
 
 - `webcool/package/windows/out/stage/webcool-<version>-windows-x64-debug/`
 - `webcool/package/windows/out/webcool-<version>-windows-x64-debug.zip`
@@ -69,6 +73,12 @@ Output:
 - `webcool/package/windows/out/stage/webcool-<version>-windows-x64-release/`
 - `webcool/package/windows/out/webcool-<version>-windows-x64-release.zip`
 - `webcool/package/windows/out/webcool-<version>-windows-x64-release-setup.exe`
+
+AI package output follows the same naming scheme:
+
+- `webcool/package/windows/out/stage/webcool-ai-models-<version>-windows-x64-release/`
+- `webcool/package/windows/out/webcool-ai-models-<version>-windows-x64-release.zip`
+- `webcool/package/windows/out/webcool-ai-models-<version>-windows-x64-release-setup.exe`
 
 The staged package contains:
 
@@ -92,3 +102,15 @@ Install to the current user profile:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
+
+The main package intentionally contains no AI runtime or model files. The
+current Windows AI package contains the repository's Windows Real-ESRGAN
+runtime, supporting DLLs, and `models/realesrgan/`. Install its Setup EXE after
+the main Setup EXE, or extract its ZIP and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install-ai.ps1
+```
+
+Windows CodeFormer, Core ML, and Restormer assets are not included because the
+repository currently has no corresponding Windows runtime payload for them.

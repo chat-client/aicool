@@ -415,6 +415,38 @@ verify_macos_ai_payload() {
   fi
 }
 
+verify_linux_ai_payload() {
+  local install_root="$1"
+  local required
+  local missing=0
+
+  for required in \
+    "bin/realesrgan-ncnn-vulkan" \
+    "models/realesrgan" \
+    "codeformer/CodeFormer/inference_codeformer.py" \
+    "codeformer/CodeFormer/weights/CodeFormer/codeformer.pth" \
+    "codeformer/CodeFormer/weights/CodeFormer/codeformer_inpainting.pth" \
+    "codeformer/venv/bin/python3" \
+    "libexec/codeformer_runner.py"; do
+    if [ ! -e "${install_root}/${required}" ]; then
+      log "error: incomplete Linux AI package payload; missing ${required}" >&2
+      missing=1
+    fi
+  done
+
+  if [ "$missing" -ne 0 ]; then
+    log "prepare the Linux AI runtimes and models before building the AI package" >&2
+    return 1
+  fi
+
+  if ! "${install_root}/codeformer/venv/bin/python3" -c \
+    'import cv2, torch' >/dev/null 2>&1; then
+    log "error: packaged CodeFormer Python runtime cannot import cv2 and torch" >&2
+    log "create tools/codeformer/venv on the target Ubuntu architecture before packaging" >&2
+    return 1
+  fi
+}
+
 stage_runtime_tree() {
   local stage_root="$1"
   local include_ai="${2:-1}"
