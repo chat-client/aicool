@@ -310,10 +310,38 @@ copy_codeformer_assets() {
   cp -a "$source" "${install_root}/codeformer/CodeFormer"
   cp -a "$venv" "${install_root}/codeformer/venv"
 
+  local staged_venv="${install_root}/codeformer/venv"
+  if [ "$(uname -s)" = "Darwin" ]; then
+    # A venv normally contains a symlink to the build machine's Python.
+    # Bundle the matching framework runtime so the AI package also works on
+    # Macs without Xcode, Homebrew or a source checkout.
+    local python_base
+    python_base="$("${venv}/bin/python3" -c 'import sys; print(sys.base_prefix)' 2>/dev/null || true)"
+    if [ -z "$python_base" ] || [ ! -x "${python_base}/bin/python3" ] \
+      || [ ! -f "${python_base}/Python3" ] || [ ! -d "${python_base}/lib" ]; then
+      printf 'CodeFormer base Python runtime is not packageable: %s\n' "${python_base:-unknown}" >&2
+      exit 1
+    fi
+    cp -a "$python_base" "${install_root}/codeformer/python"
+
+    rm -f "${staged_venv}/bin/python3"
+    ln -s ../../python/bin/python3 "${staged_venv}/bin/python3"
+    ln -sfn python3 "${staged_venv}/bin/python"
+    local python_abi
+    python_abi="$("${venv}/bin/python3" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+    if [ -e "${install_root}/codeformer/python/bin/python${python_abi}" ]; then
+      ln -sfn python3 "${staged_venv}/bin/python${python_abi}"
+    fi
+    local python_version
+    python_version="$("${venv}/bin/python3" -c 'import platform; print(platform.python_version())')"
+    printf 'home = %s\ninclude-system-site-packages = false\nversion = %s\n' \
+      "${INSTALL_PREFIX}/codeformer/python/bin" "$python_version" \
+      > "${staged_venv}/pyvenv.cfg"
+  fi
+
   # Virtual environments contain absolute references to the checkout in
   # entry-point shebangs, activation scripts, .pth files and editable-install
   # metadata.  Rewrite those references to the final installation prefix.
-  local staged_venv="${install_root}/codeformer/venv"
   local final_root="${INSTALL_PREFIX}/codeformer"
   local text_file
   while IFS= read -r -d '' text_file; do
@@ -332,8 +360,64 @@ copy_codeformer_assets() {
   return 0
 }
 
+stage_ai_runtime_assets() {
+  local install_root="$1"
+
+  mkdir -p \
+    "$install_root/bin" \
+    "$install_root/libexec" \
+    "$install_root/models"
+
+  copy_realesrgan_runtime "$install_root"
+  copy_codeformer_assets "$install_root"
+  copy_if_exists "${TOOLS_ROOT}/codeformer_runner.py" "$install_root/libexec/"
+  copy_if_exists "${TOOLS_ROOT}/CODEFORMER.md" "$install_root/"
+  copy_if_exists "${TOOLS_ROOT}/codeformer-constraints.txt" "$install_root/CODEFORMER-CONSTRAINTS.txt"
+  copy_if_exists "${TOOLS_ROOT}/setup_codeformer_runtime.sh" "$install_root/setup-codeformer-runtime.sh"
+}
+
+stage_ai_runtime_tree() {
+  local stage_root="$1"
+  local version="${2:-${DEFAULT_VERSION}}"
+  local install_root="${stage_root}${INSTALL_PREFIX}"
+
+  stage_ai_runtime_assets "$install_root"
+  printf '%s\n' "$version" > "${install_root}/AI-PACKAGE-VERSION"
+}
+
+verify_macos_ai_payload() {
+  local install_root="$1"
+  local required
+  local missing=0
+
+  for required in \
+    "bin/realesrgan-ncnn-vulkan" \
+    "bin/coreml-realesrgan" \
+    "bin/red-eye-correct" \
+    "models/realesrgan" \
+    "models/coreml" \
+    "models/restormer" \
+    "codeformer/CodeFormer/inference_codeformer.py" \
+    "codeformer/CodeFormer/weights/CodeFormer/codeformer.pth" \
+    "codeformer/CodeFormer/weights/CodeFormer/codeformer_inpainting.pth" \
+    "codeformer/python/bin/python3" \
+    "codeformer/venv/bin/python3" \
+    "libexec/codeformer_runner.py"; do
+    if [ ! -e "${install_root}/${required}" ]; then
+      log "error: incomplete macOS AI package payload; missing ${required}" >&2
+      missing=1
+    fi
+  done
+
+  if [ "$missing" -ne 0 ]; then
+    log "prepare all AI runtimes and models before building the AI package" >&2
+    return 1
+  fi
+}
+
 stage_runtime_tree() {
   local stage_root="$1"
+  local include_ai="${2:-1}"
   local install_root="${stage_root}${INSTALL_PREFIX}"
 
   mkdir -p \
@@ -365,12 +449,9 @@ stage_runtime_tree() {
   copy_acl_runtime_libs "$install_root/lib"
   copy_sqlite_runtime_lib "$install_root/lib"
   copy_ffmpeg_runtime_bin "$install_root/bin"
-  copy_realesrgan_runtime "$install_root"
-  copy_codeformer_assets "$install_root"
-  copy_if_exists "${TOOLS_ROOT}/codeformer_runner.py" "$install_root/libexec/"
-  copy_if_exists "${TOOLS_ROOT}/CODEFORMER.md" "$install_root/"
-  copy_if_exists "${TOOLS_ROOT}/codeformer-constraints.txt" "$install_root/CODEFORMER-CONSTRAINTS.txt"
-  copy_if_exists "${TOOLS_ROOT}/setup_codeformer_runtime.sh" "$install_root/setup-codeformer-runtime.sh"
+  if [ "$include_ai" -eq 1 ]; then
+    stage_ai_runtime_assets "$install_root"
+  fi
 
   create_launcher_script "${stage_root}/usr/local/bin/webcool"
 }
@@ -497,6 +578,7 @@ sign_macos_payload() {
   require_cmd codesign
   log "signing Mach-O files with: ${app_identity}"
 
+  local bundled_python="${stage_root}${INSTALL_PREFIX}/codeformer/python"
   local files=()
   local file_path
   while IFS= read -r -d '' file_path; do
@@ -508,20 +590,70 @@ sign_macos_payload() {
   local depth
   local sorted_files=()
   local f
-  for f in "${files[@]}"; do
+  local i
+  local file_count="${#files[@]}"
+  for ((i = 0; i < file_count; ++i)); do
+    f="${files[$i]}"
     depth="$(printf '%s' "$f" | tr -cd '/' | wc -c | tr -d ' ')"
     sorted_files+=("${depth}	${f}")
   done
-  IFS=$'\n'
-  sorted_files=($(printf '%s\n' "${sorted_files[@]}" | sort -t $'\t' -k1,1nr | cut -f2-))
-  unset IFS
+  if [ "${#sorted_files[@]}" -gt 0 ]; then
+    IFS=$'\n'
+    sorted_files=($(printf '%s\n' "${sorted_files[@]}" | sort -t $'\t' -k1,1nr | cut -f2-))
+    unset IFS
+  fi
 
-  for f in "${sorted_files[@]}"; do
-    codesign --force --options runtime --timestamp \
-      --sign "$app_identity" "$f"
+  local signed_file_count="${#sorted_files[@]}"
+  for ((i = 0; i < signed_file_count; ++i)); do
+    f="${sorted_files[$i]}"
+    case "$f" in
+      "${bundled_python}/bin/python"*)
+        codesign --force --options runtime --timestamp \
+          --entitlements "${PACKAGE_ROOT}/macos-python-entitlements.plist" \
+          --sign "$app_identity" "$f"
+        ;;
+      *)
+        codesign --force --options runtime --timestamp \
+          --sign "$app_identity" "$f"
+        ;;
+    esac
   done
 
-  log "signed ${#sorted_files[@]} Mach-O file(s)"
+  local bundles=()
+  local bundle_path
+  while IFS= read -r -d '' bundle_path; do
+    bundles+=("$bundle_path")
+  done < <(find "$stage_root" -type d \( -name '*.app' -o -name '*.framework' \) -print0)
+  if [ -f "${bundled_python}/Resources/Info.plist" ]; then
+    bundles+=("$bundled_python")
+  fi
+
+  local sorted_bundles=()
+  local bundle_count="${#bundles[@]}"
+  for ((i = 0; i < bundle_count; ++i)); do
+    bundle_path="${bundles[$i]}"
+    depth="$(printf '%s' "$bundle_path" | tr -cd '/' | wc -c | tr -d ' ')"
+    sorted_bundles+=("${depth}	${bundle_path}")
+  done
+  if [ "${#sorted_bundles[@]}" -gt 0 ]; then
+    IFS=$'\n'
+    sorted_bundles=($(printf '%s\n' "${sorted_bundles[@]}" | sort -t $'\t' -k1,1nr | cut -f2-))
+    unset IFS
+    bundle_count="${#sorted_bundles[@]}"
+    for ((i = 0; i < bundle_count; ++i)); do
+      bundle_path="${sorted_bundles[$i]}"
+      if [ "$bundle_path" = "${bundled_python}/Resources/Python.app" ]; then
+        codesign --force --options runtime --timestamp \
+          --entitlements "${PACKAGE_ROOT}/macos-python-entitlements.plist" \
+          --sign "$app_identity" "$bundle_path"
+      else
+        codesign --force --options runtime --timestamp \
+          --sign "$app_identity" "$bundle_path"
+      fi
+    done
+  fi
+
+  log "signed ${signed_file_count} Mach-O file(s) and ${bundle_count} bundle(s)"
 }
 
 build_macos_pkg() {
@@ -533,6 +665,8 @@ build_macos_pkg() {
 
   require_cmd pkgbuild
   local unsigned_pkg="${out_pkg}.unsigned"
+
+  rm -f "$unsigned_pkg" "$out_pkg"
 
   log "building macOS package payload: ${out_pkg}"
   pkgbuild \

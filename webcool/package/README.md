@@ -37,7 +37,23 @@
 - Ubuntu/Debian：`dpkg-deb`
 - CentOS/RHEL：`rpmbuild`
 
-脚本会把完整运行内容放到 `/opt/soft/webcool`，并仅安装一个启动入口到 `/usr/local/bin/webcool`。
+macOS 默认生成两个独立安装包：
+
+- `webcool-<version>-macos-<arch>.pkg`：主 WebCool 包，包含主程序、网页资源、SQLite、FFmpeg 和默认功能。
+- `webcool-ai-models-<version>-macos-<arch>.pkg`：可选 AI 包，包含 CodeFormer 独立运行环境、Core ML、Real-ESRGAN、Restormer、自动去红眼运行组件及模型。
+
+两个包都安装到 `/opt/soft/webcool`。通常先安装主包；需要 AI 图片/视频增强、人脸重建或去红眼功能的机器再安装 AI 包。升级主包时不需要重新分发体积较大的 AI 包。
+
+只构建其中一个包时可使用：
+
+```bash
+./build-mac.sh --version 2.0.0 --main-only
+./build-mac.sh --version 2.0.0 --ai-only --skip-build
+```
+
+`t.sh` 默认构建、签名并公证这两个安装包。
+
+主包会把运行内容放到 `/opt/soft/webcool`，并仅安装一个启动入口到 `/usr/local/bin/webcool`。
 
 其中：
 
@@ -46,6 +62,9 @@
 - 静态页面位于 `/opt/soft/webcool/html`
 - sqlite 动态库位于 `/opt/soft/webcool/lib/sqlite3.so`
 - ffmpeg 位于 `/opt/soft/webcool/bin/ffmpeg`
+- AI 可执行文件位于 `/opt/soft/webcool/bin`
+- AI 模型位于 `/opt/soft/webcool/models`
+- CodeFormer 位于 `/opt/soft/webcool/codeformer`
 - `/usr/local/bin/webcool` 只是启动入口：设置 `LD_LIBRARY_PATH`、`AICOOL_SQLITE_LIB`、`AICOOL_FFMPEG` 后，默认追加 `-f /opt/soft/webcool/conf/webcool.cf`，再把其余命令行参数传给 `/opt/soft/webcool/sbin/webcool`（不会 `cd` 到安装目录）
 - 若配置文件不存在，则不加 `-f`，直接执行二进制
 - 命令行中再次指定 `-f` 时，以后面的 `-f` 为准（覆盖默认配置）

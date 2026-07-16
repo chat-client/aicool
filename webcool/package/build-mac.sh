@@ -7,7 +7,10 @@ source "${SCRIPT_DIR}/common.sh"
 
 VERSION="${DEFAULT_VERSION}"
 IDENTIFIER="com.webcool.server"
+AI_IDENTIFIER=""
 SKIP_BUILD=0
+BUILD_MAIN_PACKAGE=1
+BUILD_AI_PACKAGE=1
 LIST_IDENTITIES=0
 STORE_NOTARY_PROFILE=""
 SIGN_APP_IDENTITY="${WEBCOOL_MACOS_SIGN_APP_IDENTITY:-}"
@@ -23,12 +26,15 @@ usage() {
   cat <<'EOF'
 Usage: build-mac.sh [options]
 
-Build a macOS .pkg installer for webcool.
+Build separate macOS .pkg installers for webcool and its optional AI assets.
 
 Options:
   --version VERSION                 Package version (default: from webcool -v)
   --identifier IDENTIFIER           Package bundle identifier
+  --ai-identifier IDENTIFIER        AI package identifier (default: <identifier>.ai-models)
   --skip-build                      Skip "make all" before packaging
+  --main-only                       Build only the main webcool package
+  --ai-only                         Build only the optional AI models package
   --universal                       Build arm64+x86_64 universal binaries and pkg
   --list-signing-identities         Show code signing identities in Keychain
   --sign-app-identity NAME          Developer ID Application identity
@@ -65,6 +71,13 @@ Examples:
   ./build-mac.sh --version 1.0.0 \
     --sign-app-identity "Developer ID Application: Your Name (TEAMID)" \
     --sign-installer-identity "Developer ID Installer: Your Name (TEAMID)"
+
+Default outputs:
+  mac/webcool-<version>-macos-<arch>.pkg
+  mac/webcool-ai-models-<version>-macos-<arch>.pkg
+
+Install the main package first. Install the AI models package only on machines
+that need CodeFormer, Core ML, Real-ESRGAN, Restormer or red-eye correction.
 EOF
 }
 
@@ -78,8 +91,22 @@ while [ $# -gt 0 ]; do
       IDENTIFIER="$2"
       shift 2
       ;;
+    --ai-identifier)
+      AI_IDENTIFIER="$2"
+      shift 2
+      ;;
     --skip-build)
       SKIP_BUILD=1
+      shift
+      ;;
+    --main-only)
+      BUILD_MAIN_PACKAGE=1
+      BUILD_AI_PACKAGE=0
+      shift
+      ;;
+    --ai-only)
+      BUILD_MAIN_PACKAGE=0
+      BUILD_AI_PACKAGE=1
       shift
       ;;
     --universal)
@@ -134,6 +161,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+if [ -z "$AI_IDENTIFIER" ]; then
+  AI_IDENTIFIER="${IDENTIFIER}.ai-models"
+fi
+
 if ! is_macos_host; then
   printf 'build-mac.sh must run on macOS\n' >&2
   exit 1
@@ -178,28 +209,62 @@ fi
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-stage_runtime_tree "${tmp_dir}/root"
-prune_macos_package_payload "${tmp_dir}/root${INSTALL_PREFIX}"
-sign_macos_payload "${tmp_dir}/root" "$SIGN_APP_IDENTITY"
-
 mkdir -p "${PACKAGE_ROOT}/mac"
 pkg_arch="$(macos_pkg_arch_suffix "$UNIVERSAL")"
 out_pkg="${PACKAGE_ROOT}/mac/webcool-${VERSION}-macos-${pkg_arch}.pkg"
+ai_out_pkg="${PACKAGE_ROOT}/mac/webcool-ai-models-${VERSION}-macos-${pkg_arch}.pkg"
 
-build_macos_pkg \
-  "${tmp_dir}/root" \
-  "${IDENTIFIER}" \
-  "${VERSION}" \
-  "${out_pkg}" \
-  "${SIGN_INSTALLER_IDENTITY}"
+if [ "$BUILD_MAIN_PACKAGE" -eq 1 ]; then
+  main_root="${tmp_dir}/main-root"
+  stage_runtime_tree "$main_root" 0
+  prune_macos_package_payload "${main_root}${INSTALL_PREFIX}"
+  sign_macos_payload "$main_root" "$SIGN_APP_IDENTITY"
 
-if [ "$NOTARIZE" -eq 1 ]; then
-  notarize_macos_pkg \
-    "${out_pkg}" \
-    "${NOTARY_PROFILE}" \
-    "${NOTARY_APPLE_ID}" \
-    "${NOTARY_TEAM_ID}" \
-    "${NOTARY_PASSWORD}"
+  build_macos_pkg \
+    "$main_root" \
+    "$IDENTIFIER" \
+    "$VERSION" \
+    "$out_pkg" \
+    "$SIGN_INSTALLER_IDENTITY"
 fi
 
-log "done: ${out_pkg}"
+if [ "$BUILD_AI_PACKAGE" -eq 1 ]; then
+  ai_root="${tmp_dir}/ai-root"
+  stage_ai_runtime_tree "$ai_root" "$VERSION"
+  verify_macos_ai_payload "${ai_root}${INSTALL_PREFIX}"
+  prune_macos_package_payload "${ai_root}${INSTALL_PREFIX}"
+  sign_macos_payload "$ai_root" "$SIGN_APP_IDENTITY"
+
+  build_macos_pkg \
+    "$ai_root" \
+    "$AI_IDENTIFIER" \
+    "$VERSION" \
+    "$ai_out_pkg" \
+    "$SIGN_INSTALLER_IDENTITY"
+fi
+
+if [ "$NOTARIZE" -eq 1 ]; then
+  if [ "$BUILD_MAIN_PACKAGE" -eq 1 ]; then
+    notarize_macos_pkg \
+      "$out_pkg" \
+      "$NOTARY_PROFILE" \
+      "$NOTARY_APPLE_ID" \
+      "$NOTARY_TEAM_ID" \
+      "$NOTARY_PASSWORD"
+  fi
+  if [ "$BUILD_AI_PACKAGE" -eq 1 ]; then
+    notarize_macos_pkg \
+      "$ai_out_pkg" \
+      "$NOTARY_PROFILE" \
+      "$NOTARY_APPLE_ID" \
+      "$NOTARY_TEAM_ID" \
+      "$NOTARY_PASSWORD"
+  fi
+fi
+
+if [ "$BUILD_MAIN_PACKAGE" -eq 1 ]; then
+  log "main package: ${out_pkg} ($(du -h "$out_pkg" | awk '{print $1}'))"
+fi
+if [ "$BUILD_AI_PACKAGE" -eq 1 ]; then
+  log "AI models package: ${ai_out_pkg} ($(du -h "$ai_out_pkg" | awk '{print $1}'))"
+fi
