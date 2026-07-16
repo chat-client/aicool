@@ -29,6 +29,7 @@ char                  g_upload_dir[4096] = "";
 char                  g_html_home[4096] = "";
 char                  g_sqlite_lib[4096] = "";
 char                  g_ffmpeg_path[4096] = "";
+char                  g_codeformer_dir[4096] = "";
 std::atomic<bool>     g_service_stopping(false);
 
 namespace {

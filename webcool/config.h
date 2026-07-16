@@ -9,6 +9,7 @@ extern char                  g_upload_dir[4096];
 extern char                  g_html_home[4096];
 extern char                  g_sqlite_lib[4096];
 extern char                  g_ffmpeg_path[4096];
+extern char                  g_codeformer_dir[4096];
 extern std::atomic<bool>     g_service_stopping;
 
 size_t default_fiber_stack_size();

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "convert_common.h"
+#include "config.h"
 
 #include <cerrno>
 #include <cmath>
@@ -605,26 +606,61 @@ codeformer_runtime_t choose_codeformer_runtime()
 	const char* env_python = getenv("AICOOL_CODEFORMER_PYTHON");
 	const char* env_runner = getenv("AICOOL_CODEFORMER_RUNNER");
 	const char* env_repo = getenv("AICOOL_CODEFORMER_REPO");
-	runtime.python = env_python && *env_python ? env_python : first_executable({
-		"/opt/soft/webcool/codeformer/venv/bin/python3",
-		"tools/codeformer/venv/bin/python3", "../tools/codeformer/venv/bin/python3"});
-	const std::vector<std::string> runners = {
-		"/opt/soft/webcool/libexec/codeformer_runner.py",
-		"tools/codeformer_runner.py", "../tools/codeformer_runner.py"};
-	if (env_runner && *env_runner) runtime.runner = env_runner;
-	else {
-		for (size_t i = 0; i < runners.size(); ++i) {
-			if (access(runners[i].c_str(), R_OK) == 0) { runtime.runner = runners[i]; break; }
+	struct candidate_t {
+		std::string python;
+		std::string runner;
+		std::string repository;
+	};
+	std::vector<candidate_t> candidates;
+	if (g_codeformer_dir[0]) {
+		std::string root = g_codeformer_dir;
+		const std::string nested_repo = local_join_path(
+			local_join_path(root, "codeformer"), "CodeFormer");
+		if (access(nested_repo.c_str(), R_OK) == 0) root = local_join_path(root, "codeformer");
+		const std::string python = local_join_path(local_join_path(root, "venv"), "bin/python3");
+		const std::string repository = local_join_path(root, "CodeFormer");
+		candidates.push_back({python, local_join_path(root, "codeformer_runner.py"), repository});
+		candidates.push_back({python, local_join_path(root, "../codeformer_runner.py"), repository});
+		candidates.push_back({python, local_join_path(root, "../libexec/codeformer_runner.py"), repository});
+		candidates.push_back({python, "/opt/soft/webcool/libexec/codeformer_runner.py", repository});
+		candidates.push_back({python, "tools/codeformer_runner.py", repository});
+		candidates.push_back({python, "../tools/codeformer_runner.py", repository});
+	}
+	const char* packaged_env = getenv("AICOOL_PACKAGED_RUNTIME");
+	const bool packaged = packaged_env && *packaged_env
+		? strcmp(packaged_env, "0") != 0
+		: access("/opt/soft/webcool/sbin/webcool", X_OK) == 0;
+	if (!g_codeformer_dir[0]) {
+		candidates.push_back({
+			"/opt/soft/webcool/codeformer/venv/bin/python3",
+			"/opt/soft/webcool/libexec/codeformer_runner.py",
+			"/opt/soft/webcool/codeformer/CodeFormer"});
+		if (!packaged) {
+			candidates.push_back({"tools/codeformer/venv/bin/python3",
+				"tools/codeformer_runner.py", "tools/codeformer/CodeFormer"});
+			candidates.push_back({"../tools/codeformer/venv/bin/python3",
+				"../tools/codeformer_runner.py", "../tools/codeformer/CodeFormer"});
 		}
 	}
-	const std::vector<std::string> repositories = {
-		"/opt/soft/webcool/codeformer/CodeFormer",
-		"tools/codeformer/CodeFormer", "../tools/codeformer/CodeFormer"};
-	if (env_repo && *env_repo) runtime.repository = env_repo;
-	else {
-		for (size_t i = 0; i < repositories.size(); ++i) {
-			const std::string inference = local_join_path(repositories[i], "inference_codeformer.py");
-			if (access(inference.c_str(), R_OK) == 0) { runtime.repository = repositories[i]; break; }
+	for (size_t i = 0; i < candidates.size(); ++i) {
+		const std::string python = env_python && *env_python ? env_python : candidates[i].python;
+		const std::string runner = env_runner && *env_runner ? env_runner : candidates[i].runner;
+		const std::string repository = env_repo && *env_repo ? env_repo : candidates[i].repository;
+		const std::string inference = local_join_path(repository,
+			"inference_codeformer.py");
+		const std::string model = local_join_path(local_join_path(
+			local_join_path(repository, "weights"), "CodeFormer"), "codeformer.pth");
+		const std::string detection = local_join_path(local_join_path(
+			local_join_path(repository, "weights"), "facelib"), "detection_Resnet50_Final.pth");
+		const std::string parsing = local_join_path(local_join_path(
+			local_join_path(repository, "weights"), "facelib"), "parsing_parsenet.pth");
+		if (access(python.c_str(), X_OK) == 0 && access(runner.c_str(), R_OK) == 0
+			&& access(inference.c_str(), R_OK) == 0 && access(model.c_str(), R_OK) == 0
+			&& access(detection.c_str(), R_OK) == 0 && access(parsing.c_str(), R_OK) == 0) {
+			runtime.python = python;
+			runtime.runner = runner;
+			runtime.repository = repository;
+			break;
 		}
 	}
 	return runtime;

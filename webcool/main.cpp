@@ -54,6 +54,7 @@ static void print_detail_info(const acl::string& addr,
 	printf("  存储路径: %s\n", g_upload_dir);
 	printf("  sqlite.so路径: %s\n", sqlite_path.empty() ? "(未找到)" : sqlite_path.c_str());
 	printf("  ffmpeg路径: %s\n", ffmpeg_path.empty() ? "(未找到)" : ffmpeg_path.c_str());
+	printf("  CodeFormer目录: %s\n", g_codeformer_dir[0] ? g_codeformer_dir : "(自动检测)");
 	printf("  工作线程: %d\n", nthreads);
 	printf("  后台模式: %s\n", daemon_mode ? "on" : "off");
 	printf("  读写超时(秒): %d\n", g_rw_timeout);
@@ -111,6 +112,38 @@ static bool daemonize_process() {
 #endif
 }
 
+static bool validate_codeformer_dir(std::string& err) {
+	if (!g_codeformer_dir[0]) return true;
+	std::string root = g_codeformer_dir;
+	const std::string nested = join_config_path(root, "codeformer");
+	if (readable_regular_file(join_config_path(
+		join_config_path(nested, "CodeFormer"), "inference_codeformer.py"))) {
+		root = nested;
+		if (!set_config_text(g_codeformer_dir, sizeof(g_codeformer_dir), root,
+			"CodeFormer runtime directory", err)) return false;
+	}
+	const std::string repository = join_config_path(root, "CodeFormer");
+	const std::string weights = join_config_path(repository, "weights");
+	const std::string codeformer_weights = join_config_path(weights, "CodeFormer");
+	const std::string facelib_weights = join_config_path(weights, "facelib");
+	const std::vector<std::string> required = {
+		join_config_path(join_config_path(join_config_path(root, "venv"), "bin"), "python3"),
+		join_config_path(repository, "inference_codeformer.py"),
+		join_config_path(repository, "inference_inpainting.py"),
+		join_config_path(codeformer_weights, "codeformer.pth"),
+		join_config_path(codeformer_weights, "codeformer_inpainting.pth"),
+		join_config_path(facelib_weights, "detection_Resnet50_Final.pth"),
+		join_config_path(facelib_weights, "parsing_parsenet.pth")
+	};
+	for (size_t i = 0; i < required.size(); ++i) {
+		if (access(required[i].c_str(), i == 0 ? X_OK : R_OK) != 0) {
+			err = "CodeFormer runtime is incomplete; missing: " + required[i];
+			return false;
+		}
+	}
+	return true;
+}
+
 // ──────────────────────────────────────
 // 用法帮助
 // ──────────────────────────────────────
@@ -129,6 +162,9 @@ static void usage(const char* prog) {
 		"  -w html_home     静态资源根目录 (默认 ./html)\n"
 		"  -S sqlite_lib   sqlite 动态库路径 (例如 /usr/local/lib/sqlite3.so)\n"
 		"  -F ffmpeg_path  ffmpeg 可执行文件路径 (例如 /opt/webcool/bin/ffmpeg)\n"
+		"  -K codeformer_dir\n"
+		"                  CodeFormer运行目录，需包含 venv/ 和 CodeFormer/\n"
+		"                  也可写为 --codeformer-dir codeformer_dir\n"
 		"  -T threads      工作线程数 (默认 2)\n"
 		"  -r rw_timeout   读写超时秒数 (默认 0=无超时)\n"
 		"  -z stack_size   协程栈大小 (默认 %zu，最小 %zu)\n"
@@ -187,7 +223,12 @@ int main(int argc, char* argv[]) {
 	bool upload_dir_specified = false;
 	std::string config_err, conf;
 
-	while ((ch = acl_getopt(argc, argv, "hvVDGCs:d:w:S:F:f:T:r:z:e:")) > 0) {
+	static char codeformer_short_option[] = "-K";
+	for (int i = 1; i < argc; ++i) {
+		if (strcmp(argv[i], "--codeformer-dir") == 0) argv[i] = codeformer_short_option;
+	}
+
+	while ((ch = acl_getopt(argc, argv, "hvVDGCs:d:w:S:F:K:f:T:r:z:e:")) > 0) {
 		switch (ch) {
 		case 'h':
 			usage(argv[0]);
@@ -244,6 +285,13 @@ int main(int argc, char* argv[]) {
 				return 1;
 			}
 			break;
+		case 'K':
+			if (!set_config_text(g_codeformer_dir, sizeof(g_codeformer_dir),
+				  acl_optarg ? acl_optarg : "", "CodeFormer runtime directory", config_err)) {
+				fprintf(stderr, "%s\n", config_err.c_str());
+				return 1;
+			}
+			break;
 		case 'f':
 			conf = acl_optarg ? acl_optarg : "";
 			break;
@@ -269,6 +317,10 @@ int main(int argc, char* argv[]) {
 		default:
 			break;
 		}
+	}
+	if (!validate_codeformer_dir(config_err)) {
+		fprintf(stderr, "%s\n", config_err.c_str());
+		return 1;
 	}
 
 	acl::acl_cpp_init();

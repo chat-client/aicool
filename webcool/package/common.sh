@@ -186,6 +186,10 @@ fi
 if [ -f "\$BASE_DIR/lib/sqlite3.so" ] && [ -z "\${AICOOL_SQLITE_LIB:-}" ]; then
   export AICOOL_SQLITE_LIB="\$BASE_DIR/lib/sqlite3.so"
 fi
+# Packaged runtimes must be self-contained.  In particular, do not let an
+# incomplete installation silently borrow CodeFormer from a source checkout
+# that happens to be the server's working directory.
+export AICOOL_PACKAGED_RUNTIME=1
 
 DEFAULT_CONF="\${BASE_DIR}/conf/webcool.cf"
 if [ -f "\$DEFAULT_CONF" ]; then
@@ -283,14 +287,49 @@ copy_realesrgan_runtime() {
 
 copy_codeformer_assets() {
   local install_root="$1"
-  local source="${TOOLS_ROOT}/codeformer/CodeFormer"
-  if [ ! -f "${source}/inference_codeformer.py" ] \
-    || [ ! -f "${source}/weights/CodeFormer/codeformer.pth" ]; then
-    log "warning: CodeFormer source or weights not found; face restoration will be unavailable"
-    return 0
-  fi
+  local source_root="${TOOLS_ROOT}/codeformer"
+  local source="${source_root}/CodeFormer"
+  local venv="${source_root}/venv"
+  local required
+  for required in \
+    "${source}/inference_codeformer.py" \
+    "${source}/inference_inpainting.py" \
+    "${source}/weights/CodeFormer/codeformer.pth" \
+    "${source}/weights/CodeFormer/codeformer_inpainting.pth" \
+    "${source}/weights/facelib/detection_Resnet50_Final.pth" \
+    "${source}/weights/facelib/parsing_parsenet.pth" \
+    "${venv}/bin/python3"; do
+    if [ ! -e "$required" ]; then
+      printf 'incomplete CodeFormer runtime; missing: %s\n' "$required" >&2
+      printf 'run bash tools/setup_codeformer_runtime.sh and python3 tools/download_codeformer_models.py\n' >&2
+      exit 1
+    fi
+  done
+
   mkdir -p "${install_root}/codeformer"
   cp -a "$source" "${install_root}/codeformer/CodeFormer"
+  cp -a "$venv" "${install_root}/codeformer/venv"
+
+  # Virtual environments contain absolute references to the checkout in
+  # entry-point shebangs, activation scripts, .pth files and editable-install
+  # metadata.  Rewrite those references to the final installation prefix.
+  local staged_venv="${install_root}/codeformer/venv"
+  local final_root="${INSTALL_PREFIX}/codeformer"
+  local text_file
+  while IFS= read -r -d '' text_file; do
+    if LC_ALL=C grep -Iq . "$text_file" \
+      && LC_ALL=C grep -qF "$source_root" "$text_file"; then
+      if [ "$(uname -s)" = "Darwin" ]; then
+        sed -i '' "s|${source_root}|${final_root}|g" "$text_file"
+      else
+        sed -i "s|${source_root}|${final_root}|g" "$text_file"
+      fi
+    fi
+  done < <(
+    find "$staged_venv/bin" -type f -print0
+    find "$staged_venv/lib" -type f \( -name '*.pth' -o -name '*.egg-link' \) -print0
+  )
+  return 0
 }
 
 stage_runtime_tree() {
