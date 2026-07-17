@@ -18,7 +18,12 @@ $VenvPython = Join-Path $VenvRoot "Scripts\python.exe"
 
 Push-Location $CodeFormerRoot
 try {
-    & $VenvPython -m pip install --no-deps ".\basicsr"
+    # BasicSR and FaceLib are vendored directly in the CodeFormer repository.
+    # The runtime adds this directory to PYTHONPATH, so no separate install is required.
+    & $VenvPython -c 'import cv2, torch, torchvision, basicsr; from basicsr.utils import imwrite; from facelib.utils.face_restoration_helper import FaceRestoreHelper; print("CodeFormer imports verified:", torch.__version__, torchvision.__version__)'
+    if ($LASTEXITCODE -ne 0) {
+        throw "CodeFormer dependency import verification failed."
+    }
 } finally {
     Pop-Location
 }

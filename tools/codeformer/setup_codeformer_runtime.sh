@@ -36,6 +36,10 @@ python3 -m venv "$VENV_ROOT"
   -r "${CODEFORMER_ROOT}/requirements.txt" cython
 (
   cd "$CODEFORMER_ROOT"
-  "${VENV_ROOT}/bin/python" -m pip install --no-deps ./basicsr
+  # BasicSR and FaceLib are vendored directly in the CodeFormer repository.
+  # The runtime adds this directory to PYTHONPATH, so installing BasicSR as a
+  # wheel/editable package is unnecessary and would embed checkout paths.
+  "${VENV_ROOT}/bin/python" -c \
+    'import cv2, torch, torchvision, basicsr; from basicsr.utils import imwrite; from facelib.utils.face_restoration_helper import FaceRestoreHelper; print("CodeFormer imports verified:", torch.__version__, torchvision.__version__)'
 )
 printf 'CodeFormer runtime ready: %s\n' "$VENV_ROOT"

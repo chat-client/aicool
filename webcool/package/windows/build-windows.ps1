@@ -619,9 +619,15 @@ if ($buildAiPackage) {
         }
     }
 
-    & (Join-Path $portablePython "python.exe") -c "import cv2, torch, basicsr"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Packaged Windows CodeFormer runtime cannot import cv2, torch and basicsr."
+    $previousPythonPath = $env:PYTHONPATH
+    $env:PYTHONPATH = $stagedRepository
+    try {
+        & (Join-Path $portablePython "python.exe") -c "import cv2, torch, basicsr; from facelib.utils.face_restoration_helper import FaceRestoreHelper"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Packaged Windows CodeFormer runtime cannot import cv2, torch, basicsr and facelib."
+        }
+    } finally {
+        $env:PYTHONPATH = $previousPythonPath
     }
 
     $licensePath = Join-Path $repoRoot "tools\REALESRGAN-LICENSE"
