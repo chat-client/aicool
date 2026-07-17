@@ -34,6 +34,7 @@ python3 -m venv "$VENV_ROOT"
 "${VENV_ROOT}/bin/python" -m pip install \
   -c "$CONSTRAINTS" \
   -r "${CODEFORMER_ROOT}/requirements.txt" cython
+"${VENV_ROOT}/bin/python" "${SCRIPT_DIR}/prepare_codeformer_source.py"
 (
   cd "$CODEFORMER_ROOT"
   # BasicSR and FaceLib are vendored directly in the CodeFormer repository.

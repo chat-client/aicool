@@ -405,6 +405,7 @@ stage_ai_runtime_assets() {
   copy_if_exists "${TOOLS_ROOT}/codeformer/CODEFORMER.md" "$install_root/"
   copy_if_exists "${TOOLS_ROOT}/codeformer/codeformer-constraints.txt" "$install_root/CODEFORMER-CONSTRAINTS.txt"
   copy_if_exists "${TOOLS_ROOT}/codeformer/setup_codeformer_runtime.sh" "$install_root/setup-codeformer-runtime.sh"
+  copy_if_exists "${TOOLS_ROOT}/codeformer/prepare_codeformer_source.py" "$install_root/"
 }
 
 stage_ai_runtime_tree() {

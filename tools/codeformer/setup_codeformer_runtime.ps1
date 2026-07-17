@@ -15,6 +15,10 @@ if (!(Test-Path -LiteralPath (Join-Path $CodeFormerRoot "inference_codeformer.py
 $VenvPython = Join-Path $VenvRoot "Scripts\python.exe"
 & $VenvPython -m pip install --upgrade pip
 & $VenvPython -m pip install -c $Constraints -r (Join-Path $CodeFormerRoot "requirements.txt") cython
+& $VenvPython (Join-Path $ScriptDir "prepare_codeformer_source.py")
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to generate the BasicSR version module."
+}
 
 Push-Location $CodeFormerRoot
 try {
