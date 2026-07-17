@@ -2,6 +2,7 @@
 
 # ignored files
 version.py
+!basicsr/version.py
 
 # ignored files with suffix
 *.html
