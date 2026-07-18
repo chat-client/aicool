@@ -78,7 +78,7 @@ Ubuntu 上准备 CodeFormer/Real-ESRGAN、处理模型缺失、BasicSR 安装错
 Vulkan llvmpipe 以及 Intel GPU 性能问题时，请参阅
 [Ubuntu 安装包构建与 AI 运行时排障](UBUNTU_PACKAGING_TROUBLESHOOTING.md)。
 
-Windows 打包脚本同样默认生成主包和可选 AI 包各自的 ZIP 与 Setup EXE；Windows AI 包包含可搬迁的 CodeFormer Python 运行时。首次打包前需在 Windows 上运行 `tools\codeformer\setup_codeformer_runtime.ps1`，详细命令和文件名见 `windows/README.md`。
+Windows 打包脚本同样默认生成主包和可选 AI 包各自的 ZIP 与 Setup EXE；Windows AI 包包含可搬迁的 CodeFormer Python 运行时。可在项目根目录运行 `webcool\package\windows\build-windows.bat`，一次完成 CodeFormer 环境准备、模型下载校验和安装包构建；详细参数和文件名见 `windows/README.md`。
 
 所有平台共用的大型 AI 模型统一存放在项目根目录 `models/`，`tools/` 只保留平台运行程序、动态库、CodeFormer 源码及 Python 环境。CodeFormer 开发环境按 `venv/mac`、`venv/linux`、`venv/windows` 隔离，打包时只选择当前平台。具体目录结构见 `models/README.md`。
 

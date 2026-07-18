@@ -7,6 +7,30 @@ available, each package also gets its own guided installer EXE:
 powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows.ps1
 ```
 
+To prepare the Windows CodeFormer venv, download/verify its models, and then
+build the packages in one command, use the complete batch wrapper from the
+repository root:
+
+```bat
+webcool\package\windows\build-windows.bat
+```
+
+It locates Python 3 automatically and stops immediately if any of the three
+stages fails. Set `WEBCOOL_PYTHON` to an absolute `python.exe` path when a
+specific interpreter is required:
+
+```bat
+set "WEBCOOL_PYTHON=C:\Python312\python.exe"
+webcool\package\windows\build-windows.bat -Configuration Release
+```
+
+All extra arguments are passed to `build-windows.ps1`, for example:
+
+```bat
+webcool\package\windows\build-windows.bat -Configuration Release -NoInstaller
+webcool\package\windows\build-windows.bat -AiOnly -SkipBuild
+```
+
 Or use the batch wrappers from the repository root:
 
 ```bat
