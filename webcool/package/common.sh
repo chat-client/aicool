@@ -240,6 +240,7 @@ copy_realesrgan_runtime() {
   local source_root="${TOOLS_ROOT}/${platform}"
   local executable="${source_root}/realesrgan-ncnn-vulkan"
   local models="${MODELS_ROOT}/realesrgan/ncnn"
+  local missing=0
   if [ "$platform" = "mac" ]; then
     local red_eye_executable="${source_root}/red-eye-correct"
     if [ -x "$red_eye_executable" ]; then
@@ -249,8 +250,19 @@ copy_realesrgan_runtime() {
       log "warning: red-eye correction runtime not found; automatic red-eye removal will be unavailable"
     fi
   fi
-  if [ ! -x "$executable" ] || [ ! -d "$models" ]; then
-    log "warning: Real-ESRGAN runtime not found; AI enhancement will be unavailable"
+  # Source archives and some Git/Gitee transfers can lose the executable bit.
+  # It is sufficient for the source to be a regular file because the staged
+  # copy is normalized to mode 0755 below.
+  if [ ! -f "$executable" ]; then
+    log "warning: Real-ESRGAN executable not found: ${executable}"
+    missing=1
+  fi
+  if [ ! -d "$models" ]; then
+    log "warning: Real-ESRGAN model directory not found: ${models}"
+    missing=1
+  fi
+  if [ "$missing" -ne 0 ]; then
+    log "warning: Real-ESRGAN runtime is incomplete; AI enhancement will be unavailable"
     return 0
   fi
   cp -a "$executable" "${install_root}/bin/realesrgan-ncnn-vulkan"
