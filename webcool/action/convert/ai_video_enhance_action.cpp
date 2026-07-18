@@ -222,21 +222,46 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 		finish_task(task, true, "M4 Core ML流水线处理完成", "", file_size_of(output.c_str()));
 		return;
 	}
-	const std::string input_pattern = frames_in + "/%08d.png";
-	ACL_ARGV* extract = acl_argv_alloc(20);
+	// The NCNN executable only accepts image files.  Its fast profile uses
+	// high-quality JPEG intermediates to avoid spending a disproportionate
+	// amount of time compressing, writing and decoding very large x4 PNGs.
+	// Balanced/quality profiles remain lossless so their existing image quality
+	// is unchanged.
+	const bool fast_intermediate = encode_preset == "fast";
+	const std::string frame_extension = fast_intermediate ? "jpg" : "png";
+	const std::string input_pattern = frames_in + "/%08d." + frame_extension;
+	// realesrgan-x4plus only ships x4 NCNN weights. AnimeVideo-v3 has
+	// scale-specific weights. In the speed-first profile, avoid producing an
+	// x4 image much larger than the requested final frame only to downscale it.
+	const int inference_scale = model == "realesrgan-x4plus" ? 4 : scale;
+	std::string extraction_filter;
+	if (input_sizing == "target") {
+		int inference_width = std::max(32, (width + inference_scale - 1) / inference_scale);
+		int inference_height = std::max(32, (height + inference_scale - 1) / inference_scale);
+		if (inference_width % 2) ++inference_width;
+		if (inference_height % 2) ++inference_height;
+		extraction_filter = "scale=" + std::to_string(inference_width) + ":"
+			+ std::to_string(inference_height)
+			+ ":force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos";
+	} else if (input_sizing == "balanced") {
+		// Retain 75% of each source dimension: a moderate quality/speed tradeoff
+		// that reduces inference pixels to about 56% of source-sized mode.
+		extraction_filter = "scale=trunc(iw*0.75/2)*2:trunc(ih*0.75/2)*2:flags=lanczos";
+	}
+	ACL_ARGV* extract = acl_argv_alloc(32);
 	acl_argv_add(extract, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", "-i", inference_input.c_str(),
 		"-map", "0:v:0", nullptr);
 	const std::string preview_text = std::to_string(preview_seconds);
 	if (preview_seconds > 0) acl_argv_add(extract, "-t", preview_text.c_str(), nullptr);
+	if (!extraction_filter.empty()) acl_argv_add(extract, "-vf", extraction_filter.c_str(), nullptr);
+	if (fast_intermediate) acl_argv_add(extract, "-q:v", "2", nullptr);
 	acl_argv_add(extract, "-vsync", "0", "-progress", "pipe:1", "-nostats", input_pattern.c_str(), nullptr);
-	if (!run_stage(task, extract, duration, 1, 10, "正在解码视频帧", 12, "准备AI推理")) {
+	if (!run_stage(task, extract, pipeline_duration, 1, 10,
+		fast_intermediate ? "正在快速解码视频帧（JPEG中间帧）" : "正在解码视频帧（PNG中间帧）",
+		12, "准备AI推理")) {
 		cleanup_temp(temp_root); finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "frame extraction failed", -1); return;
 	}
 	ACL_ARGV* inference = acl_argv_alloc(24);
-	// realesrgan-x4plus only ships x4 NCNN weights. Passing x2 makes the
-	// runtime interpret the x4 tensor with an incompatible output scale and
-	// can produce corrupted frames. AnimeVideo-v3 has scale-specific weights.
-	const int inference_scale = model == "realesrgan-x4plus" ? 4 : scale;
 	if (use_coreml) {
 		const std::string workers_text = std::to_string(coreml_workers);
 		acl_argv_add(inference, ai.c_str(), "--model", coreml_model.c_str(), "--input", frames_in.c_str(),
@@ -248,7 +273,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 			"-s", scale_text.c_str(), "-m", models.c_str(), "-t", tile_text.c_str(), "-j", threads.c_str(), nullptr);
 		const std::string gpu_text = std::to_string(gpu);
 		if (gpu >= 0) acl_argv_add(inference, "-g", gpu_text.c_str(), nullptr);
-		acl_argv_add(inference, "-f", "png", "-v", nullptr);
+		acl_argv_add(inference, "-f", frame_extension.c_str(), "-v", nullptr);
 	}
 	const long long total_frames = count_directory_files(frames_in);
 	std::atomic<bool> inference_done(false);
@@ -272,7 +297,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 			use_coreml ? "Core ML Real-ESRGAN inference failed" : "Real-ESRGAN inference failed", -1); return;
 	}
 	const std::string fps_text = std::to_string(fps > 0 ? fps : 25.0);
-	const std::string output_pattern = frames_out + "/%08d.png";
+	const std::string output_pattern = frames_out + "/%08d." + frame_extension;
 	const std::string filter = "scale=" + std::to_string(width) + ":" + std::to_string(height)
 		+ ":force_original_aspect_ratio=decrease:flags=lanczos,pad=" + std::to_string(width) + ":"
 		+ std::to_string(height) + ":(ow-iw)/2:(oh-ih)/2";
@@ -287,11 +312,17 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	} else
 #endif
 	{
-		acl_argv_add(encode, "-c:v", "libx264", "-preset", encode_preset.c_str(), "-b:v", rate.c_str(), "-pix_fmt", "yuv420p", nullptr);
+		// The UI's fast profile is intended for end-to-end turnaround time.  The
+		// x264 "veryfast" preset is substantially quicker for image-sequence
+		// input, while balanced and quality retain medium/slow respectively.
+		const std::string x264_preset = encode_preset == "fast" ? "veryfast" : encode_preset;
+		acl_argv_add(encode, "-c:v", "libx264", "-preset", x264_preset.c_str(), "-b:v", rate.c_str(), "-pix_fmt", "yuv420p", nullptr);
 	}
 	acl_argv_add(encode, "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart",
 		"-progress", "pipe:1", "-nostats", output.c_str(), nullptr);
-	if (!run_stage(task, encode, duration, 85, 13, "正在合成视频与原音轨", 99, "正在完成AI视频")) {
+	if (!run_stage(task, encode, pipeline_duration, 85, 13,
+		fast_intermediate ? "正在快速合成视频与原音轨" : "正在无损读取AI帧并合成视频与原音轨",
+		99, "正在完成AI视频")) {
 		unlink(output.c_str()); cleanup_temp(temp_root); finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "video encoding failed", -1); return;
 	}
 	cleanup_temp(temp_root);
