@@ -111,6 +111,43 @@ long long count_directory_files(const std::string& path) {
 	return count;
 }
 
+std::string numbered_frame_path(const std::string& directory, long long number,
+	const std::string& extension)
+{
+	char name[64];
+	snprintf(name, sizeof(name), "/%08lld.%s", number, extension.c_str());
+	return directory + name;
+}
+
+bool link_or_copy_frame(const std::string& source, const std::string& destination) {
+#ifdef _WIN32
+	std::wstring wide_source, wide_destination;
+	if (webcool_utf8_to_wide(source.c_str(), wide_source)
+		&& webcool_utf8_to_wide(destination.c_str(), wide_destination)
+		&& CreateHardLinkW(wide_destination.c_str(), wide_source.c_str(), nullptr)) {
+		return true;
+	}
+	return webcool_copy_file(source.c_str(), destination.c_str(), true);
+#else
+	if (link(source.c_str(), destination.c_str()) == 0) return true;
+	FILE* input = fopen(source.c_str(), "rb");
+	if (!input) return false;
+	FILE* output = fopen(destination.c_str(), "wb");
+	if (!output) { fclose(input); return false; }
+	char buffer[1024 * 1024];
+	bool ok = true;
+	while (!feof(input)) {
+		const size_t bytes = fread(buffer, 1, sizeof(buffer), input);
+		if (bytes && fwrite(buffer, 1, bytes, output) != bytes) { ok = false; break; }
+		if (ferror(input)) { ok = false; break; }
+	}
+	if (fclose(output) != 0) ok = false;
+	fclose(input);
+	if (!ok) unlink(destination.c_str());
+	return ok;
+#endif
+}
+
 std::string ai_output_name(const std::string& source, bool local,
 	const std::string& upload_dir, const std::string& model, int width, int height)
 {
@@ -261,29 +298,51 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 		12, "准备AI推理")) {
 		cleanup_temp(temp_root); finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "frame extraction failed", -1); return;
 	}
+	const long long total_frames = count_directory_files(frames_in);
+	std::string inference_frames_in = frames_in;
+	std::string inference_frames_out = frames_out;
+	long long inference_frames = total_frames;
+	if (temporal_step > 1 && total_frames > 0) {
+		inference_frames_in = temp_root + "/temporal-input";
+		inference_frames_out = temp_root + "/temporal-output";
+		if (!make_dir_recursive(inference_frames_in.c_str())
+			|| !make_dir_recursive(inference_frames_out.c_str())) {
+			cleanup_temp(temp_root); finish_task(task, false, "AI增强失败",
+				"cannot create temporal frame directories", -1); return;
+		}
+		inference_frames = 0;
+		for (long long frame = 1; frame <= total_frames; frame += temporal_step) {
+			if (!link_or_copy_frame(numbered_frame_path(frames_in, frame, frame_extension),
+				numbered_frame_path(inference_frames_in, frame, frame_extension))) {
+				cleanup_temp(temp_root); finish_task(task, false, "AI增强失败",
+					"cannot prepare temporal inference frames", -1); return;
+			}
+			++inference_frames;
+		}
+	}
 	ACL_ARGV* inference = acl_argv_alloc(24);
 	if (use_coreml) {
 		const std::string workers_text = std::to_string(coreml_workers);
-		acl_argv_add(inference, ai.c_str(), "--model", coreml_model.c_str(), "--input", frames_in.c_str(),
-			"--output", frames_out.c_str(), "--workers", workers_text.c_str(), nullptr);
+		acl_argv_add(inference, ai.c_str(), "--model", coreml_model.c_str(), "--input", inference_frames_in.c_str(),
+			"--output", inference_frames_out.c_str(), "--workers", workers_text.c_str(), nullptr);
 	} else {
 		const std::string scale_text = std::to_string(inference_scale);
 		const std::string tile_text = std::to_string(tile);
-		acl_argv_add(inference, ai.c_str(), "-i", frames_in.c_str(), "-o", frames_out.c_str(), "-n", model.c_str(),
+		acl_argv_add(inference, ai.c_str(), "-i", inference_frames_in.c_str(), "-o", inference_frames_out.c_str(), "-n", model.c_str(),
 			"-s", scale_text.c_str(), "-m", models.c_str(), "-t", tile_text.c_str(), "-j", threads.c_str(), nullptr);
 		const std::string gpu_text = std::to_string(gpu);
 		if (gpu >= 0) acl_argv_add(inference, "-g", gpu_text.c_str(), nullptr);
 		acl_argv_add(inference, "-f", frame_extension.c_str(), "-v", nullptr);
 	}
-	const long long total_frames = count_directory_files(frames_in);
 	std::atomic<bool> inference_done(false);
-	std::thread monitor([task, frames_out, total_frames, use_coreml, &inference_done] {
+	std::thread monitor([task, inference_frames_out, inference_frames, use_coreml, temporal_step, &inference_done] {
 		while (!inference_done.load()) {
-			if (total_frames > 0) {
-				const long long completed = count_directory_files(frames_out);
+			if (inference_frames > 0) {
+				const long long completed = count_directory_files(inference_frames_out);
 				update_task_progress(task, 12.0 + std::min(72.0,
-					72.0 * static_cast<double>(completed) / static_cast<double>(total_frames)),
-					use_coreml ? "Core ML正在调用M4恢复纹理与细节" : "AI正在恢复纹理与细节");
+					72.0 * static_cast<double>(completed) / static_cast<double>(inference_frames)),
+					use_coreml ? "Core ML正在调用M4恢复纹理与细节"
+						: (temporal_step > 1 ? "AI正在隔帧恢复纹理与细节" : "AI正在恢复纹理与细节"));
 			}
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));
 		}
@@ -295,6 +354,17 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	if (!inference_ok) {
 		cleanup_temp(temp_root); finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI增强失败",
 			use_coreml ? "Core ML Real-ESRGAN inference failed" : "Real-ESRGAN inference failed", -1); return;
+	}
+	if (temporal_step > 1) {
+		update_task_progress(task, 84.0, "正在复用相邻AI帧");
+		for (long long frame = 1; frame <= total_frames; ++frame) {
+			const long long enhanced_frame = 1 + ((frame - 1) / temporal_step) * temporal_step;
+			if (!link_or_copy_frame(numbered_frame_path(inference_frames_out, enhanced_frame, frame_extension),
+				numbered_frame_path(frames_out, frame, frame_extension))) {
+				cleanup_temp(temp_root); finish_task(task, false, "AI增强失败",
+					"cannot reuse temporal inference frame", -1); return;
+			}
+		}
 	}
 	const std::string fps_text = std::to_string(fps > 0 ? fps : 25.0);
 	const std::string output_pattern = frames_out + "/%08d." + frame_extension;
