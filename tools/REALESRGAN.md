@@ -14,6 +14,16 @@ The model directories contain the official NCNN `.param` and `.bin` files.
 Paths can be overridden with `AICOOL_REALESRGAN` and
 `AICOOL_REALESRGAN_MODELS`.
 
+Download and checksum-verify the shared NCNN model files on any platform with:
+
+```bash
+python3 tools/download_realesrgan_models.py
+```
+
+The downloader extracts only model data from the official Real-ESRGAN v0.2.5.0
+Ubuntu archive. These NCNN model files are identical across macOS, Ubuntu, and
+Windows; platform executables remain under `tools/<platform>/`.
+
 ## Apple Silicon / Core ML
 
 On macOS, live-action enhancement (`realesrgan-x4plus`) automatically prefers

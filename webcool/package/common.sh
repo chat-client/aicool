@@ -260,9 +260,26 @@ copy_realesrgan_runtime() {
   if [ ! -d "$models" ]; then
     log "warning: Real-ESRGAN model directory not found: ${models}"
     missing=1
+  else
+    local model_file
+    for model_file in \
+      realesrgan-x4plus.param \
+      realesrgan-x4plus.bin \
+      realesr-animevideov3-x2.param \
+      realesr-animevideov3-x2.bin \
+      realesr-animevideov3-x3.param \
+      realesr-animevideov3-x3.bin \
+      realesr-animevideov3-x4.param \
+      realesr-animevideov3-x4.bin; do
+      if [ ! -f "${models}/${model_file}" ]; then
+        log "warning: Real-ESRGAN model file not found: ${models}/${model_file}"
+        missing=1
+      fi
+    done
   fi
   if [ "$missing" -ne 0 ]; then
     log "warning: Real-ESRGAN runtime is incomplete; AI enhancement will be unavailable"
+    log "run: python3 tools/download_realesrgan_models.py"
     return 0
   fi
   cp -a "$executable" "${install_root}/bin/realesrgan-ncnn-vulkan"
@@ -468,7 +485,14 @@ verify_linux_ai_payload() {
 
   for required in \
     "bin/realesrgan-ncnn-vulkan" \
-    "models/realesrgan" \
+    "models/realesrgan/realesrgan-x4plus.param" \
+    "models/realesrgan/realesrgan-x4plus.bin" \
+    "models/realesrgan/realesr-animevideov3-x2.param" \
+    "models/realesrgan/realesr-animevideov3-x2.bin" \
+    "models/realesrgan/realesr-animevideov3-x3.param" \
+    "models/realesrgan/realesr-animevideov3-x3.bin" \
+    "models/realesrgan/realesr-animevideov3-x4.param" \
+    "models/realesrgan/realesr-animevideov3-x4.bin" \
     "codeformer/CodeFormer/inference_codeformer.py" \
     "codeformer/CodeFormer/weights/CodeFormer/codeformer.pth" \
     "codeformer/CodeFormer/weights/CodeFormer/codeformer_inpainting.pth" \
