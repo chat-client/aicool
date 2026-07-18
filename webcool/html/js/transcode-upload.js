@@ -1367,6 +1367,7 @@ function deleteUnlockedFolderPassword(path) {
               const suggested = currentHeight < 720
                 ? { width: 1280, height: 720, bitrate: Math.max(2500, currentBitrate * 2) }
                 : { width: 1920, height: 1080, bitrate: Math.max(5000, currentBitrate * 2) };
+              const macPlatform = /Mac/i.test(navigator.platform || navigator.userAgent || '');
               const form = document.createElement('div');
               form.className = 'video-enhance-dialog';
               form.innerHTML = '<div class="video-enhance-card"><div class="video-enhance-head"><h3>' + t('提升码率和分辨率') + '</h3></div>' +
@@ -1386,10 +1387,11 @@ function deleteUnlockedFolderPassword(path) {
                 '<label>' + t('轻微去模糊/预锐化') + '<input type="range" data-enhance-ai-presharpen min="0" max="50" step="5" value="20"><span class="video-enhance-range-value" data-enhance-ai-presharpen-value>20%</span></label>' +
                 '<label class="video-enhance-check"><input type="checkbox" data-enhance-ai-deinterlace> ' + t('AI前去隔行（仅隔行视频开启）') + '</label></details>' +
                 '<label>' + t('AI模型') + '<select data-enhance-ai-model>' +
-                '<option value="coreml-x2plus">' + t('真实2×（高质量/较快）') + '</option>' +
-                '<option value="coreml-general-x4v3">' + t('轻量x4（速度优先）') + '</option>' +
-                '<option value="coreml-general-x4v3-w8a8">' + t('轻量W8A8 x4（M4实验）') + '</option>' +
-                '<option value="coreml-x4plus-int8">' + t('M4量化x4（质量优先）') + '</option>' +
+                (macPlatform ?
+                  '<option value="coreml-x2plus">' + t('真实2×（高质量/较快）') + '</option>' +
+                  '<option value="coreml-general-x4v3">' + t('轻量x4（速度优先）') + '</option>' +
+                  '<option value="coreml-general-x4v3-w8a8">' + t('轻量W8A8 x4（M4实验）') + '</option>' +
+                  '<option value="coreml-x4plus-int8">' + t('M4量化x4（质量优先）') + '</option>' : '') +
                 '<option value="realesrgan-x4plus">' + t('原始x4（对照/最慢）') + '</option>' +
                 '<option value="realesr-animevideov3">' + t('动漫') + '</option></select>' +
                 '<small data-ai-model-description></small></label>' +
@@ -1520,7 +1522,7 @@ function deleteUnlockedFolderPassword(path) {
                   'realesr-animevideov3': t('动漫视频专用模型，不建议用于真人视频。')
                 };
                 form.querySelector('[data-ai-model-description]').textContent = descriptions[aiModelSelect.value] || '';
-                const coremlModel = aiModelSelect.value !== 'realesr-animevideov3';
+                const coremlModel = macPlatform && aiModelSelect.value !== 'realesr-animevideov3';
                 aiComputeSelect.disabled = !coremlModel;
                 aiComputeSelect.title = coremlModel ? '' : t('动漫模型使用NCNN后端，计算单元选项不适用');
               };
@@ -1552,10 +1554,14 @@ function deleteUnlockedFolderPassword(path) {
               });
               const performanceSelect = form.querySelector('[data-enhance-ai-performance]');
               performanceSelect.addEventListener('change', function () {
-                const presets = {
+                const presets = macPlatform ? {
                   fast: { model: 'coreml-general-x4v3-w8a8', input: 'target', scale: '4', tile: '256', threads: '4:4:4', encode: 'fast', overlap: 'low', temporal: '2', batch: '0' },
                   balanced: { model: 'coreml-x2plus', input: 'balanced', scale: '2', tile: '0', threads: '2:4:2', encode: 'medium', overlap: 'balanced', temporal: '0', batch: '1' },
                   quality: { model: 'coreml-x2plus', input: 'source', scale: '2', tile: '128', threads: '1:2:2', encode: 'slow', overlap: 'balanced', temporal: '1', batch: '1' }
+                } : {
+                  fast: { model: 'realesrgan-x4plus', input: 'target', scale: '4', tile: '256', threads: '4:4:4', encode: 'fast', overlap: 'low', temporal: '2', batch: '0' },
+                  balanced: { model: 'realesrgan-x4plus', input: 'balanced', scale: '4', tile: '0', threads: '2:4:2', encode: 'medium', overlap: 'balanced', temporal: '1', batch: '0' },
+                  quality: { model: 'realesrgan-x4plus', input: 'source', scale: '4', tile: '128', threads: '1:2:2', encode: 'slow', overlap: 'quality', temporal: '1', batch: '0' }
                 };
                 const preset = presets[performanceSelect.value];
                 form.querySelector('[data-enhance-ai-scale]').value = preset.scale;
@@ -1613,12 +1619,12 @@ function deleteUnlockedFolderPassword(path) {
                   return;
                 }
                 const fast = Object.assign({}, base, {
-                  method: 'ai', aiModel: 'coreml-general-x4v3-w8a8', aiScale: 4,
+                  method: 'ai', aiModel: macPlatform ? 'coreml-general-x4v3-w8a8' : 'realesrgan-x4plus', aiScale: 4,
                   aiInputSizing: 'target', aiOverlap: 'low', aiTemporalStep: 2,
                   aiTile: 256, aiThreads: '4:4:4', aiEncodePreset: 'fast', previewSeconds: 10
                 });
                 const quality = Object.assign({}, base, {
-                  method: 'ai', aiModel: 'coreml-x2plus', aiScale: 2,
+                  method: 'ai', aiModel: macPlatform ? 'coreml-x2plus' : 'realesrgan-x4plus', aiScale: macPlatform ? 2 : 4,
                   aiInputSizing: 'source', aiOverlap: 'balanced', aiTemporalStep: 1, aiTileBatch: 1,
                   aiTile: 128, aiThreads: '1:2:2', aiEncodePreset: 'slow', previewSeconds: 10
                 });

@@ -311,7 +311,7 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	const int gpu = safe_atoi(req.getParameter("gpu"), -1);
 	const int preview_seconds = safe_atoi(req.getParameter("preview_seconds"), 0);
 	const double fps = req.getParameter("fps") ? atof(req.getParameter("fps")) : 25.0;
-	const std::string model = req.getParameter("model") ? req.getParameter("model") : "realesrgan-x4plus";
+	std::string model = req.getParameter("model") ? req.getParameter("model") : "realesrgan-x4plus";
 	const std::string threads = req.getParameter("threads") ? req.getParameter("threads") : "1:2:2";
 	const std::string encode_preset = req.getParameter("encode_preset") ? req.getParameter("encode_preset") : "medium";
 	const std::string compute_units = req.getParameter("compute_units") ? req.getParameter("compute_units") : "auto";
@@ -344,6 +344,12 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 		|| (preview_seconds != 0 && preview_seconds != 10 && preview_seconds != 30 && preview_seconds != 60)) {
 		json_error(res, 400, "invalid AI enhancement options", req.isKeepAlive()); return true;
 	}
+#if !defined(__APPLE__) || (!defined(__arm64__) && !defined(__aarch64__))
+	// Older pages or a Mac browser connected to a Linux/Windows server may send
+	// a Core ML-only selection. Preserve the requested enhancement by falling
+	// back to the cross-platform NCNN x4 model on non-Core ML builds.
+	if (model.compare(0, 7, "coreml-") == 0) model = "realesrgan-x4plus";
+#endif
 	std::string source, err;
 	if (local) {
 		if (!normalize_local_video_path(req.getParameter("path"), source, err)) { json_error(res, 400, err.c_str(), req.isKeepAlive()); return true; }
@@ -363,7 +369,20 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 		|| model == "coreml-general-x4v3-w8a8" || model == "coreml-x4plus-int8";
 	std::string models;
 	std::string ai = use_coreml ? coreml.executable : (requires_coreml ? "" : choose_realesrgan(models));
-	if (ffmpeg.empty() || ai.empty() || (!use_coreml && models.empty())) { json_error(res, 503, "selected Real-ESRGAN runtime or model is not installed", req.isKeepAlive()); return true; }
+	if (ffmpeg.empty()) {
+		json_error(res, 503, "FFmpeg runtime is not installed", req.isKeepAlive()); return true;
+	}
+	if (ai.empty()) {
+		json_error(res, 503, requires_coreml
+			? "selected Core ML model is only available on Apple Silicon macOS"
+			: "Real-ESRGAN executable is not installed or is not executable",
+			req.isKeepAlive()); return true;
+	}
+	if (!use_coreml && models.empty()) {
+		json_error(res, 503,
+			"Real-ESRGAN NCNN model directory is not installed",
+			req.isKeepAlive()); return true;
+	}
 	// Large RRDB models quickly saturate ANE memory bandwidth. Extra model
 	// instances can make them slower, while tiny/x2 models benefit from two.
 	const bool heavy_coreml = model == "realesrgan-x4plus" || model == "coreml-x4plus-int8";
