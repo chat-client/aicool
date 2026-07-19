@@ -16,16 +16,16 @@ std::string make_audio_extract_name(const std::string& input_name)
 	return replace_ext(input_name, ".mp3");
 }
 
-void run_audio_extract(const std::shared_ptr<transcode_task_t>& task,
+void run_audio_extract_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input_path,
 	const std::string& temp_path, const std::string& output_path,
 	long long start_ms, long long end_ms)
 {
 	unlink(temp_path.c_str());
-	const long long source_duration_ms = probe_duration_ms(ffmpeg, input_path);
+	const long long source_duration_ms = probe_duration_ms_in_thread(ffmpeg, input_path);
 	const long long duration_ms = end_ms > start_ms ? end_ms - start_ms
 		: (source_duration_ms > start_ms ? source_duration_ms - start_ms : source_duration_ms);
-	ACL_ARGV* args = acl_argv_alloc(24);
+	ACL_ARGV* args = acl_argv_alloc(48);
 	acl_argv_add(args,
 		ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", nullptr);
 	const std::string start_text = std::to_string(start_ms / 1000.0);
@@ -37,26 +37,29 @@ void run_audio_extract(const std::shared_ptr<transcode_task_t>& task,
 		"-c:a", "libmp3lame", "-ac", "2", "-b:a", "192k",
 		"-progress", "pipe:1", "-nostats",
 		temp_path.c_str(), nullptr);
-	const ffmpeg_process_ptr process = start_ffmpeg_process(args);
+	const ffmpeg_process_ptr process = start_ffmpeg_process_in_thread(args);
 	if (!process) {
 		finish_task(task, false, "音频提取失败", acl::last_serror(), -1);
 		return;
 	}
-	const int code = wait_transcode_progress(task, *process, duration_ms,
-		2.0, 94.0, "正在提取音频", 98.0, "正在写入MP3文件");
-	if (is_task_cancel_requested(task) || code != 0
-		|| file_size_of(temp_path.c_str()) <= 0) {
-		unlink(temp_path.c_str());
-		finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "音频提取失败",
-			is_task_cancel_requested(task) ? "cancelled" : "ffmpeg audio extraction failed", -1);
-		return;
-	}
-	if (rename(temp_path.c_str(), output_path.c_str()) != 0) {
-		unlink(temp_path.c_str());
-		finish_task(task, false, "音频提取失败", "rename audio output failed", -1);
-		return;
-	}
-	finish_task(task, true, "音频提取完成", "", file_size_of(output_path.c_str()));
+
+	acl::gofiber([task, process, duration_ms, temp_path, output_path] {
+		const int code = wait_transcode_progress_in_thread(task, *process, duration_ms,
+			2.0, 94.0, "正在提取音频", 98.0, "正在写入MP3文件");
+		if (is_task_cancel_requested(task) || code != 0
+			|| file_size_of(temp_path.c_str()) <= 0) {
+			unlink(temp_path.c_str());
+			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "音频提取失败",
+				is_task_cancel_requested(task) ? "cancelled" : "ffmpeg audio extraction failed", -1);
+			return;
+		}
+		if (rename(temp_path.c_str(), output_path.c_str()) != 0) {
+			unlink(temp_path.c_str());
+			finish_task(task, false, "音频提取失败", "rename audio output failed", -1);
+			return;
+		}
+		finish_task(task, true, "音频提取完成", "", file_size_of(output_path.c_str()));
+	});
 }
 
 } // namespace
@@ -129,11 +132,18 @@ bool AudioExtractAction::run(request_t& req, response_t& res,
 	}
 	const std::string input_path = join_upload_path(upload_dir, relative_path);
 	const std::string temporary_path = temp_path.c_str();
-	go[task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms] {
-			run_audio_extract(task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms);
-		});
-	};
+	acl::gofiber([task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms] {
+		try {
+			run_audio_extract_in_thread(task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms);
+		} catch (const std::exception& e) {
+			unlink(temporary_path.c_str());
+			finish_task(task, false, "音频提取失败", e.what(), -1);
+		} catch (...) {
+			unlink(temporary_path.c_str());
+			finish_task(task, false, "音频提取失败", "unexpected audio extraction exception", -1);
+		}
+	});
+
 	acl::json json;
 	acl::json_node& root = json.create_node();
 	root.add_bool("ok", true);
@@ -260,11 +270,17 @@ bool LocalDiskAudioExtractAction::run(request_t& req, response_t& res,
 		g_running_task_by_file[task_key] = task->id;
 	}
 	const std::string temporary_path = temp_path.c_str();
-	go[task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms] {
-			run_audio_extract(task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms);
-		});
-	};
+	acl::gofiber([task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms] {
+		try {
+			run_audio_extract_in_thread(task, ffmpeg, input_path, temporary_path, output_path, start_ms, end_ms);
+		} catch (const std::exception& e) {
+			unlink(temporary_path.c_str());
+			finish_task(task, false, "音频提取失败", e.what(), -1);
+		} catch (...) {
+			unlink(temporary_path.c_str());
+			finish_task(task, false, "音频提取失败", "unexpected audio extraction exception", -1);
+		}
+	});
 	acl::json json;
 	acl::json_node& root = json.create_node();
 	root.add_bool("ok", true);

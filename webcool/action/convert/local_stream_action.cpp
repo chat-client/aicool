@@ -5,7 +5,7 @@ namespace action {
 
 namespace {
 
- ffmpeg_process_ptr start_local_stream_ffmpeg(const std::string& ffmpeg,
+ ffmpeg_process_ptr start_local_stream_ffmpeg_in_thread(const std::string& ffmpeg,
 	const std::string& local_path, long long start_position_ms,
 	const std::string& progress_path)
 {
@@ -40,7 +40,7 @@ namespace {
 		"-f", "mp4",
 		"pipe:1",
 		nullptr);
-	return start_ffmpeg_process(args);
+	return start_ffmpeg_process_in_thread(args);
 }
 
 #ifndef _WIN32
@@ -121,13 +121,13 @@ bool LocalDiskVideoStreamAction::run(request_t& req, response_t& res,
 
 	long long duration_ms = 0;
 	long long remaining_duration_ms = 0;
-	acl::gofiber_wait_thread([&] {
-		duration_ms = probe_duration_ms(ffmpeg, local_path);
+	acl::gofiber([&] {
+		duration_ms = probe_duration_ms_in_thread(ffmpeg, local_path);
 		remaining_duration_ms = duration_ms > start_position_ms
 			? duration_ms - start_position_ms : duration_ms;
 	});
 
-	ffmpeg_process_ptr proc = start_local_stream_ffmpeg(
+	ffmpeg_process_ptr proc = start_local_stream_ffmpeg_in_thread(
 		ffmpeg, local_path, start_position_ms, progress_path);
 #ifndef _WIN32
 	if (!proc || !proc->stream) {

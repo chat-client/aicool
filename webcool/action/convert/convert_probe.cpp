@@ -75,7 +75,7 @@ bool browser_can_play_video_by_probe(const std::string& ffmpeg,
 		std::string cmd = shell_quote(ffmpeg) + " -hide_banner -i "
 			+ shell_quote(input_file) + " 2>&1";
 		std::string out;
-		run_command_capture(cmd, out);
+		run_command_capture_in_thread(cmd, out);
 
 		acl::string lower(out.c_str());
 		lower.lower();
@@ -130,7 +130,7 @@ bool probe_transcode_strategy(const std::string& ffmpeg,
 	std::string cmd = shell_quote(ffmpeg) + " -hide_banner -i "
 		+ shell_quote(input_file) + " 2>&1";
 	std::string out;
-	run_command_capture(cmd, out);
+	run_command_capture_in_thread(cmd, out);
 	acl::string lower(out.c_str());
 	lower.lower();
 	const char* s = lower.c_str();
@@ -149,13 +149,13 @@ bool probe_transcode_strategy(const std::string& ffmpeg,
 	return true;
 }
 
-bool probe_has_subtitle_stream(const std::string& ffmpeg,
+bool probe_has_subtitle_stream_in_thread(const std::string& ffmpeg,
 	const std::string& input_file)
 {
 	std::string cmd = shell_quote(ffmpeg) + " -hide_banner -i "
 		+ shell_quote(input_file) + " 2>&1";
 	std::string out;
-	run_command_capture(cmd, out);
+	run_command_capture_in_thread(cmd, out);
 	acl::string lower(out.c_str());
 	lower.lower();
 	return strstr(lower.c_str(), "subtitle:") != nullptr;
@@ -171,14 +171,14 @@ std::string replace_ext(const std::string& name, const char* new_ext) {
 }
 
 // Return 1 when exported, 0 when no subtitle stream, -1 when export failed.
-int export_vtt_sidecar(const std::string& ffmpeg,
+int export_vtt_sidecar_in_thread(const std::string& ffmpeg,
 	const std::string& input_file, const std::string& output_file,
 	std::string& vtt_file, std::string& err)
 {
 	vtt_file = replace_ext(output_file, ".vtt");
 	err.clear();
 
-	if (!probe_has_subtitle_stream(ffmpeg, input_file)) {
+	if (!probe_has_subtitle_stream_in_thread(ffmpeg, input_file)) {
 		return 0;
 	}
 
@@ -190,7 +190,7 @@ int export_vtt_sidecar(const std::string& ffmpeg,
 		+ " 2>&1";
 
 	std::string out;
-	int code = run_command_capture(cmd, out);
+	int code = run_command_capture_in_thread(cmd, out);
 	if (code != 0) {
 		err = trim_text(out);
 		if (err.empty()) {

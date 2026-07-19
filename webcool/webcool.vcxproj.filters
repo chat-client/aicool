@@ -276,6 +276,21 @@
     <ClCompile Include="action\folder\folder_empty_action.cpp">
       <Filter>源文件\action\folder</Filter>
     </ClCompile>
+    <ClCompile Include="action\convert\ai_video_enhance_action.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\audio_extract_action.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\video_edit_action.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\video_enhance_action.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
+    <ClCompile Include="action\convert\video_properties_action.cpp">
+      <Filter>源文件\action\convert</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="http_servlet.h">

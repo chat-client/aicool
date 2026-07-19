@@ -132,7 +132,7 @@ static int run_command_capture_direct(const std::string& command, std::string& o
 #endif
 }
 
-static int run_command_capture(const std::string& command, std::string& output) {
+static int run_command_capture_in_thread(const std::string& command, std::string& output) {
 	int res = 0;
 	acl::gofiber_wait_thread([&command, &output, &res] {
 		res = run_command_capture_direct(command, output);
@@ -148,7 +148,7 @@ struct probe_result_t {
 	probe_result_t() : has_audio(false), browser_audio_supported(true) {}
 };
 
-static probe_result_t probe_audio_info(const std::string& ffmpeg,
+static probe_result_t probe_audio_info_in_thread(const std::string& ffmpeg,
 	const std::string& input_file)
 {
 	probe_result_t ret;
@@ -157,7 +157,7 @@ static probe_result_t probe_audio_info(const std::string& ffmpeg,
 		+ shell_quote(input_file) + " 2>&1";
 
 	std::string out;
-	run_command_capture(cmd, out);
+	run_command_capture_in_thread(cmd, out);
 
 	std::string lower = out;
 	for (char & i : lower) {
@@ -256,7 +256,7 @@ bool VideoProbeAction::run(request_t& req, response_t& res,
 		return true;
 	}
 
-	probe_result_t probe = probe_audio_info(ffmpeg, in_path);
+	probe_result_t probe = probe_audio_info_in_thread(ffmpeg, in_path);
 
 	acl::json json;
 	acl::json_node& root = json.create_node();

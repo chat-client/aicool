@@ -93,6 +93,95 @@ function Copy-DirectoryContent {
     Copy-Item -Path (Join-Path $Source "*") -Destination $Destination -Recurse -Force
 }
 
+function Test-PythonCommand {
+    param(
+        [string]$Exe,
+        [string[]]$Args = @()
+    )
+
+    try {
+        $resolved = & $Exe @Args -c "import os, sys; print(os.path.realpath(sys.executable))" 2>$null | Select-Object -First 1
+        if (!$resolved) {
+            return $false
+        }
+        return $resolved -notmatch "\\Microsoft\\WindowsApps\\"
+    } catch {
+        return $false
+    }
+}
+
+function Find-PythonForModelDownload {
+    param([string]$RepoRoot)
+
+    $candidates = @()
+    if ($env:WEBCOOL_PYTHON) {
+        $candidates += [pscustomobject]@{ Exe = $env:WEBCOOL_PYTHON; Args = @() }
+    }
+    $candidates += [pscustomobject]@{ Exe = (Join-Path $RepoRoot "tools\codeformer\venv\windows\Scripts\python.exe"); Args = @() }
+    $candidates += [pscustomobject]@{ Exe = (Join-Path $RepoRoot "tools\codeformer\python\windows\python.exe"); Args = @() }
+
+    foreach ($name in @("python", "python3")) {
+        $cmd = Get-Command $name -ErrorAction SilentlyContinue
+        if ($cmd -and $cmd.Source -and $cmd.Source -notmatch "\\Microsoft\\WindowsApps\\") {
+            $candidates += [pscustomobject]@{ Exe = $cmd.Source; Args = @() }
+        }
+    }
+
+    $py = Get-Command "py" -ErrorAction SilentlyContinue
+    if ($py -and $py.Source) {
+        $candidates += [pscustomobject]@{ Exe = $py.Source; Args = @("-3") }
+    }
+
+    foreach ($candidate in $candidates) {
+        if ((Test-Path -LiteralPath $candidate.Exe) -and (Test-PythonCommand -Exe $candidate.Exe -Args $candidate.Args)) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+function Ensure-RealEsrganModels {
+    param(
+        [string]$RepoRoot,
+        [string]$ModelPath
+    )
+
+    $requiredModels = @(
+        "realesrgan-x4plus.param",
+        "realesrgan-x4plus.bin",
+        "realesr-animevideov3-x2.param",
+        "realesr-animevideov3-x2.bin",
+        "realesr-animevideov3-x3.param",
+        "realesr-animevideov3-x3.bin",
+        "realesr-animevideov3-x4.param",
+        "realesr-animevideov3-x4.bin"
+    )
+    $missingModels = @($requiredModels | Where-Object { !(Test-Path -LiteralPath (Join-Path $ModelPath $_)) })
+    if ($missingModels.Count -eq 0) {
+        return
+    }
+
+    $downloader = Join-Path $RepoRoot "tools\download_realesrgan_models.py"
+    if (!(Test-Path -LiteralPath $downloader)) {
+        throw "Real-ESRGAN model downloader not found: $downloader"
+    }
+
+    $python = Find-PythonForModelDownload -RepoRoot $RepoRoot
+    if (!$python) {
+        throw "Real-ESRGAN models are incomplete under $ModelPath. Python 3 was also not found; run tools\codeformer\setup_codeformer_runtime.bat first or set WEBCOOL_PYTHON."
+    }
+
+    Log "Real-ESRGAN models are missing; downloading and verifying them..."
+    & ($python.Exe) @($python.Args) $downloader
+    if ($LASTEXITCODE -ne 0) {
+        throw "Real-ESRGAN model download failed with exit code $LASTEXITCODE."
+    }
+    if (!(Test-Path -LiteralPath $ModelPath)) {
+        throw "Real-ESRGAN models not found after download: $ModelPath"
+    }
+}
+
 function Escape-InnoString {
     param([string]$Value)
     return ($Value -replace '"', '""')
@@ -454,11 +543,17 @@ if (!$SkipBuild -and $buildMainPackage) {
     $msbuild = Find-MSBuild -ExplicitPath $MsBuildPath
     Log "building webcool ($Configuration|$Platform)"
     & $msbuild $projectFile "/p:Configuration=$Configuration" "/p:Platform=$Platform" /m
+    if ($LASTEXITCODE -ne 0) {
+        throw "webcool build failed with exit code $LASTEXITCODE."
+    }
     if (!(Test-Path -LiteralPath $zlibProject)) {
         throw "zlib project not found: $zlibProject"
     }
     Log "building zlib ($Configuration|$Platform)"
     & $msbuild $zlibProject "/p:Configuration=$Configuration" "/p:Platform=$Platform" "/p:SolutionDir=$webcoolRoot\" /m
+    if ($LASTEXITCODE -ne 0) {
+        throw "zlib build failed with exit code $LASTEXITCODE."
+    }
 }
 
 $binDir = Join-Path $webcoolRoot "$Platform\$Configuration"
@@ -471,6 +566,8 @@ if ($buildMainPackage) {
     if (!(Test-Path -LiteralPath $sqliteDll)) {
         $sqliteFallbacks = @(
             (Join-Path $webcoolRoot "$Platform\Debug\sqlite.dll"),
+            (Join-Path $webcoolRoot "$Platform\Release\sqlite.dll"),
+            (Join-Path $webcoolRoot "sqlite.dll"),
             (Join-Path $repoRoot "tools\windows\sqlite.dll")
         )
         $sqliteDll = $sqliteFallbacks | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
@@ -555,9 +652,7 @@ if ($buildAiPackage) {
         }
     }
     $modelPath = Join-Path $repoRoot "models\realesrgan\ncnn"
-    if (!(Test-Path -LiteralPath $modelPath)) {
-        throw "Real-ESRGAN models not found: $modelPath"
-    }
+    Ensure-RealEsrganModels -RepoRoot $repoRoot -ModelPath $modelPath
     Copy-DirectoryContent -Source $modelPath -Destination (Join-Path $aiRoot "models\realesrgan")
 
     $codeFormerTools = Join-Path $repoRoot "tools\codeformer"

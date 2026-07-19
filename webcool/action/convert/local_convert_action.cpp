@@ -85,12 +85,9 @@ bool LocalDiskVideoConvertAction::run(request_t& req, response_t& res,
 
 	const std::string input_path(local_path);
 	const std::string temp_path(tmp_path.c_str());
-	go[task, ffmpeg, input_path, temp_path, output_path, strategy] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, temp_path, output_path, strategy] {
-			run_transcode_task(task, ffmpeg, input_path, temp_path, output_path,
-				"", strategy);
-		});
-	};
+	acl::gofiber([task, ffmpeg, input_path, temp_path, output_path, strategy] {
+		run_transcode_task_in_thread(task, ffmpeg, input_path, temp_path, output_path, "", strategy);
+	});
 
 	acl::json json;
 	acl::json_node& root = json.create_node();

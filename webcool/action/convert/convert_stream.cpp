@@ -70,7 +70,7 @@ bool remux_mp4_faststart(const std::string& ffmpeg,
 		+ " -map 0 -c copy -movflags +faststart " + shell_quote(output_path)
 		+ " 2>&1";
 	std::string out;
-	const int code = run_command_capture(cmd, out);
+	const int code = run_command_capture_in_thread(cmd, out);
 	if (code != 0 || file_size_of(output_path.c_str()) <= 0) {
 		err = trim_text(out);
 		if (err.empty()) {

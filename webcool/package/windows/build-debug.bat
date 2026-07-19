@@ -2,5 +2,14 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%build-windows.ps1" -Configuration Debug %*
+
+if /i "%~1"=="--help" goto :usage
+if /i "%~1"=="-h" goto :usage
+if /i "%~1"=="/?" goto :usage
+
+call "%SCRIPT_DIR%build-windows.bat" -Configuration Debug %*
+exit /b %ERRORLEVEL%
+
+:usage
+call "%SCRIPT_DIR%build-windows.bat" --help
 exit /b %ERRORLEVEL%

@@ -114,10 +114,10 @@ bool write_local_stream_position_ms(const std::string& local_path,
 void remove_local_stream_position(const std::string& local_path);
 
 std::string shell_quote(const std::string& s);
-int run_command_capture(const std::string& command, std::string& output);
+int run_command_capture_in_thread(const std::string& command, std::string& output);
 std::string trim_text(const std::string& s);
 long long parse_duration_ms_from_text(const std::string& text);
-long long probe_duration_ms(const std::string& ffmpeg,
+long long probe_duration_ms_in_thread(const std::string& ffmpeg,
 	const std::string& input_file);
 long long parse_progress_ms_line(const std::string& line);
 
@@ -128,10 +128,10 @@ bool browser_can_play_video_by_probe(const std::string& ffmpeg,
 bool probe_transcode_strategy(const std::string& ffmpeg,
 	const std::string& input_file, transcode_strategy_t& strategy,
 	bool allow_audio_split);
-bool probe_has_subtitle_stream(const std::string& ffmpeg,
+bool probe_has_subtitle_stream_in_thread(const std::string& ffmpeg,
 	const std::string& input_file);
 std::string replace_ext(const std::string& name, const char* new_ext);
-int export_vtt_sidecar(const std::string& ffmpeg,
+int export_vtt_sidecar_in_thread(const std::string& ffmpeg,
 	const std::string& input_file, const std::string& output_file,
 	std::string& vtt_file, std::string& err);
 
@@ -153,33 +153,22 @@ bool request_cancel_task(const char* task_id, const std::string& scope,
 	transcode_task_snapshot_t& snapshot, bool& signal_sent);
 void terminate_running_transcode_processes();
 
-#ifdef _WIN32
-std::string quote_windows_arg(const char* arg);
-bool read_ffmpeg_line(ffmpeg_process_t* proc, char* buf, size_t size);
-#endif
+int wait_transcode_progress_in_thread(const std::shared_ptr<transcode_task_t>& task,
+	ffmpeg_process_t& proc, long long duration_ms,
+	double start_percent, double progress_span,
+	const char* progress_msg, double end_percent,
+	const char* end_msg);
 int wait_transcode_progress(const std::shared_ptr<transcode_task_t>& task,
 	ffmpeg_process_t& proc, long long duration_ms,
 	double start_percent, double progress_span,
 	const char* progress_msg, double end_percent,
 	const char* end_msg);
-ffmpeg_process_ptr start_ffmpeg_process(ACL_ARGV* args);
+ffmpeg_process_ptr start_ffmpeg_process_in_thread(ACL_ARGV* args);
 
-void run_audio_only_transcode_task(const std::shared_ptr<transcode_task_t>& task,
-	const std::string& ffmpeg, const std::string& input_file,
-	const std::string& tmp_file, const std::string& output_file);
-void run_audio_split_transcode_task(const std::shared_ptr<transcode_task_t>& task,
-	const std::string& ffmpeg, const std::string& input_file,
-	const std::string& tmp_file, const std::string& output_file,
-	const std::string& secondary_output_file);
-void run_audio_transcode_task(const std::shared_ptr<transcode_task_t>& task,
-	const std::string& ffmpeg, const std::string& input_file,
-	const std::string& tmp_file, const std::string& output_file,
-	const std::string& secondary_output_file,
-	const transcode_strategy_t& strategy);
 void run_video_transcode_task(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input_file,
 	const std::string& tmp_file, const std::string& output_file);
-void run_transcode_task(const std::shared_ptr<transcode_task_t>& task,
+void run_transcode_task_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input_file,
 	const std::string& tmp_file, const std::string& output_file,
 	const std::string& secondary_output_file,

@@ -127,7 +127,7 @@ bool convert_office_to_pdf(const std::string& source,
 			+ " " + shell_quote(std::string("-env:UserInstallation=file://") + profile_dir)
 			+ " --convert-to pdf --outdir " + shell_quote(out_dir)
 			+ " " + shell_quote(source) + " 2>&1";
-		const int code = run_command_capture(cmd, last_output);
+		const int code = run_command_capture_in_thread(cmd, last_output);
 		if (code == 0 && regular_file_size(output) > 0) {
 			return true;
 		}

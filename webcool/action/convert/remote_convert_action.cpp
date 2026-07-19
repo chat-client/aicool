@@ -177,7 +177,7 @@ std::shared_ptr<transcode_task_t> register_remote_transcode_task(
 	return task;
 }
 
-void launch_remote_transcode_task(const std::shared_ptr<transcode_task_t>& task,
+void launch_remote_transcode_task_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& in_path,
 	const remote_convert_output_t& output, const transcode_strategy_t& strategy)
 {
@@ -186,9 +186,9 @@ void launch_remote_transcode_task(const std::shared_ptr<transcode_task_t>& task,
 	const std::string output_path(output.out_path);
 	const std::string secondary_output_path(output.secondary_out_path);
 
-	acl::gofiber_wait_thread([task, ffmpeg, input_path, temp_path, output_path,
+	acl::gofiber([task, ffmpeg, input_path, temp_path, output_path,
 			secondary_output_path, strategy] {
-		run_transcode_task(task, ffmpeg, input_path, temp_path, output_path,
+		run_transcode_task_in_thread(task, ffmpeg, input_path, temp_path, output_path,
 			secondary_output_path, strategy);
 	});
 }
@@ -252,7 +252,7 @@ bool VideoConvertAction::run(request_t& req, response_t& res,
 		upload_dir, input.file_path, strategy);
 	const std::shared_ptr<transcode_task_t> task = register_remote_transcode_task(
 		upload_dir, input.file_path, output);
-	launch_remote_transcode_task(task, input.ffmpeg, input.in_path, output, strategy);
+	launch_remote_transcode_task_in_thread(task, input.ffmpeg, input.in_path, output, strategy);
 	return send_remote_transcode_started_response(res, req.isKeepAlive(),
 		task, output, strategy);
 }

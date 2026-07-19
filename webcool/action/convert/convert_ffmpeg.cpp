@@ -8,7 +8,7 @@
 namespace action {
 
 #ifdef _WIN32
-std::string quote_windows_arg(const char* arg) {
+static std::string quote_windows_arg(const char* arg) {
 	std::string text = arg ? arg : "";
 	bool needs_quotes = text.empty();
 	for (size_t i = 0; i < text.size(); ++i) {
@@ -44,7 +44,7 @@ std::string quote_windows_arg(const char* arg) {
 	return out;
 }
 
-bool read_ffmpeg_line(ffmpeg_process_t* proc, char* buf, size_t size) {
+static bool read_ffmpeg_line(ffmpeg_process_t* proc, char* buf, size_t size) {
 	if (proc == nullptr || proc->read_pipe == nullptr
 		  || buf == nullptr || size == 0) {
 		return false;
@@ -84,6 +84,22 @@ bool read_ffmpeg_line(ffmpeg_process_t* proc, char* buf, size_t size) {
 	}
 }
 #endif
+
+int wait_transcode_progress_in_thread(const std::shared_ptr<transcode_task_t>& task,
+	ffmpeg_process_t& proc, const long long duration_ms,
+	const double start_percent, const double progress_span,
+	const char* progress_msg, const double end_percent,
+	const char* end_msg)
+{
+	int res = 0;
+	acl::gofiber_wait_thread([&res, &task, &proc, duration_ms, start_percent,
+			progress_span, progress_msg, end_percent, end_msg] {
+		res = wait_transcode_progress(task, proc, duration_ms,
+			start_percent, progress_span, progress_msg,
+			end_percent, end_msg);
+	});
+	return res;
+}
 
 int wait_transcode_progress(const std::shared_ptr<transcode_task_t>& task,
 	ffmpeg_process_t& proc, const long long duration_ms,
@@ -225,7 +241,7 @@ static ffmpeg_process_ptr start_ffmpeg_process_direct(ACL_ARGV* args) {
 #endif
 }
 
-ffmpeg_process_ptr start_ffmpeg_process(ACL_ARGV* args) {
+ffmpeg_process_ptr start_ffmpeg_process_in_thread(ACL_ARGV* args) {
 	ffmpeg_process_ptr res;
 	acl::gofiber_wait_thread([&res, args] {
 		res = start_ffmpeg_process_direct(args);

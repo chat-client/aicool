@@ -27,13 +27,13 @@ std::string unique_output(const std::string& source, int width, int height,
 	return stem + tag + "_" + std::to_string(g_transcode_seq.load()) + ".mp4";
 }
 
-void run_enhance(const std::shared_ptr<transcode_task_t>& task,
+void run_enhance_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input, const std::string& temp,
 	const std::string& output, int width, int height, int bitrate,
 	int denoise, bool deinterlace, int sharpen, int target_fps, int preview_seconds)
 {
 	unlink(temp.c_str());
-	const long long duration = probe_duration_ms(ffmpeg, input);
+	const long long duration = probe_duration_ms_in_thread(ffmpeg, input);
 	const long long preview_duration = static_cast<long long>(preview_seconds) * 1000LL;
 	const long long effective_duration = preview_seconds > 0
 		? (duration > 0 ? std::min(duration, preview_duration) : preview_duration) : duration;
@@ -61,9 +61,9 @@ void run_enhance(const std::shared_ptr<transcode_task_t>& task,
 		"-bufsize", bufsize.c_str(), "-pix_fmt", "yuv420p", "-c:a", "aac",
 		"-b:a", "192k", "-movflags", "+faststart", "-progress", "pipe:1",
 		"-nostats", temp.c_str(), nullptr);
-	const ffmpeg_process_ptr process = start_ffmpeg_process(args);
+	const ffmpeg_process_ptr process = start_ffmpeg_process_in_thread(args);
 	if (!process) { finish_task(task, false, "画质提升失败", acl::last_serror(), -1); return; }
-	const int code = wait_transcode_progress(task, *process, effective_duration, 2, 95,
+	const int code = wait_transcode_progress_in_thread(task, *process, effective_duration, 2, 95,
 		"正在提升画质", 98, "正在写入MP4文件");
 	if (code != 0 || is_task_cancel_requested(task) || file_size_of(temp.c_str()) <= 0) {
 		unlink(temp.c_str());
@@ -157,12 +157,10 @@ bool VideoEnhanceAction::run(request_t& req, response_t& res,
 	task->file_name = task_file; task->output_name = output_name; task->message = "等待提升画质"; task->local = local;
 	{ std::lock_guard<webcool::mutex> guard(g_transcode_mutex); g_transcode_tasks[task->id] = task; g_running_task_by_file[key] = task->id; }
 	const std::string temp_path = tmp.c_str();
-	go[task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate, denoise, deinterlace, sharpen, target_fps, preview_seconds] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate, denoise, deinterlace, sharpen, target_fps, preview_seconds] {
-			run_enhance(task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate,
-				denoise, deinterlace, sharpen, target_fps, preview_seconds);
-		});
-	};
+	acl::gofiber([task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate, denoise, deinterlace, sharpen, target_fps, preview_seconds] {
+		run_enhance_in_thread(task, ffmpeg, input_path, temp_path, output_path, width, height, bitrate,
+			denoise, deinterlace, sharpen, target_fps, preview_seconds);
+	});
 	acl::json json; acl::json_node& root = json.create_node(); root.add_bool("ok", true);
 	root.add_text("task_id", task->id.c_str()); root.add_text("name", output_name.c_str());
 	return sendJson(res, 200, root, req.isKeepAlive());

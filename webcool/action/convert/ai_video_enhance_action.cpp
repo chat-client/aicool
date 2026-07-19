@@ -85,9 +85,9 @@ std::string choose_realesrgan(std::string& models) {
 void cleanup_temp(const std::string& path) {
 	std::string output;
 #ifdef _WIN32
-	run_command_capture("rmdir /S /Q " + shell_quote(path), output);
+	run_command_capture_in_thread("rmdir /S /Q " + shell_quote(path), output);
 #else
-	run_command_capture("rm -rf " + shell_quote(path), output);
+	run_command_capture_in_thread("rm -rf " + shell_quote(path), output);
 #endif
 }
 
@@ -163,17 +163,17 @@ std::string ai_output_name(const std::string& source, bool local,
 	return stem + tag + "_" + std::to_string(g_transcode_seq.load()) + ".mp4";
 }
 
-bool run_stage(const std::shared_ptr<transcode_task_t>& task, ACL_ARGV* args,
+bool run_stage_in_thread(const std::shared_ptr<transcode_task_t>& task, ACL_ARGV* args,
 	long long duration, double start, double span, const char* message,
 	double end, const char* end_message)
 {
-	const ffmpeg_process_ptr process = start_ffmpeg_process(args);
+	const ffmpeg_process_ptr process = start_ffmpeg_process_in_thread(args);
 	if (!process) return false;
-	return wait_transcode_progress(task, *process, duration, start, span, message, end, end_message) == 0
+	return wait_transcode_progress_in_thread(task, *process, duration, start, span, message, end, end_message) == 0
 		&& !is_task_cancel_requested(task);
 }
 
-void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
+void run_ai_task_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& ai, const std::string& models,
 	bool use_coreml, const std::string& coreml_model, int coreml_workers,
 	const std::string& compute_units,
@@ -190,7 +190,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	if (!make_dir_recursive(frames_in.c_str()) || !make_dir_recursive(frames_out.c_str())) {
 		finish_task(task, false, "AI增强失败", "cannot create temporary directories", -1); return;
 	}
-	const long long duration = probe_duration_ms(ffmpeg, input);
+	const long long duration = probe_duration_ms_in_thread(ffmpeg, input);
 	const long long pipeline_duration = preview_seconds > 0
 		? std::min(duration, static_cast<long long>(preview_seconds) * 1000LL) : duration;
 	std::string inference_input = input;
@@ -214,7 +214,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 		acl_argv_add(prepare, "-map", "0:v:0", "-an", "-vf", filter.c_str(),
 			"-c:v", "libx264", "-preset", "fast", "-crf", "12", "-pix_fmt", "yuv420p",
 			"-progress", "pipe:1", "-nostats", preprocessed.c_str(), nullptr);
-		if (!run_stage(task, prepare, pipeline_duration, 1, 11,
+		if (!run_stage_in_thread(task, prepare, pipeline_duration, 1, 11,
 			"正在去除旧视频压缩噪声和轻微模糊", 12, "旧视频预处理完成")) {
 			cleanup_temp(temp_root); finish_task(task, false,
 				is_task_cancel_requested(task) ? "已取消" : "AI增强失败",
@@ -241,7 +241,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 			"--cleanup-path", temp_root.c_str(), nullptr);
 		const double coreml_start = preprocess ? 12 : 1;
 		const double coreml_span = preprocess ? 73 : 84;
-		if (!run_stage(task, pipeline, pipeline_duration, coreml_start, coreml_span,
+		if (!run_stage_in_thread(task, pipeline, pipeline_duration, coreml_start, coreml_span,
 			"M4正在进行硬件解码、Core ML增强与VideoToolbox编码", 85, "Core ML视频流水线完成")) {
 			cleanup_temp(temp_root); finish_task(task, false,
 				is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "Core ML video pipeline failed", -1); return;
@@ -251,7 +251,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 			"-i", silent_video.c_str(), "-i", input.c_str(), "-map", "0:v:0", "-map", "1:a?",
 			"-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart",
 			"-progress", "pipe:1", "-nostats", output.c_str(), nullptr);
-		if (!run_stage(task, mux, pipeline_duration, 85, 14, "正在封装原音轨", 99, "正在完成AI视频")) {
+		if (!run_stage_in_thread(task, mux, pipeline_duration, 85, 14, "正在封装原音轨", 99, "正在完成AI视频")) {
 			unlink(output.c_str()); cleanup_temp(temp_root); finish_task(task, false,
 				is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "audio mux failed", -1); return;
 		}
@@ -293,7 +293,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	if (!extraction_filter.empty()) acl_argv_add(extract, "-vf", extraction_filter.c_str(), nullptr);
 	if (fast_intermediate) acl_argv_add(extract, "-q:v", "2", nullptr);
 	acl_argv_add(extract, "-vsync", "0", "-progress", "pipe:1", "-nostats", input_pattern.c_str(), nullptr);
-	if (!run_stage(task, extract, pipeline_duration, 1, 10,
+	if (!run_stage_in_thread(task, extract, pipeline_duration, 1, 10,
 		fast_intermediate ? "正在快速解码视频帧（JPEG中间帧）" : "正在解码视频帧（PNG中间帧）",
 		12, "准备AI推理")) {
 		cleanup_temp(temp_root); finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "frame extraction failed", -1); return;
@@ -347,7 +347,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));
 		}
 	});
-	const bool inference_ok = run_stage(task, inference, 0, 12, 72,
+	const bool inference_ok = run_stage_in_thread(task, inference, 0, 12, 72,
 		use_coreml ? "Core ML正在调用M4恢复纹理与细节" : "AI正在恢复纹理与细节", 85, "AI推理完成");
 	inference_done.store(true);
 	monitor.join();
@@ -390,7 +390,7 @@ void run_ai_task(const std::shared_ptr<transcode_task_t>& task,
 	}
 	acl_argv_add(encode, "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart",
 		"-progress", "pipe:1", "-nostats", output.c_str(), nullptr);
-	if (!run_stage(task, encode, pipeline_duration, 85, 13,
+	if (!run_stage_in_thread(task, encode, pipeline_duration, 85, 13,
 		fast_intermediate ? "正在快速合成视频与原音轨" : "正在无损读取AI帧并合成视频与原音轨",
 		99, "正在完成AI视频")) {
 		unlink(output.c_str()); cleanup_temp(temp_root); finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI增强失败", "video encoding failed", -1); return;
@@ -527,13 +527,28 @@ bool AiVideoEnhanceAction::run(request_t& req, response_t& res, const std::strin
 	const std::string key = scoped_task_key(upload_dir, task_file);
 	{ std::lock_guard<webcool::mutex> guard(g_transcode_mutex); const auto it = g_running_task_by_file.find(key); if (it != g_running_task_by_file.end()) { const auto old = g_transcode_tasks.find(it->second); if (old != g_transcode_tasks.end() && !old->second->done) { acl::json json; acl::json_node& root=json.create_node(); root.add_bool("ok",true); root.add_text("task_id",old->second->id.c_str()); root.add_text("name",old->second->output_name.c_str()); return sendJson(res,200,root,req.isKeepAlive()); } } g_transcode_tasks[task->id]=task; g_running_task_by_file[key]=task->id; }
 	const std::string temp_root = local_parent_path(output) + "/.ai_enhance_tmp." + task->id;
-	go[task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, pre_denoise, pre_deblock, pre_sharpen, pre_deinterlace, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
-		acl::gofiber_wait_thread([task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, pre_denoise, pre_deblock, pre_sharpen, pre_deinterlace, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
-			run_ai_task(task, ffmpeg, ai, models, use_coreml, coreml.model, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, pre_denoise, pre_deblock, pre_sharpen, pre_deinterlace, input, output, temp_root, model, scale, width, height, bitrate, fps,
+	acl::gofiber([task, ffmpeg, ai, models, use_coreml, coreml, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, pre_denoise, pre_deblock, pre_sharpen, pre_deinterlace, input, output, temp_root, model, scale, width, height, bitrate, fps, tile, threads, gpu, encode_preset, preview_seconds] {
+		try {
+			run_ai_task_in_thread(task, ffmpeg, ai, models, use_coreml, coreml.model, coreml_workers, compute_units, input_sizing, tile_batch, overlap_mode, temporal_step, pre_denoise, pre_deblock, pre_sharpen, pre_deinterlace, input, output, temp_root, model, scale, width, height, bitrate, fps,
 				tile, threads, gpu, encode_preset, preview_seconds);
-		});
-	};
-	acl::json json; acl::json_node& root=json.create_node(); root.add_bool("ok",true); root.add_text("task_id",task->id.c_str()); root.add_text("name",output_name.c_str()); root.add_text("backend", use_coreml ? "coreml" : "ncnn-vulkan"); root.add_text("compute_units", use_coreml ? compute_units.c_str() : "ncnn"); return sendJson(res,200,root,req.isKeepAlive());
+		} catch (const std::exception& e) {
+			unlink(output.c_str());
+			cleanup_temp(temp_root);
+			finish_task(task, false, "AI增强失败", e.what(), -1);
+		} catch (...) {
+			unlink(output.c_str());
+			cleanup_temp(temp_root);
+			finish_task(task, false, "AI增强失败", "unexpected AI enhancement exception", -1);
+		}
+	});
+	acl::json json;
+	acl::json_node& root=json.create_node();
+	root.add_bool("ok",true);
+	root.add_text("task_id",task->id.c_str());
+	root.add_text("name",output_name.c_str());
+	root.add_text("backend", use_coreml ? "coreml" : "ncnn-vulkan");
+	root.add_text("compute_units", use_coreml ? compute_units.c_str() : "ncnn");
+	return sendJson(res,200,root,req.isKeepAlive());
 }
 
 bool AiVideoEnhanceAction::progress(request_t& req, response_t& res, const std::string& scope, bool local) { transcode_task_snapshot_t t; if (!ai_snapshot(req,scope,local,t)) { json_error(res,404,"AI task not found",req.isKeepAlive()); return true; } acl::json j; acl::json_node& r=j.create_node(); r.add_bool("ok",true); r.add_text("name",t.output_name.c_str()); r.add_bool("done",t.done); r.add_bool("success",t.success); r.add_bool("cancel_requested",t.cancel_requested); r.add_number("progress",(long long)t.progress); r.add_text("message",t.message.c_str()); if(!t.error.empty())r.add_text("error",t.error.c_str()); return sendJson(res,200,r,req.isKeepAlive()); }

@@ -3,7 +3,7 @@
 
 namespace action {
 
-void run_audio_only_transcode_task(const std::shared_ptr<transcode_task_t>& task,
+static void run_audio_only_transcode_task_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input_file,
 	const std::string& tmp_file, const std::string& output_file)
 {
@@ -15,7 +15,7 @@ void run_audio_only_transcode_task(const std::shared_ptr<transcode_task_t>& task
 
 	unlink(tmp_file.c_str());
 
-	const long long duration_ms = probe_duration_ms(ffmpeg, input_file);
+	const long long duration_ms = probe_duration_ms_in_thread(ffmpeg, input_file);
 	ACL_ARGV* args = acl_argv_alloc(24);
 	acl_argv_add(args,
 		ffmpeg.c_str(),
@@ -34,7 +34,7 @@ void run_audio_only_transcode_task(const std::shared_ptr<transcode_task_t>& task
 		tmp_file.c_str(),
 		nullptr);
 
-	const ffmpeg_process_ptr stream = start_ffmpeg_process(args);
+	const ffmpeg_process_ptr stream = start_ffmpeg_process_in_thread(args);
 
 	if (stream == nullptr) {
 		unlink(tmp_file.c_str());
@@ -42,7 +42,7 @@ void run_audio_only_transcode_task(const std::shared_ptr<transcode_task_t>& task
 		return;
 	}
 
-	const int code = wait_transcode_progress(task, *stream, duration_ms,
+	const int code = wait_transcode_progress_in_thread(task, *stream, duration_ms,
 		5.0, 91.0, "音频转码中 (转为M4A/AAC)", 96.0, "写入M4A文件");
 	if (is_task_cancel_requested(task)) {
 		unlink(tmp_file.c_str());
@@ -72,7 +72,7 @@ void run_audio_only_transcode_task(const std::shared_ptr<transcode_task_t>& task
 	finish_task(task, true, "音频转码完成，已生成M4A文件", "", out_size);
 }
 
-void run_audio_split_transcode_task(const std::shared_ptr<transcode_task_t>& task,
+static void run_audio_split_transcode_task_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input_file,
 	const std::string& tmp_file, const std::string& output_file,
 	const std::string& secondary_output_file)
@@ -92,7 +92,7 @@ void run_audio_split_transcode_task(const std::shared_ptr<transcode_task_t>& tas
 	unlink(tmp_file.c_str());
 	unlink(audio_tmp_file.c_str());
 
-	const long long duration_ms = probe_duration_ms(ffmpeg, input_file);
+	const long long duration_ms = probe_duration_ms_in_thread(ffmpeg, input_file);
 	ACL_ARGV* args = acl_argv_alloc(40);
 	acl_argv_add(args,
 		ffmpeg.c_str(),
@@ -119,7 +119,7 @@ void run_audio_split_transcode_task(const std::shared_ptr<transcode_task_t>& tas
 		audio_tmp_file.c_str(),
 		nullptr);
 
-	const ffmpeg_process_ptr stream = start_ffmpeg_process(args);
+	const ffmpeg_process_ptr stream = start_ffmpeg_process_in_thread(args);
 
 	if (stream == nullptr) {
 		unlink(tmp_file.c_str());
@@ -128,7 +128,7 @@ void run_audio_split_transcode_task(const std::shared_ptr<transcode_task_t>& tas
 		return;
 	}
 
-	const int code = wait_transcode_progress(task, *stream, duration_ms,
+	const int code = wait_transcode_progress_in_thread(task, *stream, duration_ms,
 		5.0, 91.0, "拆分中 (复用视频并转M4A/AAC音频)", 96.0,
 		"写入拆分文件");
 	if (is_task_cancel_requested(task)) {
@@ -172,7 +172,7 @@ void run_audio_split_transcode_task(const std::shared_ptr<transcode_task_t>& tas
 
 	std::string vtt_path;
 	std::string subtitle_err;
-	const int subtitle_status = export_vtt_sidecar(ffmpeg, input_file, output_file,
+	const int subtitle_status = export_vtt_sidecar_in_thread(ffmpeg, input_file, output_file,
 		vtt_path, subtitle_err);
 	if (subtitle_status > 0) {
 		finish_task(task, true, "拆分完成，已生成独立视频、M4A音频和VTT字幕", "", video_size + audio_size);
@@ -183,23 +183,23 @@ void run_audio_split_transcode_task(const std::shared_ptr<transcode_task_t>& tas
 	}
 }
 
-void run_audio_transcode_task(const std::shared_ptr<transcode_task_t>& task,
+static void run_audio_transcode_task_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input_file,
 	const std::string& tmp_file, const std::string& output_file,
 	const std::string& secondary_output_file,
 	const transcode_strategy_t& strategy)
 {
 	if (strategy.mode == transcode_strategy_t::audio_only) {
-		run_audio_only_transcode_task(task, ffmpeg, input_file, tmp_file,
+		run_audio_only_transcode_task_in_thread(task, ffmpeg, input_file, tmp_file,
 			output_file);
 		return;
 	}
 
-	run_audio_split_transcode_task(task, ffmpeg, input_file, tmp_file,
+	run_audio_split_transcode_task_in_thread(task, ffmpeg, input_file, tmp_file,
 		output_file, secondary_output_file);
 }
 
-void run_video_transcode_task(const std::shared_ptr<transcode_task_t>& task,
+static void run_video_transcode_task_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input_file,
 	const std::string& tmp_file, const std::string& output_file)
 {
@@ -209,7 +209,7 @@ void run_video_transcode_task(const std::shared_ptr<transcode_task_t>& task,
 		return;
 	}
 
-	const long long duration_ms = probe_duration_ms(ffmpeg, input_file);
+	const long long duration_ms = probe_duration_ms_in_thread(ffmpeg, input_file);
 	ACL_ARGV* args = acl_argv_alloc(32);
 	acl_argv_add(args,
 		ffmpeg.c_str(),
@@ -242,7 +242,7 @@ void run_video_transcode_task(const std::shared_ptr<transcode_task_t>& task,
 		tmp_file.c_str(),
 		nullptr);
 
-	const ffmpeg_process_ptr stream = start_ffmpeg_process(args);
+	const ffmpeg_process_ptr stream = start_ffmpeg_process_in_thread(args);
 
 	if (stream == nullptr) {
 		unlink(tmp_file.c_str());
@@ -250,7 +250,7 @@ void run_video_transcode_task(const std::shared_ptr<transcode_task_t>& task,
 		return;
 	}
 
-	const int code = wait_transcode_progress(task, *stream, duration_ms,
+	const int code = wait_transcode_progress_in_thread(task, *stream, duration_ms,
 		0.1, 100.0, strategy_msg, 99.5, "写入输出文件");
 	if (is_task_cancel_requested(task)) {
 		unlink(tmp_file.c_str());
@@ -279,7 +279,7 @@ void run_video_transcode_task(const std::shared_ptr<transcode_task_t>& task,
 
 	std::string vtt_path;
 	std::string subtitle_err;
-	const int subtitle_status = export_vtt_sidecar(ffmpeg, input_file, output_file,
+	const int subtitle_status = export_vtt_sidecar_in_thread(ffmpeg, input_file, output_file,
 		vtt_path, subtitle_err);
 
 	if (subtitle_status > 0) {
@@ -291,19 +291,19 @@ void run_video_transcode_task(const std::shared_ptr<transcode_task_t>& task,
 	}
 }
 
-void run_transcode_task(const std::shared_ptr<transcode_task_t>& task,
+void run_transcode_task_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input_file,
 	const std::string& tmp_file, const std::string& output_file,
 	const std::string& secondary_output_file,
 	const transcode_strategy_t& strategy)
 {
 	if (strategy.mode == transcode_strategy_t::full_mp4) {
-		run_video_transcode_task(task, ffmpeg, input_file, tmp_file,
+		run_video_transcode_task_in_thread(task, ffmpeg, input_file, tmp_file,
 			output_file);
 		return;
 	}
 
-	run_audio_transcode_task(task, ffmpeg, input_file, tmp_file,
+	run_audio_transcode_task_in_thread(task, ffmpeg, input_file, tmp_file,
 		output_file, secondary_output_file, strategy);
 }
 

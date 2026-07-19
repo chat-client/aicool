@@ -152,7 +152,7 @@ std::string build_video_filter(double speed, int rotate, bool flip_h,
 	return result;
 }
 
-void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
+void run_video_edit_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input,
 	const std::string& temporary, const std::string& output,
 	long long start_ms, long long end_ms, double speed, int volume,
@@ -163,7 +163,7 @@ void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
 	long long subtitle_start_ms, const std::string& subtitle_import_mode)
 {
 	unlink(temporary.c_str());
-	const long long source_duration = probe_duration_ms(ffmpeg, input);
+	const long long source_duration = probe_duration_ms_in_thread(ffmpeg, input);
 	long long selected_duration = end_ms > start_ms ? end_ms - start_ms
 		: (source_duration > start_ms ? source_duration - start_ms : source_duration);
 	if (selected_duration > 0) selected_duration = static_cast<long long>(selected_duration / speed);
@@ -185,7 +185,7 @@ void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
 		}
 	}
 
-	ACL_ARGV* args = acl_argv_alloc(48);
+	ACL_ARGV* args = acl_argv_alloc(96);
 	acl_argv_add(args, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y", nullptr);
 	const std::string start_text = decimal_text(start_ms / 1000.0);
 	if (start_ms > 0) acl_argv_add(args, "-ss", start_text.c_str(), nullptr);
@@ -229,12 +229,12 @@ void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
 	acl_argv_add(args, "-movflags", "+faststart", "-progress", "pipe:1", "-nostats",
 		temporary.c_str(), nullptr);
 
-	const ffmpeg_process_ptr process = start_ffmpeg_process(args);
+	const ffmpeg_process_ptr process = start_ffmpeg_process_in_thread(args);
 	if (!process) {
 		finish_task(task, false, "视频剪辑启动失败", acl::last_serror(), -1);
 		return;
 	}
-	const int code = wait_transcode_progress(task, *process, selected_duration,
+	const int code = wait_transcode_progress_in_thread(task, *process, selected_duration,
 		2.0, 95.0, fast_subtitle_import ? "正在快速添加字幕" : "正在导出剪辑",
 		98.0, "正在写入MP4文件");
 	if (code != 0 || is_task_cancel_requested(task) || file_size_of(temporary.c_str()) <= 0) {
@@ -256,7 +256,7 @@ void run_video_edit(const std::shared_ptr<transcode_task_t>& task,
 	std::string subtitle_err;
 	if (subtitle_mode != "remove") {
 		update_task_progress(task, 99.0, "正在生成浏览器字幕文件");
-		subtitle_status = export_vtt_sidecar(ffmpeg, output, output,
+		subtitle_status = export_vtt_sidecar_in_thread(ffmpeg, output, output,
 			vtt_path, subtitle_err);
 		if (subtitle_status > 0) output_size += file_size_of(vtt_path.c_str());
 	}
@@ -279,12 +279,12 @@ bool edit_task_snapshot(const request_t& req, const std::string& scope,
 		&& task.file_name.compare(0, strlen(prefix), prefix) == 0;
 }
 
-void run_subtitle_export(const std::shared_ptr<transcode_task_t>& task,
+void run_subtitle_export_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input, const std::string& temporary,
 	const std::string& output, long long start_ms, long long end_ms)
 {
 	unlink(temporary.c_str());
-	const long long source_duration = probe_duration_ms(ffmpeg, input);
+	const long long source_duration = probe_duration_ms_in_thread(ffmpeg, input);
 	const long long duration = end_ms > start_ms ? end_ms - start_ms
 		: (source_duration > start_ms ? source_duration - start_ms : source_duration);
 	ACL_ARGV* args = acl_argv_alloc(28);
@@ -296,9 +296,9 @@ void run_subtitle_export(const std::shared_ptr<transcode_task_t>& task,
 	if (!duration_text.empty()) acl_argv_add(args, "-t", duration_text.c_str(), nullptr);
 	acl_argv_add(args,
 		"-progress", "pipe:1", "-nostats", temporary.c_str(), nullptr);
-	const ffmpeg_process_ptr process = start_ffmpeg_process(args);
+	const ffmpeg_process_ptr process = start_ffmpeg_process_in_thread(args);
 	if (!process) { finish_task(task, false, "字幕导出启动失败", acl::last_serror(), -1); return; }
-	const int code = wait_transcode_progress(task, *process, duration, 3, 94,
+	const int code = wait_transcode_progress_in_thread(task, *process, duration, 3, 94,
 		"正在导出字幕", 98, "正在写入VTT字幕");
 	if (code != 0 || is_task_cancel_requested(task) || file_size_of(temporary.c_str()) <= 0) {
 		unlink(temporary.c_str());
@@ -738,9 +738,9 @@ void cleanup_screenshot_work_directory(const std::string& path)
 {
 	std::string output;
 #ifdef _WIN32
-	run_command_capture("rmdir /S /Q " + shell_quote(path), output);
+	run_command_capture_in_thread("rmdir /S /Q " + shell_quote(path), output);
 #else
-	run_command_capture("rm -rf " + shell_quote(path), output);
+	run_command_capture_in_thread("rm -rf " + shell_quote(path), output);
 #endif
 }
 
@@ -749,17 +749,17 @@ int screenshot_jpeg_qscale(int quality)
 	return std::max(2, std::min(12, 2 + (100 - quality) / 6));
 }
 
-bool run_screenshot_stage(const std::shared_ptr<transcode_task_t>& task,
+bool run_screenshot_stage_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	ACL_ARGV* args, double start, double span, const char* message,
 	double end, const char* end_message)
 {
-	const ffmpeg_process_ptr process = start_ffmpeg_process(args);
+	const ffmpeg_process_ptr process = start_ffmpeg_process_in_thread(args);
 	if (!process) return false;
-	return wait_transcode_progress(task, *process, 1000, start, span,
+	return wait_transcode_progress_in_thread(task, *process, 1000, start, span,
 		message, end, end_message) == 0 && !is_task_cancel_requested(task);
 }
 
-void run_single_screenshot_export(const std::shared_ptr<transcode_task_t>& task,
+void run_single_screenshot_export_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input,
 	const std::string& temporary_directory, const std::string& output_directory,
 	long long position_ms, const screenshot_options_t& options)
@@ -783,7 +783,7 @@ void run_single_screenshot_export(const std::shared_ptr<transcode_task_t>& task,
 		}
 		acl_argv_add(capture, "-q:v", qscale.c_str(), "-progress", "pipe:1", "-nostats",
 			screenshot.c_str(), nullptr);
-		if (!run_screenshot_stage(task, capture, 2, 93,
+		if (!run_screenshot_stage_in_thread(task, capture, 2, 93,
 			options.mode == "sharpen" ? "正在锐化并截取当前画面" : "正在截取当前画面",
 			97, "正在保存截屏图片")) {
 			cleanup_screenshot_work_directory(temporary_directory);
@@ -812,7 +812,7 @@ void run_single_screenshot_export(const std::shared_ptr<transcode_task_t>& task,
 		}
 		if (!filter.empty()) acl_argv_add(capture, "-vf", filter.c_str(), nullptr);
 		acl_argv_add(capture, "-progress", "pipe:1", "-nostats", source_png.c_str(), nullptr);
-		if (!run_screenshot_stage(task, capture, 2, 23, "正在准备AI截屏画面", 25, "准备AI推理")) {
+		if (!run_screenshot_stage_in_thread(task, capture, 2, 23, "正在准备AI截屏画面", 25, "准备AI推理")) {
 			cleanup_screenshot_work_directory(temporary_directory);
 			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI截屏失败",
 				is_task_cancel_requested(task) ? "cancelled" : "AI screenshot preprocessing failed", -1); return;
@@ -836,7 +836,7 @@ void run_single_screenshot_export(const std::shared_ptr<transcode_task_t>& task,
 				"-m", runtime.model_path.c_str(), "-t", tile.c_str(), "-j", "1:2:2",
 				"-f", "png", "-v", nullptr);
 		}
-		if (!run_screenshot_stage(task, inference, 25, 60, "AI正在恢复纹理与细节", 85, "AI超分辨率完成")) {
+		if (!run_screenshot_stage_in_thread(task, inference, 25, 60, "AI正在恢复纹理与细节", 85, "AI超分辨率完成")) {
 			cleanup_screenshot_work_directory(temporary_directory);
 			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI截屏失败",
 				is_task_cancel_requested(task) ? "cancelled" : "Real-ESRGAN screenshot inference failed", -1); return;
@@ -847,7 +847,7 @@ void run_single_screenshot_export(const std::shared_ptr<transcode_task_t>& task,
 		acl_argv_add(encode, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
 			"-i", enhanced_png.c_str(), "-frames:v", "1", "-q:v", qscale.c_str(),
 			"-progress", "pipe:1", "-nostats", screenshot.c_str(), nullptr);
-		if (!run_screenshot_stage(task, encode, 85, 12, "正在生成AI增强截屏", 97, "正在保存截屏图片")) {
+		if (!run_screenshot_stage_in_thread(task, encode, 85, 12, "正在生成AI增强截屏", 97, "正在保存截屏图片")) {
 			cleanup_screenshot_work_directory(temporary_directory);
 			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI截屏失败",
 				is_task_cancel_requested(task) ? "cancelled" : "AI screenshot encoding failed", -1); return;
@@ -868,14 +868,14 @@ void run_single_screenshot_export(const std::shared_ptr<transcode_task_t>& task,
 	finish_task(task, true, message.c_str(), "", image_size);
 }
 
-void run_keyframe_export(const std::shared_ptr<transcode_task_t>& task,
+void run_keyframe_export_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input,
 	const std::string& temporary_directory, const std::string& output_directory,
 	long long start_ms, long long end_ms, bool single_screenshot,
 	const screenshot_options_t& screenshot_options)
 {
 	if (single_screenshot) {
-		run_single_screenshot_export(task, ffmpeg, input, temporary_directory,
+		run_single_screenshot_export_in_thread(task, ffmpeg, input, temporary_directory,
 			output_directory, start_ms, screenshot_options);
 		return;
 	}
@@ -886,7 +886,7 @@ void run_keyframe_export(const std::shared_ptr<transcode_task_t>& task,
 			acl::last_serror(), -1);
 		return;
 	}
-	const long long source_duration = probe_duration_ms(ffmpeg, input);
+	const long long source_duration = probe_duration_ms_in_thread(ffmpeg, input);
 	const long long duration = end_ms > start_ms ? end_ms - start_ms
 		: (source_duration > start_ms ? source_duration - start_ms : source_duration);
 	const std::string start_text = decimal_text(start_ms / 1000.0);
@@ -907,7 +907,7 @@ void run_keyframe_export(const std::shared_ptr<transcode_task_t>& task,
 	}
 	acl_argv_add(args, "-q:v", "2", "-progress", "pipe:1", "-nostats",
 		output_pattern.c_str(), nullptr);
-	const ffmpeg_process_ptr process = start_ffmpeg_process(args);
+	const ffmpeg_process_ptr process = start_ffmpeg_process_in_thread(args);
 	if (!process) {
 		if (single_screenshot) cleanup_screenshot_temporary_directory(temporary_directory);
 		else cleanup_keyframe_directory(temporary_directory, true);
@@ -915,7 +915,7 @@ void run_keyframe_export(const std::shared_ptr<transcode_task_t>& task,
 			acl::last_serror(), -1);
 		return;
 	}
-	const int code = wait_transcode_progress(task, *process, duration, 2, 95,
+	const int code = wait_transcode_progress_in_thread(task, *process, duration, 2, 95,
 		single_screenshot ? "正在截取当前画面" : "正在截取关键帧",
 		97, "正在整理截屏图片");
 	if (code != 0 || is_task_cancel_requested(task)) {
@@ -994,7 +994,7 @@ std::string unique_image_enhance_output(const std::string& source, bool local,
 	return stem + label + "_" + std::to_string(g_transcode_seq.load()) + ".png";
 }
 
-void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
+void run_image_enhance_task_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& ffmpeg, const std::string& input,
 	const std::string& output, const std::string& temporary_directory,
 	const std::string& method, const screenshot_options_t& options,
@@ -1031,7 +1031,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 			else if (options.face_only_center) acl_argv_add(rebuild, "--only-center-face", nullptr);
 		}
 		const double codeformer_span = options.codeformer_upscale ? 72 : 93;
-		if (!run_screenshot_stage(task, rebuild, 3, codeformer_span,
+		if (!run_screenshot_stage_in_thread(task, rebuild, 3, codeformer_span,
 			options.codeformer_aligned ? "CodeFormer正在重建白色遮挡人脸" : "CodeFormer正在检测并修复人脸",
 			3 + codeformer_span, options.codeformer_upscale ? "人脸重建完成，准备AI超分" : "正在保存人脸重建图片")) {
 			cleanup_screenshot_work_directory(temporary_directory);
@@ -1070,7 +1070,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 					"-m", runtime.model_path.c_str(), "-t", tile.c_str(), "-j", "1:2:2",
 					"-f", "png", "-v", nullptr);
 			}
-			if (!run_screenshot_stage(task, inference, 75, 21, "AI正在放大CodeFormer重建结果", 96, "AI超分完成")) {
+			if (!run_screenshot_stage_in_thread(task, inference, 75, 21, "AI正在放大CodeFormer重建结果", 96, "AI超分完成")) {
 				cleanup_screenshot_work_directory(temporary_directory);
 				finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "CodeFormer后AI超分失败",
 					is_task_cancel_requested(task) ? "cancelled" : "Real-ESRGAN inference failed", -1); return;
@@ -1089,7 +1089,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 		acl_argv_add(repair, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
 			"-i", input.c_str(), "-map", "0:v:0", "-frames:v", "1", "-vf", filter.c_str(),
 			"-progress", "pipe:1", "-nostats", staged_output.c_str(), nullptr);
-		if (!run_screenshot_stage(task, repair, 2, 94, "正在修复水印区域", 97, "正在保存去水印图片")) {
+		if (!run_screenshot_stage_in_thread(task, repair, 2, 94, "正在修复水印区域", 97, "正在保存去水印图片")) {
 			cleanup_screenshot_work_directory(temporary_directory);
 			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "图片去水印失败",
 				is_task_cancel_requested(task) ? "cancelled" : "ffmpeg delogo failed", -1);
@@ -1102,7 +1102,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 		acl_argv_add(adjust, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
 			"-i", input.c_str(), "-map", "0:v:0", "-frames:v", "1", "-vf", filter.c_str(),
 			"-progress", "pipe:1", "-nostats", staged_output.c_str(), nullptr);
-		if (!run_screenshot_stage(task, adjust, 2, 94, "正在调整图片亮度", 97, "正在保存亮度调整图片")) {
+		if (!run_screenshot_stage_in_thread(task, adjust, 2, 94, "正在调整图片亮度", 97, "正在保存亮度调整图片")) {
 			cleanup_screenshot_work_directory(temporary_directory);
 			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "图片亮度调整失败",
 				is_task_cancel_requested(task) ? "cancelled" : "ffmpeg image brightness adjustment failed", -1);
@@ -1119,7 +1119,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 		acl_argv_add(correct, runtime.c_str(), "--input", input.c_str(), "--output",
 			staged_output.c_str(), "--strength", strength.c_str(), nullptr);
 		if (options.red_eye_only_center) acl_argv_add(correct, "--only-center-face", nullptr);
-		if (!run_screenshot_stage(task, correct, 3, 93, "正在检测并校正红眼", 97, "正在保存去红眼图片")) {
+		if (!run_screenshot_stage_in_thread(task, correct, 3, 93, "正在检测并校正红眼", 97, "正在保存去红眼图片")) {
 			cleanup_screenshot_work_directory(temporary_directory);
 			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "自动去红眼失败",
 				is_task_cancel_requested(task) ? "cancelled" : "red-eye correction failed", -1); return;
@@ -1131,7 +1131,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 		acl_argv_add(sharpen, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
 			"-i", input.c_str(), "-map", "0:v:0", "-frames:v", "1", "-vf", filter.c_str(),
 			"-progress", "pipe:1", "-nostats", staged_output.c_str(), nullptr);
-		if (!run_screenshot_stage(task, sharpen, 2, 94, "正在锐化图片", 97, "正在保存增强图片")) {
+		if (!run_screenshot_stage_in_thread(task, sharpen, 2, 94, "正在锐化图片", 97, "正在保存增强图片")) {
 			cleanup_screenshot_work_directory(temporary_directory);
 			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "图片锐化失败",
 				is_task_cancel_requested(task) ? "cancelled" : "ffmpeg image sharpening failed", -1);
@@ -1157,7 +1157,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 		}
 		if (!filter.empty()) acl_argv_add(prepare, "-vf", filter.c_str(), nullptr);
 		acl_argv_add(prepare, "-progress", "pipe:1", "-nostats", source_png.c_str(), nullptr);
-		if (!run_screenshot_stage(task, prepare, 2, 20, "正在准备AI超分图片", 22, "准备AI推理")) {
+		if (!run_screenshot_stage_in_thread(task, prepare, 2, 20, "正在准备AI超分图片", 22, "准备AI推理")) {
 			cleanup_screenshot_work_directory(temporary_directory);
 			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI超分辨率失败",
 				is_task_cancel_requested(task) ? "cancelled" : "AI image preprocessing failed", -1); return;
@@ -1181,7 +1181,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 				"--input", frames_in.c_str(), "--output", restored.c_str(), "--workers", "1",
 				"--compute-units", options.compute_units.c_str(), "--tile-batch", "1",
 				"--overlap", options.overlap.c_str(), "--cleanup-path", temporary_directory.c_str(), nullptr);
-			if (!run_screenshot_stage(task, restore, 22, 28, "Restormer正在去除模糊", 50, "去模糊完成，准备保护原貌")) {
+			if (!run_screenshot_stage_in_thread(task, restore, 22, 28, "Restormer正在去除模糊", 50, "去模糊完成，准备保护原貌")) {
 				cleanup_screenshot_work_directory(temporary_directory);
 				finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "Restormer去模糊失败",
 					is_task_cancel_requested(task) ? "cancelled" : "Restormer inference failed", -1); return;
@@ -1208,7 +1208,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 					"-i", source_png.c_str(), "-i", restored_png.c_str(), "-filter_complex",
 					blend_filter.c_str(), "-frames:v", "1", "-progress", "pipe:1", "-nostats",
 					protected_png.c_str(), nullptr);
-				if (!run_screenshot_stage(task, blend, 50, 4, "正在保护人脸与原始轮廓", 54, "原貌保护完成")) {
+				if (!run_screenshot_stage_in_thread(task, blend, 50, 4, "正在保护人脸与原始轮廓", 54, "原貌保护完成")) {
 					cleanup_screenshot_work_directory(temporary_directory);
 					finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "人脸保护混合失败",
 						is_task_cancel_requested(task) ? "cancelled" : "face-preserving blend failed", -1); return;
@@ -1251,7 +1251,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 			}
 			const double face_start = run_restormer ? 54 : 22;
 			const double face_end = run_restormer ? 72 : 52;
-			if (!run_screenshot_stage(task, restore_faces, face_start, face_end - face_start,
+			if (!run_screenshot_stage_in_thread(task, restore_faces, face_start, face_end - face_start,
 				options.codeformer_aligned ? "CodeFormer正在重建白色遮挡人脸" : "CodeFormer正在检测并修复人脸",
 				face_end, "人脸修复完成，准备AI超分")) {
 				cleanup_screenshot_work_directory(temporary_directory);
@@ -1284,7 +1284,7 @@ void run_image_enhance_task(const std::shared_ptr<transcode_task_t>& task,
 		if (options.face_restoration == "codeformer") ai_start =
 			run_restormer ? 72 : 52;
 		const double ai_span = 96 - ai_start;
-		if (!run_screenshot_stage(task, inference, ai_start, ai_span, "AI正在恢复纹理与细节", 96, "AI超分辨率完成")) {
+		if (!run_screenshot_stage_in_thread(task, inference, ai_start, ai_span, "AI正在恢复纹理与细节", 96, "AI超分辨率完成")) {
 			cleanup_screenshot_work_directory(temporary_directory);
 			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI超分辨率失败",
 				is_task_cancel_requested(task) ? "cancelled" : "Real-ESRGAN image inference failed", -1); return;
@@ -1442,20 +1442,23 @@ bool VideoEditAction::run(request_t& req, response_t& res,
 		g_transcode_tasks[task->id] = task; g_running_task_by_file[key] = task->id;
 	}
 	const std::string temporary = temp.c_str();
-	go[task, ffmpeg, input_path, temporary, output_path, start_ms, end_ms, speed,
+	acl::gofiber([task, ffmpeg, input_path, temporary, output_path, start_ms, end_ms, speed,
 		volume, muted, rotate, flip_h, flip_v, crop, output_height, audio_mode,
 		audio_path, audio_start_ms, subtitle_mode, subtitle_path, subtitle_start_ms,
 		subtitle_import_mode] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary, output_path,
-			start_ms, end_ms, speed, volume, muted, rotate, flip_h, flip_v, crop,
-			output_height, audio_mode, audio_path, audio_start_ms, subtitle_mode,
-			subtitle_path, subtitle_start_ms, subtitle_import_mode] {
-			run_video_edit(task, ffmpeg, input_path, temporary, output_path, start_ms,
-				end_ms, speed, volume, muted, rotate, flip_h, flip_v, crop, output_height,
-				audio_mode, audio_path, audio_start_ms, subtitle_mode, subtitle_path,
-				subtitle_start_ms, subtitle_import_mode);
-		});
-	};
+			try {
+				run_video_edit_in_thread(task, ffmpeg, input_path, temporary, output_path, start_ms,
+					end_ms, speed, volume, muted, rotate, flip_h, flip_v, crop, output_height,
+					audio_mode, audio_path, audio_start_ms, subtitle_mode, subtitle_path,
+					subtitle_start_ms, subtitle_import_mode);
+			} catch (const std::exception& e) {
+				unlink(temporary.c_str());
+				finish_task(task, false, "视频剪辑失败", e.what(), -1);
+			} catch (...) {
+				unlink(temporary.c_str());
+				finish_task(task, false, "视频剪辑失败", "unexpected video edit exception", -1);
+			}
+	});
 	acl::json json; acl::json_node& root = json.create_node();
 	root.add_bool("ok", true); root.add_bool("started", true);
 	root.add_text("task_id", task->id.c_str()); root.add_text("name", output_name.c_str());
@@ -1552,7 +1555,7 @@ bool VideoEditAction::exportSubtitle(request_t& req, response_t& res,
 		}
 	}
 	std::string subtitle_source_path = source_path;
-	if (!probe_has_subtitle_stream(ffmpeg, source_path)) {
+	if (!probe_has_subtitle_stream_in_thread(ffmpeg, source_path)) {
 		const char* subtitle_extensions[] = { ".vtt", ".srt", ".ass", ".ssa" };
 		std::string sidecar_name;
 		std::string sidecar_path;
@@ -1593,11 +1596,9 @@ bool VideoEditAction::exportSubtitle(request_t& req, response_t& res,
 		g_running_task_by_file[task_key] = task->id;
 	}
 	const std::string temporary = temp.c_str();
-	go[task, ffmpeg, subtitle_source_path, temporary, output_path, start_ms, end_ms] {
-		acl::gofiber_wait_thread([task, ffmpeg, subtitle_source_path, temporary, output_path, start_ms, end_ms] {
-			run_subtitle_export(task, ffmpeg, subtitle_source_path, temporary, output_path, start_ms, end_ms);
-		});
-	};
+	acl::gofiber([task, ffmpeg, subtitle_source_path, temporary, output_path, start_ms, end_ms] {
+		run_subtitle_export_in_thread(task, ffmpeg, subtitle_source_path, temporary, output_path, start_ms, end_ms);
+	});
 	acl::json json; acl::json_node& root = json.create_node();
 	root.add_bool("ok", true);
 	root.add_text("task_id", task->id.c_str()); root.add_text("name", output_name.c_str());
@@ -1744,14 +1745,11 @@ bool VideoEditAction::exportKeyframes(request_t& req, response_t& res,
 		g_running_task_by_file[task_key] = task->id;
 	}
 	const std::string temporary_directory = temporary.c_str();
-	go[task, ffmpeg, input_path, temporary_directory, output_path, start_ms, end_ms,
+	acl::gofiber([task, ffmpeg, input_path, temporary_directory, output_path, start_ms, end_ms,
 		single_screenshot, screenshot_options] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, temporary_directory,
-			output_path, start_ms, end_ms, single_screenshot, screenshot_options] {
-			run_keyframe_export(task, ffmpeg, input_path, temporary_directory,
-				output_path, start_ms, end_ms, single_screenshot, screenshot_options);
-		});
-	};
+		run_keyframe_export_in_thread(task, ffmpeg, input_path, temporary_directory,
+			output_path, start_ms, end_ms, single_screenshot, screenshot_options);
+	});
 	acl::json json; acl::json_node& root = json.create_node();
 	root.add_bool("ok", true); root.add_bool("started", true);
 	root.add_text("task_id", task->id.c_str()); root.add_text("name", output_name.c_str());
@@ -2028,13 +2026,10 @@ bool ImageEnhanceAction::run(request_t& req, response_t& res,
 		g_running_task_by_file[task_key] = task->id;
 	}
 	const std::string temporary_directory = temporary.c_str();
-	go[task, ffmpeg, input_path, output_path, temporary_directory, method, options, restormer_mode] {
-		acl::gofiber_wait_thread([task, ffmpeg, input_path, output_path,
-			temporary_directory, method, options, restormer_mode] {
-			run_image_enhance_task(task, ffmpeg, input_path, output_path,
-				temporary_directory, method, options, restormer_mode);
-		});
-	};
+	acl::gofiber([task, ffmpeg, input_path, output_path, temporary_directory, method, options, restormer_mode] {
+		run_image_enhance_task_in_thread(task, ffmpeg, input_path, output_path,
+			temporary_directory, method, options, restormer_mode);
+	});
 	acl::json json; acl::json_node& root = json.create_node();
 	root.add_bool("ok", true); root.add_bool("started", true);
 	root.add_text("task_id", task->id.c_str()); root.add_text("name", output_name.c_str());

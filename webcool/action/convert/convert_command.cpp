@@ -106,7 +106,7 @@ static int run_command_capture_direct(const std::string& command,
 #endif
 }
 
-int run_command_capture(const std::string& command, std::string& output) {
+int run_command_capture_in_thread(const std::string& command, std::string& output) {
 	int ret = 0;
 	acl::gofiber_wait_thread([&ret, &command, &output] {
 		ret = run_command_capture_direct(command, output);
@@ -142,13 +142,13 @@ long long parse_duration_ms_from_text(const std::string& text) {
 	return static_cast<long long>((hh * 3600.0 + mm * 60.0 + ss) * 1000.0);
 }
 
-long long probe_duration_ms(const std::string& ffmpeg,
+long long probe_duration_ms_in_thread(const std::string& ffmpeg,
 	const std::string& input_file)
 {
 	const std::string cmd = shell_quote(ffmpeg) + " -hide_banner -i "
 		+ shell_quote(input_file) + " 2>&1";
 	std::string out;
-	run_command_capture(cmd, out);
+	run_command_capture_in_thread(cmd, out);
 	return parse_duration_ms_from_text(out);
 }
 
