@@ -165,10 +165,31 @@ bool normalize_local_video_path(const char* input, std::string& path,
 		err = "missing query parameter: path";
 		return false;
 	}
+	/*
+	 * Local-disk paths use native OS syntax.  The old check only accepted
+	 * POSIX paths, which made every Windows drive/UNC path fail before ffmpeg
+	 * was even invoked (the properties dialog consequently never opened).
+	 */
+#ifdef _WIN32
+	const std::string text(input);
+	const bool drive_path = text.size() >= 3
+		&& ((text[0] >= 'A' && text[0] <= 'Z')
+			|| (text[0] >= 'a' && text[0] <= 'z'))
+		&& text[1] == ':'
+		&& (text[2] == '/' || text[2] == '\\');
+	const bool unc_path = text.size() >= 2
+		&& (text[0] == '/' || text[0] == '\\')
+		&& (text[1] == '/' || text[1] == '\\');
+	if (!drive_path && !unc_path) {
+		err = "absolute path is required";
+		return false;
+	}
+#else
 	if (input[0] != '/') {
 		err = "absolute path is required";
 		return false;
 	}
+#endif
 	char resolved[PATH_MAX];
 	if (realpath(input, resolved) == nullptr) {
 		err = strerror(errno);
