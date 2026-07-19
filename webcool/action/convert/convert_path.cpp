@@ -65,25 +65,57 @@ std::string local_parent_path(const std::string& path) {
 		return "/";
 	}
 	std::string text = path;
+	#ifdef _WIN32
+	for (size_t i = 0; i < text.size(); ++i) {
+		if (text[i] == '\\') text[i] = '/';
+	}
+	while (text.size() > 3 && text[text.size() - 1] == '/') {
+		text.erase(text.size() - 1);
+	}
+	if (text.size() >= 2 && text[1] == ':' && text.size() <= 3) {
+		return text;
+	}
+	#else
 	while (text.size() > 1 && text[text.size() - 1] == '/') {
 		text.erase(text.size() - 1);
 	}
+	#endif
 	const std::string::size_type pos = text.rfind('/');
-	if (pos == std::string::npos || pos == 0) {
+	if (pos == std::string::npos || pos == 0
+		#ifdef _WIN32
+		|| (pos == 2 && text.size() >= 3 && text[1] == ':')
+		#endif
+	) {
+		#ifdef _WIN32
+		if (text.size() >= 2 && text[1] == ':') return text.substr(0, 3);
+		#endif
 		return "/";
 	}
 	return text.substr(0, pos);
 }
 
 std::string local_join_path(const std::string& parent, const char* name) {
+	#ifdef _WIN32
+	if (parent.empty()) return name ? name : "";
+	if (parent[parent.size() - 1] == '/' || parent[parent.size() - 1] == '\\') {
+		return parent + (name ? name : "");
+	}
+	return parent + "\\" + (name ? name : "");
+	#else
 	if (parent == "/") {
 		return std::string("/") + name;
 	}
 	return parent + "/" + name;
+	#endif
 }
 
 std::string local_base_name(const std::string& path) {
 	std::string text = path;
+	#ifdef _WIN32
+	for (size_t i = 0; i < text.size(); ++i) {
+		if (text[i] == '\\') text[i] = '/';
+	}
+	#endif
 	while (text.size() > 1 && text[text.size() - 1] == '/') {
 		text.erase(text.size() - 1);
 	}
