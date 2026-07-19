@@ -106,10 +106,123 @@ static int run_command_capture_direct(const std::string& command,
 #endif
 }
 
+#ifdef _WIN32
+static std::string quote_windows_program_arg(const std::string& text) {
+	bool needs_quotes = text.empty();
+	for (size_t i = 0; i < text.size(); ++i) {
+		if (text[i] == ' ' || text[i] == '\t' || text[i] == '"') {
+			needs_quotes = true;
+			break;
+		}
+	}
+	if (!needs_quotes) return text;
+
+	std::string out("\"");
+	size_t backslashes = 0;
+	for (size_t i = 0; i < text.size(); ++i) {
+		const char c = text[i];
+		if (c == '\\') {
+			++backslashes;
+			continue;
+		}
+		if (c == '"') {
+			out.append(backslashes * 2 + 1, '\\');
+			out.push_back('"');
+		} else {
+			out.append(backslashes, '\\');
+			out.push_back(c);
+		}
+		backslashes = 0;
+	}
+	out.append(backslashes * 2, '\\');
+	out.push_back('"');
+	return out;
+}
+
+static int run_program_capture_direct(const std::string& program,
+	const std::vector<std::string>& args, std::string& output)
+{
+	output.clear();
+	SECURITY_ATTRIBUTES sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.nLength = sizeof(sa);
+	sa.bInheritHandle = TRUE;
+
+	HANDLE read_pipe = nullptr;
+	HANDLE write_pipe = nullptr;
+	if (!CreatePipe(&read_pipe, &write_pipe, &sa, 0)) return -1;
+	SetHandleInformation(read_pipe, HANDLE_FLAG_INHERIT, 0);
+
+	std::string command = quote_windows_program_arg(program);
+	for (size_t i = 0; i < args.size(); ++i) {
+		command.push_back(' ');
+		command += quote_windows_program_arg(args[i]);
+	}
+	std::wstring wprogram;
+	std::wstring wcommand;
+	if (!webcool_utf8_to_wide(program.c_str(), wprogram)
+		|| !webcool_utf8_to_wide(command.c_str(), wcommand)) {
+		CloseHandle(read_pipe);
+		CloseHandle(write_pipe);
+		return -1;
+	}
+
+	STARTUPINFOW si;
+	PROCESS_INFORMATION pi;
+	memset(&si, 0, sizeof(si));
+	memset(&pi, 0, sizeof(pi));
+	si.cb = sizeof(si);
+	si.dwFlags = STARTF_USESTDHANDLES;
+	si.hStdOutput = write_pipe;
+	si.hStdError = write_pipe;
+	si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+
+	const BOOL ok = CreateProcessW(wprogram.c_str(), &wcommand[0], nullptr, nullptr,
+		TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
+	CloseHandle(write_pipe);
+	if (!ok) {
+		CloseHandle(read_pipe);
+		return -1;
+	}
+
+	char buf[4096];
+	DWORD count = 0;
+	while (ReadFile(read_pipe, buf, sizeof(buf), &count, nullptr) && count > 0) {
+		output.append(buf, buf + count);
+	}
+	CloseHandle(read_pipe);
+	WaitForSingleObject(pi.hProcess, INFINITE);
+	DWORD exit_code = 1;
+	GetExitCodeProcess(pi.hProcess, &exit_code);
+	CloseHandle(pi.hThread);
+	CloseHandle(pi.hProcess);
+	return static_cast<int>(exit_code);
+}
+#endif
+
 int run_command_capture_in_thread(const std::string& command, std::string& output) {
 	int ret = 0;
 	acl::gofiber_wait_thread([&ret, &command, &output] {
 		ret = run_command_capture_direct(command, output);
+	});
+	return ret;
+}
+
+int run_program_capture_in_thread(const std::string& program,
+	const std::vector<std::string>& args, std::string& output)
+{
+	int ret = 0;
+	acl::gofiber_wait_thread([&ret, &program, &args, &output] {
+#ifdef _WIN32
+		ret = run_program_capture_direct(program, args, output);
+#else
+		std::string command = shell_quote(program);
+		for (size_t i = 0; i < args.size(); ++i) {
+			command += " " + shell_quote(args[i]);
+		}
+		command += " 2>&1";
+		ret = run_command_capture_direct(command, output);
+#endif
 	});
 	return ret;
 }

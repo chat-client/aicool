@@ -100,8 +100,11 @@ void probe_properties(const std::string& ffmpeg, const std::string& path,
 {
 	result.size = file_size_of(path.c_str());
 	std::string output;
-	run_command_capture_in_thread(shell_quote(ffmpeg) + " -hide_banner -i "
-		+ shell_quote(path) + " 2>&1", output);
+	std::vector<std::string> args;
+	args.push_back("-hide_banner");
+	args.push_back("-i");
+	args.push_back(path);
+	run_program_capture_in_thread(ffmpeg, args, output);
 	result.duration_ms = parse_duration_ms_from_text(output);
 	result.bitrate_kbps = match_integer(output,
 		std::regex("Duration:[^\\n]*bitrate: ([0-9]+) kb/s"));

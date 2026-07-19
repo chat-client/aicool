@@ -115,6 +115,8 @@ void remove_local_stream_position(const std::string& local_path);
 
 std::string shell_quote(const std::string& s);
 int run_command_capture_in_thread(const std::string& command, std::string& output);
+int run_program_capture_in_thread(const std::string& program,
+	const std::vector<std::string>& args, std::string& output);
 std::string trim_text(const std::string& s);
 long long parse_duration_ms_from_text(const std::string& text);
 long long probe_duration_ms_in_thread(const std::string& ffmpeg,
