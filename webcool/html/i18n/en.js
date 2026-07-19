@@ -901,6 +901,7 @@
     ,'取消导出': 'Cancel export'
     ,'导出视频': 'Export video'
     ,'正在导出视频': 'Exporting video'
+    ,'正在导出': 'Exporting'
     ,'正在启动导出': 'Starting export'
     ,'导出完成：': 'Export complete: '
     ,'导出失败': 'Export failed'

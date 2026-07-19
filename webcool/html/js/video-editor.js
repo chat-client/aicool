@@ -173,6 +173,7 @@ function openVideoEditor(path, local) {
   let completed = false;
   let taskId = '';
   let activeCancelApi = '';
+  let exportStartedAt = 0;
   let stopAtEnd = false;
   let selectedSubtitleUpload = null;
   let selectedSubtitleUploadPath = '';
@@ -378,6 +379,12 @@ function openVideoEditor(path, local) {
     progress.classList.toggle('done', state === 'done');
   }
 
+  function exportProgressMessage(message, value) {
+    const percent = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    const elapsed = exportStartedAt ? formatVideoEditorElapsed(Date.now() - exportStartedAt) : '00:00:00';
+    return String(message || '') + ' ' + percent + '% · ' + t('已耗时') + elapsed;
+  }
+
   function setExportBusy(busy) {
     exporting = busy;
     exportBtn.disabled = busy;
@@ -499,17 +506,21 @@ function openVideoEditor(path, local) {
     const base = local ? api.localDiskVideoEditProgress : api.videoEditProgress;
     const data = await fetchJson(base + '?task_id=' + encodeURIComponent(taskId));
     const value = Math.round(Number(data.progress) || 0);
-    updateProgress(value, data.message || t('正在导出视频'));
+    // The server task message is shared by all clients and is not localized.
+    updateProgress(value, exportProgressMessage(t('正在导出'), value));
     if (!data.done) {
       await new Promise(function (resolve) { window.setTimeout(resolve, 800); });
       return pollTask();
     }
     setExportBusy(false);
     if (!data.success) {
-      updateProgress(value, data.cancel_requested ? t('已取消') : (data.error || data.message || t('导出失败')), 'failed');
+      updateProgress(value, exportProgressMessage(
+        data.cancel_requested ? t('已取消') : (data.error || data.message || t('导出失败')),
+        value
+      ), 'failed');
       return;
     }
-    updateProgress(100, t('导出完成：') + String(data.name || ''), 'done');
+    updateProgress(100, exportProgressMessage(t('导出完成：') + String(data.name || ''), 100), 'done');
     completed = true;
     exportBtn.textContent = t('完成');
     if (local) await loadLocalDisk(activeLocalDiskPath || localDiskParentPath(path) || '');
@@ -545,8 +556,11 @@ function openVideoEditor(path, local) {
     }
     if (exporting || !duration) return;
     const selected = selection();
+    exportStartedAt = Date.now();
     setExportBusy(true);
-    updateProgress(0, subtitleMode.value === 'replace' ? t('正在开始添加字幕') : t('正在启动导出'));
+    updateProgress(0, exportProgressMessage(
+      subtitleMode.value === 'replace' ? t('正在开始添加字幕') : t('正在启动导出'), 0
+    ));
     try {
       let subtitlePath = subtitleFile.value.trim();
       let subtitleFileSource = '';
@@ -584,7 +598,7 @@ function openVideoEditor(path, local) {
       await pollTask();
     } catch (err) {
       setExportBusy(false);
-      updateProgress(0, t('导出失败：') + err.message, 'failed');
+      updateProgress(0, exportProgressMessage(t('导出失败：') + err.message, 0), 'failed');
     }
   }
 
