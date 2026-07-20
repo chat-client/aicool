@@ -181,7 +181,7 @@ function folderNameFromPath(path) {
           const subtitleUrl = (opts.local ? localDiskDownloadUrl(subtitleName) : downloadUrlForFile(subtitleName, true)) + '&v=' + Date.now();
           const sidecarAudioUrl = resolveSplitVideoAudioUrl(rawName, opts.local);
           const sidecarAudioHint = '<div class="preview-sidecar-audio-hint"' + (sidecarAudioUrl ? '' : ' hidden') + '>' +
-            escapeHtml(t('视频音轨缺失或浏览器不支持其编码，已自动加载同名音频文件并同步播放。')) +
+            escapeHtml(t('已自动合成同名音频，并在播放器中同步播放。')) +
             '</div>';
           bodyClass += ' preview-body-video';
           mediaHtml = '<div class="preview-video-stack">' +
@@ -303,10 +303,19 @@ function folderNameFromPath(path) {
           const rawVideoFile = decodeURIComponent(String(file || ''));
           let mediaSidecarAudio = win.querySelector('.preview-video-sidecar-audio');
           const sidecarAudioHint = win.querySelector('.preview-sidecar-audio-hint');
+          const mediaSubtitleTrack = mediaVideo.querySelector('track[kind="subtitles"]');
           bindVideoResume(mediaVideo, opts.local ? ('local:' + rawVideoFile) : rawVideoFile);
+          if (mediaSubtitleTrack) {
+            mediaSubtitleTrack.addEventListener('load', function () {
+              win.__sidecarSubtitleMerged = true;
+              showPreviewVideoSidecarStatus(win);
+            }, { once: true });
+          }
           mediaVideo.src = url;
           if (mediaSidecarAudio) {
             bindSplitVideoAudio(mediaVideo, mediaSidecarAudio);
+            win.__sidecarAudioMerged = true;
+            showPreviewVideoSidecarStatus(win);
           } else {
             resolveMissingVideoAudioUrl(rawVideoFile, !!opts.local).then(function (audioUrl) {
               if (!audioUrl || !win.isConnected || !mediaVideo.isConnected) return;
@@ -319,6 +328,8 @@ function folderNameFromPath(path) {
               if (stack) stack.insertBefore(mediaSidecarAudio, sidecarAudioHint || null);
               if (sidecarAudioHint) sidecarAudioHint.hidden = false;
               bindSplitVideoAudio(mediaVideo, mediaSidecarAudio);
+              win.__sidecarAudioMerged = true;
+              showPreviewVideoSidecarStatus(win);
               mediaSidecarAudio.load();
             }).catch(function () {});
           }
@@ -1250,6 +1261,32 @@ function loadUnlockedFolderPasswords() {
         wirePreviewCompatButtons(tools, rawVideoFile, item);
       }
 
+      function showPreviewVideoSidecarStatus(win) {
+        if (!win) {
+          return;
+        }
+        const hasAudio = !!win.__sidecarAudioMerged;
+        const hasSubtitle = !!win.__sidecarSubtitleMerged;
+        if (!hasAudio && !hasSubtitle) {
+          return;
+        }
+        const compatTools = win.querySelector('[data-preview-compat-tools]');
+        if (compatTools) {
+          compatTools.remove();
+        }
+        win.__compatTranscodeOfferedFor = '';
+        const hint = win.querySelector('.preview-sidecar-audio-hint');
+        if (!hint) {
+          return;
+        }
+        hint.hidden = false;
+        hint.textContent = hasAudio && hasSubtitle
+          ? t('已自动合成同名音频和字幕，并在播放器中同步播放。')
+          : (hasAudio
+            ? t('已自动合成同名音频，并在播放器中同步播放。')
+            : t('已自动合成同名字幕，并在播放器中同步显示。'));
+      }
+
       function offerPreviewVideoTranscode(win, rawVideoFile, candidate) {
         if (!win || !rawVideoFile || !candidate) {
           return;
@@ -1258,6 +1295,10 @@ function loadUnlockedFolderPasswords() {
           return;
         }
         if (win.querySelector('[data-preview-convert-video]')) {
+          return;
+        }
+        if (win.__sidecarAudioMerged && candidate.allowAudioSplitChoice) {
+          showPreviewVideoSidecarStatus(win);
           return;
         }
         win.__compatTranscodeOfferedFor = rawVideoFile;
