@@ -172,7 +172,6 @@ function openVideoEditor(path, local) {
   const progressText = progress.querySelector('span');
   let duration = 0;
   let exporting = false;
-  let completed = false;
   let taskId = '';
   let activeCancelApi = '';
   let exportStartedAt = 0;
@@ -516,6 +515,8 @@ function openVideoEditor(path, local) {
       return pollTask();
     }
     setExportBusy(false);
+    taskId = '';
+    activeCancelApi = '';
     if (!data.success) {
       updateProgress(value, exportProgressMessage(
         data.cancel_requested ? t('已取消') : (data.error || data.message || t('导出失败')),
@@ -524,8 +525,7 @@ function openVideoEditor(path, local) {
       return;
     }
     updateProgress(100, exportProgressMessage(t('导出完成：') + String(data.name || ''), 100), 'done');
-    completed = true;
-    exportBtn.textContent = t('完成');
+    exportBtn.textContent = t('导出视频');
     if (local) await loadLocalDisk(activeLocalDiskPath || localDiskParentPath(path) || '');
     else await loadFiles();
     showStatus(t('视频剪辑完成：') + String(data.name || ''), 'ok');
@@ -553,10 +553,6 @@ function openVideoEditor(path, local) {
   }
 
   async function startVideoExport() {
-    if (completed) {
-      closeEditor();
-      return;
-    }
     if (exporting || !duration) return;
     const selected = selection();
     exportStartedAt = Date.now();
