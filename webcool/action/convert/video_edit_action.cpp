@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iomanip>
+#include <regex>
 #include <sstream>
 
 namespace action {
@@ -74,6 +75,12 @@ std::string audio_tempo_filter(double speed)
 	return result;
 }
 
+bool enhance_edited_video_with_ai(const std::shared_ptr<transcode_task_t>& task,
+	const std::string& ffmpeg, const std::string& input, const std::string& output,
+	const std::string& work_directory, const std::string& model, int scale,
+	int denoise, int sharpen, int tile, const std::string& compute_units,
+	const std::string& overlap, std::string& err);
+
 bool has_extension(const std::string& path, const std::vector<std::string>& extensions)
 {
 	for (size_t i = 0; i < extensions.size(); ++i) {
@@ -123,7 +130,8 @@ bool resolve_auxiliary_file(const request_t& req, const std::string& parameter,
 }
 
 std::string build_video_filter(double speed, int rotate, bool flip_h,
-	bool flip_v, const std::string& crop, int output_height)
+	bool flip_v, const std::string& crop, int output_height,
+	const std::string& enhance_mode, int enhance_sharpen)
 {
 	std::vector<std::string> filters;
 	if (std::fabs(speed - 1.0) > 0.0001) {
@@ -144,6 +152,9 @@ std::string build_video_filter(double speed, int rotate, bool flip_h,
 	} else if (crop != "original") {
 		filters.push_back("scale=trunc(iw/2)*2:trunc(ih/2)*2");
 	}
+	if (enhance_mode == "sharpen") {
+		filters.push_back("unsharp=5:5:" + decimal_text(enhance_sharpen / 50.0) + ":3:3:0");
+	}
 	std::string result;
 	for (size_t i = 0; i < filters.size(); ++i) {
 		if (i) result += ",";
@@ -160,7 +171,10 @@ void run_video_edit_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	const std::string& crop, int output_height, const std::string& audio_mode,
 	const std::string& audio_path, long long audio_start_ms,
 	const std::string& subtitle_mode, const std::string& subtitle_path,
-	long long subtitle_start_ms, const std::string& subtitle_import_mode)
+	long long subtitle_start_ms, const std::string& subtitle_import_mode,
+	const std::string& enhance_mode, const std::string& enhance_model,
+	int enhance_scale, int enhance_denoise, int enhance_sharpen, int enhance_tile,
+	const std::string& enhance_compute_units, const std::string& enhance_overlap)
 {
 	unlink(temporary.c_str());
 	const long long source_duration = probe_duration_ms_in_thread(ffmpeg, input);
@@ -169,7 +183,7 @@ void run_video_edit_in_thread(const std::shared_ptr<transcode_task_t>& task,
 	if (selected_duration > 0) selected_duration = static_cast<long long>(selected_duration / speed);
 
 	const std::string video_filter = build_video_filter(speed, rotate, flip_h,
-		flip_v, crop, output_height);
+		flip_v, crop, output_height, enhance_mode, enhance_sharpen);
 	const bool fast_subtitle_import = subtitle_mode == "replace"
 		&& subtitle_import_mode == "fast";
 	std::string audio_filter;
@@ -206,6 +220,7 @@ void run_video_edit_in_thread(const std::shared_ptr<transcode_task_t>& task,
 		if (subtitle_start_ms > 0) acl_argv_add(args, "-itsoffset", subtitle_offset.c_str(), nullptr);
 		acl_argv_add(args, "-i", subtitle_path.c_str(), nullptr);
 	}
+	acl_argv_add(args, "-map_metadata", "-1", "-map_chapters", "-1", nullptr);
 	acl_argv_add(args, "-map", "0:v:0", nullptr);
 	const std::string audio_map = audio_input >= 0 ? std::to_string(audio_input) + ":a:0" : "0:a:0?";
 	if (!muted && audio_mode != "remove") acl_argv_add(args, "-map", audio_map.c_str(), nullptr);
@@ -219,8 +234,10 @@ void run_video_edit_in_thread(const std::shared_ptr<transcode_task_t>& task,
 		if (!muted && audio_mode != "remove") acl_argv_add(args, "-c:a", "copy", nullptr);
 	} else {
 		acl_argv_add(args, "-c:v", "libx264", "-preset", "medium", "-crf", "21",
-			"-pix_fmt", "yuv420p", nullptr);
-		if (!muted && audio_mode != "remove") acl_argv_add(args, "-c:a", "aac", "-b:a", "192k", nullptr);
+			"-pix_fmt", "yuv420p", "-tag:v", "avc1", nullptr);
+		if (!muted && audio_mode != "remove") {
+			acl_argv_add(args, "-c:a", "aac", "-b:a", "192k", "-ac", "2", nullptr);
+		}
 	}
 	if (subtitle_mode != "remove") acl_argv_add(args, "-c:s", "mov_text", nullptr);
 	const std::string output_duration_text = selected_duration > 0
@@ -234,9 +251,12 @@ void run_video_edit_in_thread(const std::shared_ptr<transcode_task_t>& task,
 		finish_task(task, false, "视频剪辑启动失败", acl::last_serror(), -1);
 		return;
 	}
+	const bool ai_enhance = enhance_mode == "ai";
 	const int code = wait_transcode_progress_in_thread(task, *process, selected_duration,
-		2.0, 95.0, fast_subtitle_import ? "正在快速添加字幕" : "正在导出剪辑",
-		98.0, "正在写入MP4文件");
+		2.0, ai_enhance ? 40.0 : 95.0,
+		fast_subtitle_import ? "正在快速添加字幕" : "正在导出剪辑",
+		ai_enhance ? 42.0 : 98.0,
+		ai_enhance ? "剪辑完成，准备AI增强" : "正在写入MP4文件");
 	if (code != 0 || is_task_cancel_requested(task) || file_size_of(temporary.c_str()) <= 0) {
 		unlink(temporary.c_str());
 		finish_task(task, false, is_task_cancel_requested(task) ? "已取消"
@@ -245,7 +265,19 @@ void run_video_edit_in_thread(const std::shared_ptr<transcode_task_t>& task,
 			: (fast_subtitle_import ? "快速封装失败，请改用兼容转码" : "ffmpeg video edit failed"), -1);
 		return;
 	}
-	if (rename(temporary.c_str(), output.c_str()) != 0) {
+	if (ai_enhance) {
+		std::string enhance_err;
+		if (!enhance_edited_video_with_ai(task, ffmpeg, temporary, output,
+			temporary + ".ai", enhance_model, enhance_scale, enhance_denoise,
+			enhance_sharpen, enhance_tile, enhance_compute_units, enhance_overlap,
+			enhance_err)) {
+			unlink(temporary.c_str()); unlink(output.c_str());
+			finish_task(task, false, is_task_cancel_requested(task) ? "已取消" : "AI视频增强失败",
+				is_task_cancel_requested(task) ? "cancelled" : enhance_err.c_str(), -1);
+			return;
+		}
+		unlink(temporary.c_str());
+	} else if (rename(temporary.c_str(), output.c_str()) != 0) {
 		unlink(temporary.c_str());
 		finish_task(task, false, "视频剪辑失败", "rename edited video failed", -1);
 		return;
@@ -757,6 +789,118 @@ bool run_screenshot_stage_in_thread(const std::shared_ptr<transcode_task_t>& tas
 	if (!process) return false;
 	return wait_transcode_progress_in_thread(task, *process, 1000, start, span,
 		message, end, end_message) == 0 && !is_task_cancel_requested(task);
+}
+
+double probe_video_fps_in_thread(const std::string& ffmpeg, const std::string& input)
+{
+	const std::string command = shell_quote(ffmpeg) + " -hide_banner -i "
+		+ shell_quote(input) + " 2>&1";
+	std::string output;
+	run_command_capture_in_thread(command, output);
+	std::smatch match;
+	if (std::regex_search(output, match, std::regex("([0-9]+(?:\\.[0-9]+)?) fps"))
+		&& match.size() > 1) {
+		const double fps = std::strtod(match[1].str().c_str(), nullptr);
+		if (fps > 0.0 && fps <= 120.0) return fps;
+	}
+	return 25.0;
+}
+
+bool enhance_edited_video_with_ai(const std::shared_ptr<transcode_task_t>& task,
+	const std::string& ffmpeg, const std::string& input, const std::string& output,
+	const std::string& work_directory, const std::string& model, int scale,
+	int denoise, int sharpen, int tile, const std::string& compute_units,
+	const std::string& overlap, std::string& err)
+{
+	cleanup_screenshot_work_directory(work_directory);
+	const std::string frames_in = local_join_path(work_directory, "input");
+	const std::string frames_out = local_join_path(work_directory, "output");
+	if (!make_dir_recursive(frames_in.c_str()) || !make_dir_recursive(frames_out.c_str())) {
+		err = "cannot create AI video frame directories";
+		return false;
+	}
+	const long long duration = probe_duration_ms_in_thread(ffmpeg, input);
+	const std::string input_pattern = local_join_path(frames_in, "%08d.png");
+	ACL_ARGV* extract = acl_argv_alloc(32);
+	acl_argv_add(extract, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
+		"-i", input.c_str(), "-map", "0:v:0", "-an", nullptr);
+	std::string filter;
+	if (denoise == 1) filter = "hqdn3d=0.6:0.6:2.4:2.4";
+	else if (denoise == 2) filter = "hqdn3d=1.0:1.0:3.5:3.5";
+	if (sharpen > 0) {
+		if (!filter.empty()) filter += ",";
+		filter += "unsharp=5:5:" + decimal_text(sharpen / 100.0) + ":3:3:0";
+	}
+	if (!filter.empty()) acl_argv_add(extract, "-vf", filter.c_str(), nullptr);
+	acl_argv_add(extract, "-vsync", "0", "-progress", "pipe:1", "-nostats",
+		input_pattern.c_str(), nullptr);
+	const ffmpeg_process_ptr extract_process = start_ffmpeg_process_in_thread(extract);
+	if (!extract_process || wait_transcode_progress_in_thread(task, *extract_process,
+		duration, 42.0, 12.0, "正在解码待增强视频帧", 54.0, "准备AI推理") != 0
+		|| is_task_cancel_requested(task)) {
+		cleanup_screenshot_work_directory(work_directory);
+		err = "AI video frame extraction failed";
+		return false;
+	}
+
+	screenshot_options_t options;
+	options.mode = "ai"; options.model = model; options.scale = scale;
+	options.denoise = denoise; options.sharpen = sharpen; options.tile = tile;
+	options.compute_units = compute_units; options.overlap = overlap;
+	const screenshot_ai_runtime_t runtime = choose_screenshot_ai_runtime(options);
+	if (runtime.executable.empty() || runtime.model_path.empty()) {
+		cleanup_screenshot_work_directory(work_directory);
+		err = "selected Real-ESRGAN runtime or model is not installed";
+		return false;
+	}
+	ACL_ARGV* inference = acl_argv_alloc(32);
+	if (runtime.coreml) {
+		acl_argv_add(inference, runtime.executable.c_str(), "--model", runtime.model_path.c_str(),
+			"--input", frames_in.c_str(), "--output", frames_out.c_str(), "--workers", "1",
+			"--compute-units", compute_units.c_str(), "--tile-batch", "1",
+			"--overlap", overlap.c_str(), "--cleanup-path", work_directory.c_str(), nullptr);
+	} else {
+		const std::string scale_text = std::to_string(scale);
+		const std::string tile_text = std::to_string(tile);
+		acl_argv_add(inference, runtime.executable.c_str(), "-i", frames_in.c_str(),
+			"-o", frames_out.c_str(), "-n", model.c_str(), "-s", scale_text.c_str(),
+			"-m", runtime.model_path.c_str(), "-t", tile_text.c_str(), "-j", "1:2:2",
+			"-f", "png", "-v", nullptr);
+	}
+	if (!run_screenshot_stage_in_thread(task, inference, 54.0, 32.0,
+		"AI正在增强视频帧", 86.0, "AI视频帧增强完成")) {
+		cleanup_screenshot_work_directory(work_directory);
+		err = "Real-ESRGAN video inference failed";
+		return false;
+	}
+
+	const std::string fps = decimal_text(probe_video_fps_in_thread(ffmpeg, input));
+	const std::string output_pattern = local_join_path(frames_out, "%08d.png");
+	const std::string output_filter = "scale=w=min(3840\\,iw):h=min(2160\\,ih)"
+		":force_original_aspect_ratio=decrease:force_divisible_by=2";
+	ACL_ARGV* encode = acl_argv_alloc(42);
+	acl_argv_add(encode, ffmpeg.c_str(), "-hide_banner", "-loglevel", "error", "-y",
+		"-framerate", fps.c_str(), "-start_number", "1", "-i", output_pattern.c_str(),
+		"-i", input.c_str(), "-map_metadata", "-1", "-map_chapters", "-1",
+		"-map", "0:v:0", "-map", "1:a?", "-map", "1:s?",
+		"-vf", output_filter.c_str(), "-c:v", "libx264", "-preset", "medium",
+		"-crf", "21", "-pix_fmt", "yuv420p", "-tag:v", "avc1",
+		"-c:a", "copy", "-c:s", "copy", nullptr);
+	const std::string duration_text = duration > 0 ? decimal_text(duration / 1000.0) : "";
+	if (!duration_text.empty()) acl_argv_add(encode, "-t", duration_text.c_str(), nullptr);
+	acl_argv_add(encode, "-movflags", "+faststart", "-progress", "pipe:1", "-nostats",
+		output.c_str(), nullptr);
+	const ffmpeg_process_ptr encode_process = start_ffmpeg_process_in_thread(encode);
+	if (!encode_process || wait_transcode_progress_in_thread(task, *encode_process,
+		duration, 86.0, 12.0, "正在合成AI增强视频与音轨", 98.0, "正在写入MP4文件") != 0
+		|| is_task_cancel_requested(task) || file_size_of(output.c_str()) <= 0) {
+		unlink(output.c_str());
+		cleanup_screenshot_work_directory(work_directory);
+		err = "AI enhanced video encoding failed";
+		return false;
+	}
+	cleanup_screenshot_work_directory(work_directory);
+	return true;
 }
 
 void run_single_screenshot_export_in_thread(const std::shared_ptr<transcode_task_t>& task,
@@ -1344,6 +1488,31 @@ bool VideoEditAction::run(request_t& req, response_t& res,
 	const std::string subtitle_import_mode = req.getParameter("subtitle_import_mode")
 		? req.getParameter("subtitle_import_mode") : "reencode";
 	const long long subtitle_start_ms = integer_param(req, "subtitle_start_ms");
+	const std::string enhance_mode = req.getParameter("enhance_mode")
+		? req.getParameter("enhance_mode") : "original";
+	std::string enhance_model = req.getParameter("ai_model")
+		? req.getParameter("ai_model") : "realesrgan-x4plus";
+	int enhance_scale = static_cast<int>(integer_param(req, "ai_scale", 4));
+	const int enhance_denoise = static_cast<int>(integer_param(req, "ai_denoise", 0));
+	const int enhance_sharpen = static_cast<int>(integer_param(req, "sharpen", 35));
+	const int enhance_tile = static_cast<int>(integer_param(req, "ai_tile", 0));
+	const std::string enhance_compute_units = req.getParameter("ai_compute_units")
+		? req.getParameter("ai_compute_units") : "auto";
+	const std::string enhance_overlap = req.getParameter("ai_overlap")
+		? req.getParameter("ai_overlap") : "balanced";
+#if !defined(__APPLE__) || (!defined(__arm64__) && !defined(__aarch64__))
+	if (enhance_model.compare(0, 7, "coreml-") == 0) {
+		enhance_model = "realesrgan-x4plus";
+		enhance_scale = 4;
+	}
+#endif
+	const bool valid_enhance_model = enhance_model == "realesrgan-x4plus"
+		|| enhance_model == "realesr-animevideov3" || enhance_model == "coreml-x2plus"
+		|| enhance_model == "coreml-general-x4v3" || enhance_model == "coreml-general-x4v3-w8a8"
+		|| enhance_model == "coreml-x4plus-int8";
+	const bool valid_enhance_scale = enhance_model == "realesr-animevideov3"
+		? (enhance_scale == 2 || enhance_scale == 4)
+		: (enhance_model == "coreml-x2plus" ? enhance_scale == 2 : enhance_scale == 4);
 	if (start_ms < 0 || (end_ms > 0 && end_ms - start_ms < 100)
 		|| speed < 0.25 || speed > 4.0 || volume < 0 || volume > 200
 		|| (rotate != 0 && rotate != 90 && rotate != 180 && rotate != 270)
@@ -1352,6 +1521,15 @@ bool VideoEditAction::run(request_t& req, response_t& res,
 		|| (audio_mode != "keep" && audio_mode != "remove" && audio_mode != "replace")
 		|| (subtitle_mode != "keep" && subtitle_mode != "remove" && subtitle_mode != "replace")
 		|| (subtitle_import_mode != "fast" && subtitle_import_mode != "reencode")
+		|| (enhance_mode != "original" && enhance_mode != "sharpen" && enhance_mode != "ai")
+		|| enhance_sharpen < 0 || enhance_sharpen > 100
+		|| (enhance_mode == "ai" && (!valid_enhance_model || !valid_enhance_scale
+			|| enhance_denoise < 0 || enhance_denoise > 2
+			|| (enhance_tile != 0 && enhance_tile != 128 && enhance_tile != 256 && enhance_tile != 512)
+			|| (enhance_compute_units != "auto" && enhance_compute_units != "gpu"
+				&& enhance_compute_units != "ane" && enhance_compute_units != "cpu")
+			|| (enhance_overlap != "low" && enhance_overlap != "balanced"
+				&& enhance_overlap != "quality")))
 		|| audio_start_ms < 0 || subtitle_start_ms < 0) {
 		json_error(res, 400, "invalid video edit options", req.isKeepAlive());
 		return true;
@@ -1359,7 +1537,7 @@ bool VideoEditAction::run(request_t& req, response_t& res,
 	if (subtitle_import_mode == "fast" && (subtitle_mode != "replace"
 		|| std::fabs(speed - 1.0) > 0.0001 || volume != 100 || muted
 		|| rotate != 0 || flip_h || flip_v || crop != "original"
-		|| output_height != 0 || audio_mode != "keep")) {
+		|| output_height != 0 || audio_mode != "keep" || enhance_mode != "original")) {
 		json_error(res, 400,
 			"快速封装不能同时应用画面、变速或音频编辑，请选择兼容转码",
 			req.isKeepAlive());
@@ -1445,17 +1623,22 @@ bool VideoEditAction::run(request_t& req, response_t& res,
 	acl::gofiber([task, ffmpeg, input_path, temporary, output_path, start_ms, end_ms, speed,
 		volume, muted, rotate, flip_h, flip_v, crop, output_height, audio_mode,
 		audio_path, audio_start_ms, subtitle_mode, subtitle_path, subtitle_start_ms,
-		subtitle_import_mode] {
+		subtitle_import_mode, enhance_mode, enhance_model, enhance_scale, enhance_denoise,
+		enhance_sharpen, enhance_tile, enhance_compute_units, enhance_overlap] {
 			try {
 				run_video_edit_in_thread(task, ffmpeg, input_path, temporary, output_path, start_ms,
 					end_ms, speed, volume, muted, rotate, flip_h, flip_v, crop, output_height,
 					audio_mode, audio_path, audio_start_ms, subtitle_mode, subtitle_path,
-					subtitle_start_ms, subtitle_import_mode);
+					subtitle_start_ms, subtitle_import_mode, enhance_mode, enhance_model,
+					enhance_scale, enhance_denoise, enhance_sharpen, enhance_tile,
+					enhance_compute_units, enhance_overlap);
 			} catch (const std::exception& e) {
 				unlink(temporary.c_str());
+				cleanup_screenshot_work_directory(temporary + ".ai");
 				finish_task(task, false, "视频剪辑失败", e.what(), -1);
 			} catch (...) {
 				unlink(temporary.c_str());
+				cleanup_screenshot_work_directory(temporary + ".ai");
 				finish_task(task, false, "视频剪辑失败", "unexpected video edit exception", -1);
 			}
 	});

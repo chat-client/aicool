@@ -117,14 +117,15 @@ function openVideoEditor(path, local) {
             '<div class="video-editor-toggle-row"><label class="video-editor-check"><input type="checkbox" data-editor-flip-h><span>' + videoEditorEscape(t('水平翻转')) + '</span></label><label class="video-editor-check"><input type="checkbox" data-editor-flip-v><span>' + videoEditorEscape(t('垂直翻转')) + '</span></label></div>' +
             '<label><span>' + videoEditorEscape(t('画面比例')) + '</span><select data-editor-crop><option value="original">' + videoEditorEscape(t('原始比例')) + '</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></label>' +
             '<label><span>' + videoEditorEscape(t('导出分辨率')) + '</span><select data-editor-height><option value="0">' + videoEditorEscape(t('保持原始')) + '</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label>' +
-            '<div class="video-editor-capture-actions"><button type="button" class="video-editor-track-export" data-editor-export-keyframes>' + videoEditorEscape(t('连续截取关键帧')) + '</button><button type="button" class="video-editor-track-export" data-editor-screenshot>' + videoEditorEscape(t('截屏')) + '</button><select data-editor-screenshot-mode aria-label="' + videoEditorEscape(t('截图增强方式')) + '"><option value="original">' + videoEditorEscape(t('原始画面')) + '</option><option value="sharpen">' + videoEditorEscape(t('锐化增强')) + '</option><option value="ai">' + videoEditorEscape(t('AI超分辨率')) + '</option></select><button type="button" class="video-editor-track-export video-editor-ai-settings" data-editor-screenshot-ai-settings hidden>' + videoEditorEscape(t('详细设置')) + '</button></div>' +
-            '<p class="video-editor-track-hint">' + videoEditorEscape(t('将所选时段内的关键帧导出到与视频同名的目录。')) + '</p>' +
+            '<label><span>' + videoEditorEscape(t('增强方式')) + '</span><select data-editor-screenshot-mode><option value="original">' + videoEditorEscape(t('原始画面')) + '</option><option value="sharpen">' + videoEditorEscape(t('锐化增强')) + '</option><option value="ai">' + videoEditorEscape(t('AI超分辨率')) + '</option></select></label>' +
+            '<div class="video-editor-capture-actions"><button type="button" class="video-editor-track-export" data-editor-export-keyframes>' + videoEditorEscape(t('连续截取关键帧')) + '</button><button type="button" class="video-editor-track-export" data-editor-screenshot>' + videoEditorEscape(t('截屏')) + '</button><button type="button" class="video-editor-track-export video-editor-ai-settings" data-editor-screenshot-ai-settings hidden>' + videoEditorEscape(t('详细设置')) + '</button></div>' +
+            '<button type="button" class="video-editor-main-export" data-editor-export>' + videoEditorEscape(t('导出视频')) + '</button>' +
           '</div>' +
           '<p class="video-editor-output-hint">' + videoEditorEscape(t('将导出为新的 MP4 文件，原视频不会被修改。')) + '</p>' +
         '</aside>' +
       '</div>' +
-      '<footer class="video-editor-footer"><div class="video-editor-progress" hidden><div><i></i></div><span>' + videoEditorEscape(t('准备导出')) + '</span></div>' +
-        '<div class="video-editor-actions"><button type="button" data-editor-cancel-export hidden>' + videoEditorEscape(t('取消导出')) + '</button><button type="button" data-video-editor-close>' + videoEditorEscape(t('取消')) + '</button><button type="button" class="primary" data-editor-export>' + videoEditorEscape(t('导出视频')) + '</button></div></footer>' +
+      '<footer class="video-editor-footer" hidden><div class="video-editor-progress" hidden><div><i></i></div><span>' + videoEditorEscape(t('准备导出')) + '</span></div>' +
+        '<div class="video-editor-actions"><button type="button" data-editor-cancel-export hidden>' + videoEditorEscape(t('取消导出')) + '</button></div></footer>' +
       '<datalist id="video-editor-audio-files">' + audioCandidates + '</datalist><datalist id="video-editor-subtitle-files">' + subtitleCandidates + '</datalist>' +
     '</section>';
   document.body.appendChild(dialog);
@@ -165,6 +166,7 @@ function openVideoEditor(path, local) {
   const screenshotMode = dialog.querySelector('[data-editor-screenshot-mode]');
   const screenshotAiSettingsBtn = dialog.querySelector('[data-editor-screenshot-ai-settings]');
   const cancelExportBtn = dialog.querySelector('[data-editor-cancel-export]');
+  const footer = dialog.querySelector('.video-editor-footer');
   const progress = dialog.querySelector('.video-editor-progress');
   const progressBar = progress.querySelector('i');
   const progressText = progress.querySelector('span');
@@ -371,6 +373,7 @@ function openVideoEditor(path, local) {
   screenshotBtn.addEventListener('click', function () { startTrackExport('screenshot'); });
 
   function updateProgress(value, message, state) {
+    footer.hidden = false;
     progress.hidden = false;
     progressBar.style.width = Math.max(0, Math.min(100, Number(value) || 0)) + '%';
     progressText.textContent = message || '';
@@ -579,7 +582,13 @@ function openVideoEditor(path, local) {
         subtitle_mode: subtitleMode.value, subtitle_file: subtitlePath,
         subtitle_file_source: subtitleFileSource,
         subtitle_import_mode: subtitleMode.value === 'replace' ? subtitleImportMode.value : 'reencode',
-        subtitle_start_ms: Math.round((Number(subtitleStart.value) || 0) * 1000)
+        subtitle_start_ms: Math.round((Number(subtitleStart.value) || 0) * 1000),
+        enhance_mode: screenshotMode.value,
+        ai_model: screenshotSettings.model, ai_scale: screenshotSettings.scale,
+        ai_denoise: screenshotSettings.denoise,
+        sharpen: screenshotMode.value === 'sharpen' ? 35 : screenshotSettings.sharpen,
+        ai_compute_units: screenshotSettings.computeUnits,
+        ai_tile: screenshotSettings.tile, ai_overlap: screenshotSettings.overlap
       };
       if (audioMode.value === 'replace' && !params.audio_file) throw new Error(t('请选择音频文件'));
       if (subtitleMode.value === 'replace' && !params.subtitle_file) throw new Error(t('请选择字幕文件'));
@@ -587,7 +596,7 @@ function openVideoEditor(path, local) {
         && (speed.value !== '1' || volume.value !== '100' || muted.checked
           || rotate.value !== '0' || flipH.checked || flipV.checked
           || crop.value !== 'original' || outputHeight.value !== '0'
-          || audioMode.value !== 'keep')) {
+          || audioMode.value !== 'keep' || screenshotMode.value !== 'original')) {
         throw new Error(t('快速封装不能同时应用画面、变速或音频编辑，请选择兼容转码'));
       }
       Object.keys(params).forEach(function (key) { url += '&' + key + '=' + encodeURIComponent(params[key]); });

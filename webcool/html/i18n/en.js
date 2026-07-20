@@ -963,6 +963,7 @@
     ,'截屏完成：': 'Screenshot complete: '
     ,'截屏失败：': 'Screenshot failed: '
     ,'截图增强方式': 'Screenshot enhancement'
+    ,'增强方式': 'Enhancement'
     ,'原始画面': 'Original frame'
     ,'锐化增强': 'Sharpen'
     ,'提升清晰度': 'Enhance clarity'

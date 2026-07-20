@@ -5964,17 +5964,19 @@
     }
     .video-editor-track-export:hover { background: #eaf3f9; }
     .video-editor-track-export:disabled { opacity: .55; cursor: default; }
-    .video-editor-capture-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
-    .video-editor-capture-actions select {
-      align-self: end;
-      min-width: 118px;
-      margin-top: 11px;
-      padding: 6px 8px;
-      border: 1px solid #b9c9d7;
+    .video-editor-main-export {
+      width: 100%;
+      margin-top: 12px;
+      padding: 8px 12px;
+      border: 1px solid #217bd4;
       border-radius: 6px;
-      color: #35617f;
-      background: #fff;
+      color: #fff;
+      background: #2783e6;
+      cursor: pointer;
     }
+    .video-editor-main-export:hover { background: #217bd4; }
+    .video-editor-main-export:disabled { opacity: .55; cursor: default; }
+    .video-editor-capture-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
     .video-editor-ai-settings { margin-left: -2px; }
     .video-screenshot-ai-dialog {
       position: fixed;
@@ -6028,6 +6030,7 @@
       border-top: 1px solid #d4dee7;
       background: #fff;
     }
+    .video-editor-footer[hidden] { display: none; }
     .video-editor-progress {
       display: grid;
       grid-template-columns: minmax(160px, 1fr) minmax(280px, auto);
