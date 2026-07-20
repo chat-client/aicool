@@ -964,6 +964,7 @@
     ,'截屏失败：': 'Screenshot failed: '
     ,'截图增强方式': 'Screenshot enhancement'
     ,'增强方式': 'Enhancement'
+    ,'同名字幕': 'Matching subtitle'
     ,'原始画面': 'Original frame'
     ,'锐化增强': 'Sharpen'
     ,'提升清晰度': 'Enhance clarity'

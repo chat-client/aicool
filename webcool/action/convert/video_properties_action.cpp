@@ -46,10 +46,6 @@ std::vector<std::string> sidecar_audio_candidates(const std::string& media_path)
 std::string find_sidecar_audio(const std::string& media_path,
 	const std::string& storage_root)
 {
-	if (media_path.size() < 4
-		|| strcasecmp(media_path.c_str() + media_path.size() - 4, ".mp4") != 0) {
-		return "";
-	}
 	const std::vector<std::string> candidates = sidecar_audio_candidates(media_path);
 	for (size_t i = 0; i < candidates.size(); ++i) {
 		const std::string actual = storage_root.empty()
@@ -57,6 +53,15 @@ std::string find_sidecar_audio(const std::string& media_path,
 		if (file_size_of(actual.c_str()) > 0) return candidates[i];
 	}
 	return "";
+}
+
+std::string find_sidecar_subtitle(const std::string& media_path,
+	const std::string& storage_root)
+{
+	const std::string candidate = replace_ext(media_path, ".vtt");
+	const std::string actual = storage_root.empty()
+		? candidate : join_upload_path(storage_root, candidate);
+	return file_size_of(actual.c_str()) > 0 ? candidate : "";
 }
 
 bool browser_audio_codec_supported(const std::string& codec)
@@ -147,7 +152,8 @@ void probe_properties(const std::string& ffmpeg, const std::string& path,
 }
 
 bool send_properties(response_t& res, bool keep_alive, const std::string& name,
-	const video_properties_t& value, const std::string& sidecar_audio = "")
+	const video_properties_t& value, const std::string& sidecar_audio = "",
+	const std::string& sidecar_subtitle = "")
 {
 	acl::json json;
 	acl::json_node& root = json.create_node();
@@ -166,6 +172,7 @@ bool send_properties(response_t& res, bool keep_alive, const std::string& name,
 	root.add_bool("browser_audio_supported",
 		!value.audio_codec.empty() && browser_audio_codec_supported(value.audio_codec));
 	if (!sidecar_audio.empty()) root.add_text("sidecar_audio", sidecar_audio.c_str());
+	if (!sidecar_subtitle.empty()) root.add_text("sidecar_subtitle", sidecar_subtitle.c_str());
 	if (!value.audio_codec.empty()) root.add_text("audio_codec", value.audio_codec.c_str());
 	if (value.sample_rate_hz >= 0) root.add_number("sample_rate_hz", value.sample_rate_hz);
 	if (!value.audio_channels.empty()) root.add_text("audio_channels", value.audio_channels.c_str());
@@ -201,9 +208,10 @@ bool VideoPropertiesAction::run(request_t& req, response_t& res,
 	}
 	video_properties_t properties;
 	probe_properties(ffmpeg, join_upload_path(upload_dir, file), properties);
-	const std::string sidecar_audio = !browser_audio_codec_supported(properties.audio_codec)
-		? find_sidecar_audio(file, upload_dir) : "";
-	return send_properties(res, req.isKeepAlive(), file, properties, sidecar_audio);
+	const std::string sidecar_audio = find_sidecar_audio(file, upload_dir);
+	const std::string sidecar_subtitle = find_sidecar_subtitle(file, upload_dir);
+	return send_properties(res, req.isKeepAlive(), file, properties,
+		sidecar_audio, sidecar_subtitle);
 }
 
 bool VideoPropertiesAction::runLocal(request_t& req, response_t& res,
@@ -233,9 +241,10 @@ bool VideoPropertiesAction::runLocal(request_t& req, response_t& res,
 	}
 	video_properties_t properties;
 	probe_properties(ffmpeg, path, properties);
-	const std::string sidecar_audio = !browser_audio_codec_supported(properties.audio_codec)
-		? find_sidecar_audio(path, "") : "";
-	return send_properties(res, req.isKeepAlive(), path, properties, sidecar_audio);
+	const std::string sidecar_audio = find_sidecar_audio(path, "");
+	const std::string sidecar_subtitle = find_sidecar_subtitle(path, "");
+	return send_properties(res, req.isKeepAlive(), path, properties,
+		sidecar_audio, sidecar_subtitle);
 }
 
 } // namespace action

@@ -178,10 +178,66 @@ function openVideoEditor(path, local) {
   let stopAtEnd = false;
   let selectedSubtitleUpload = null;
   let selectedSubtitleUploadPath = '';
+  let sidecarLookupPromise = null;
+  let sidecarAudio = null;
+  let sidecarSubtitlePath = '';
+  let videoPlaybackFailed = false;
   const screenshotSettings = {
     model: 'coreml-x2plus', scale: 2, denoise: 1, sharpen: 20,
     quality: 95, computeUnits: 'auto', tile: 0, overlap: 'balanced'
   };
+
+  function attachEditorSidecarAudio(audioPath) {
+    if (!audioPath || sidecarAudio) return;
+    sidecarAudio = document.createElement('audio');
+    sidecarAudio.preload = 'metadata';
+    sidecarAudio.hidden = true;
+    sidecarAudio.src = videoEditorMediaUrl(audioPath, local) + '&v=' + Date.now();
+    stage.appendChild(sidecarAudio);
+    if (typeof bindSplitVideoAudio === 'function') {
+      bindSplitVideoAudio(video, sidecarAudio);
+    }
+    sidecarAudio.load();
+  }
+
+  function attachEditorSidecarSubtitle(subtitlePath) {
+    if (!subtitlePath || sidecarSubtitlePath || video.textTracks.length > 0) return;
+    sidecarSubtitlePath = subtitlePath;
+    const track = document.createElement('track');
+    track.kind = 'subtitles';
+    track.srclang = 'und';
+    track.label = t('同名字幕');
+    track.default = true;
+    track.src = videoEditorMediaUrl(subtitlePath, local) + '&v=' + Date.now();
+    track.addEventListener('load', function () {
+      if (track.track) track.track.mode = 'showing';
+    }, { once: true });
+    video.appendChild(track);
+  }
+
+  function resolveEditorSidecars() {
+    if (sidecarLookupPromise) return sidecarLookupPromise;
+    const propertiesUrl = videoEditorTaskUrl(
+      local ? api.localDiskVideoProperties : api.videoProperties,
+      path,
+      local
+    );
+    sidecarLookupPromise = fetchJson(propertiesUrl).then(function (properties) {
+      if (properties && properties.sidecar_audio
+        && (videoPlaybackFailed || !properties.has_audio
+          || properties.browser_audio_supported === false)) {
+        attachEditorSidecarAudio(String(properties.sidecar_audio));
+      }
+      if (properties && properties.sidecar_subtitle && video.textTracks.length === 0) {
+        attachEditorSidecarSubtitle(String(properties.sidecar_subtitle));
+      }
+      return properties;
+    }).catch(function () {
+      sidecarLookupPromise = null;
+      return null;
+    });
+    return sidecarLookupPromise;
+  }
 
   function selection() {
     let start = Math.max(0, Math.min(Math.max(0, duration - 0.1), Number(startNumber.value) || 0));
@@ -362,6 +418,18 @@ function openVideoEditor(path, local) {
   dialog.querySelector('[data-editor-play-selection]').addEventListener('click', function () {
     video.currentTime = selection().start; stopAtEnd = true; video.play().catch(function () {});
   });
+  video.addEventListener('loadedmetadata', resolveEditorSidecars, { once: true });
+  video.addEventListener('error', function () {
+    videoPlaybackFailed = true;
+    resolveEditorSidecars().then(function (properties) {
+      if (properties && properties.sidecar_audio) {
+        attachEditorSidecarAudio(String(properties.sidecar_audio));
+      }
+      if (properties && properties.sidecar_subtitle) {
+        attachEditorSidecarSubtitle(String(properties.sidecar_subtitle));
+      }
+    });
+  }, { once: true });
   dialog.querySelectorAll('[data-video-editor-close]').forEach(function (button) { button.addEventListener('click', closeEditor); });
   exportAudioBtn.addEventListener('click', function () { startTrackExport('audio'); });
   exportSubtitleBtn.addEventListener('click', function () {
@@ -619,6 +687,7 @@ function openVideoEditor(path, local) {
 
   applyPreview();
   syncSubtitleMode();
+  resolveEditorSidecars();
 
   const editorWindow = dialog.querySelector('.video-editor-window');
   const editorHeader = dialog.querySelector('.video-editor-header');
