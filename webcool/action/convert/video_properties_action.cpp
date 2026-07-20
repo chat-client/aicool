@@ -70,13 +70,41 @@ bool browser_audio_codec_supported(const std::string& codec)
 		|| strcasecmp(codec.c_str(), "mp3") == 0;
 }
 
-std::string first_stream_line(const std::string& text, const char* kind)
+struct stream_text_t {
+	std::string line;
+	std::string block;
+};
+
+std::vector<stream_text_t> stream_blocks(const std::string& text, const char* kind)
 {
-	const std::string marker = std::string(kind) + ":";
-	size_t pos = text.find(marker);
-	if (pos == std::string::npos) return "";
-	const size_t end = text.find('\n', pos);
-	return trim_text(text.substr(pos, end == std::string::npos ? end : end - pos));
+	std::vector<std::string> lines;
+	size_t begin = 0;
+	while (begin <= text.size()) {
+		const size_t end = text.find('\n', begin);
+		lines.push_back(text.substr(begin,
+			end == std::string::npos ? end : end - begin));
+		if (end == std::string::npos) break;
+		begin = end + 1;
+	}
+	const std::string marker = std::string(": ") + kind + ":";
+	std::vector<stream_text_t> result;
+	for (size_t i = 0; i < lines.size(); ++i) {
+		const std::string line = trim_text(lines[i]);
+		// Only accept real stream declarations. FFmpeg warnings can also contain
+		// text such as "(Video: png, none)" and must never become the main stream.
+		if (line.compare(0, 8, "Stream #") != 0
+			|| line.find(marker) == std::string::npos) continue;
+		stream_text_t stream;
+		stream.line = line;
+		stream.block = line;
+		for (size_t j = i + 1; j < lines.size(); ++j) {
+			const std::string next = trim_text(lines[j]);
+			if (next.compare(0, 8, "Stream #") == 0) break;
+			stream.block += "\n" + lines[j];
+		}
+		result.push_back(stream);
+	}
+	return result;
 }
 
 std::string codec_from_stream_line(const std::string& line, const char* kind)
@@ -100,6 +128,88 @@ long long match_integer(const std::string& text, const std::regex& pattern)
 	return static_cast<long long>(strtoll(match[1].str().c_str(), nullptr, 10));
 }
 
+bool stream_dimensions(const std::string& line, int& width, int& height)
+{
+	std::smatch match;
+	if (!std::regex_search(line, match,
+		std::regex("([0-9]{2,5})x([0-9]{2,5})"))) return false;
+	width = atoi(match[1].str().c_str());
+	height = atoi(match[2].str().c_str());
+	return width > 0 && height > 0;
+}
+
+double stream_fps(const std::string& line)
+{
+	std::smatch match;
+	if (std::regex_search(line, match,
+		std::regex("([0-9]+(?:\\.[0-9]+)?) fps"))) {
+		return atof(match[1].str().c_str());
+	}
+	// Some demuxers only publish tbr for the video stream.
+	if (std::regex_search(line, match,
+		std::regex("([0-9]+(?:\\.[0-9]+)?) tbr"))) {
+		return atof(match[1].str().c_str());
+	}
+	return 0;
+}
+
+long long stream_bitrate_kbps(const stream_text_t& stream)
+{
+	long long bitrate = match_integer(stream.line, std::regex("([0-9]+) kb/s"));
+	if (bitrate >= 0) return bitrate;
+	// Matroska commonly stores per-stream bitrate in a BPS metadata tag.
+	const long long bps = match_integer(stream.block,
+		std::regex("(?:^|\\n)\\s*BPS(?:-[A-Za-z0-9]+)?\\s*:\\s*([0-9]+)",
+			std::regex_constants::icase));
+	if (bps >= 0) return (bps + 500) / 1000;
+
+	// Fall back to stream byte count and duration when BPS is absent.
+	const long long bytes = match_integer(stream.block,
+		std::regex("NUMBER_OF_BYTES\\s*:\\s*([0-9]+)",
+			std::regex_constants::icase));
+	std::smatch duration;
+	if (bytes >= 0 && std::regex_search(stream.block, duration,
+		std::regex("DURATION\\s*:\\s*([0-9]+):([0-9]{2}):([0-9]{2}(?:\\.[0-9]+)?)",
+			std::regex_constants::icase))) {
+		const double seconds = atof(duration[1].str().c_str()) * 3600.0
+			+ atof(duration[2].str().c_str()) * 60.0
+			+ atof(duration[3].str().c_str());
+		if (seconds > 0) return static_cast<long long>(bytes * 8.0 / seconds / 1000.0 + 0.5);
+	}
+	return -1;
+}
+
+stream_text_t choose_video_stream(const std::vector<stream_text_t>& streams)
+{
+	stream_text_t best;
+	int best_score = -1;
+	for (size_t i = 0; i < streams.size(); ++i) {
+		int width = 0, height = 0;
+		const bool dimensions = stream_dimensions(streams[i].line, width, height);
+		const bool attached = streams[i].line.find("(attached pic)") != std::string::npos;
+		int score = dimensions ? 100 : 0;
+		// A playable video stream always wins over cover art, even if FFmpeg
+		// cannot determine all of its dimensions during a shallow probe.
+		if (!attached) score += 1000;
+		if (streams[i].line.find("(default)") != std::string::npos) score += 10;
+		if (stream_fps(streams[i].line) > 0) score += 5;
+		if (score > best_score) {
+			best = streams[i];
+			best_score = score;
+		}
+	}
+	return best;
+}
+
+stream_text_t choose_audio_stream(const std::vector<stream_text_t>& streams)
+{
+	if (streams.empty()) return stream_text_t();
+	for (size_t i = 0; i < streams.size(); ++i) {
+		if (streams[i].line.find("(default)") != std::string::npos) return streams[i];
+	}
+	return streams.front();
+}
+
 void probe_properties(const std::string& ffmpeg, const std::string& path,
 	video_properties_t& result)
 {
@@ -113,21 +223,34 @@ void probe_properties(const std::string& ffmpeg, const std::string& path,
 	result.duration_ms = parse_duration_ms_from_text(output);
 	result.bitrate_kbps = match_integer(output,
 		std::regex("Duration:[^\\n]*bitrate: ([0-9]+) kb/s"));
-	const std::string video = first_stream_line(output, "Video");
-	const std::string audio = first_stream_line(output, "Audio");
+	const std::vector<stream_text_t> video_streams = stream_blocks(output, "Video");
+	const std::vector<stream_text_t> audio_streams = stream_blocks(output, "Audio");
+	const stream_text_t selected_video = choose_video_stream(video_streams);
+	const stream_text_t selected_audio = choose_audio_stream(audio_streams);
+	const std::string& video = selected_video.line;
+	const std::string& audio = selected_audio.line;
 	result.video_codec = codec_from_stream_line(video, "Video");
 	result.audio_codec = codec_from_stream_line(audio, "Audio");
-	std::smatch match;
-	if (std::regex_search(video, match, std::regex("([0-9]{2,5})x([0-9]{2,5})"))) {
-		result.width = atoi(match[1].str().c_str());
-		result.height = atoi(match[2].str().c_str());
-	}
-	if (std::regex_search(video, match, std::regex("([0-9]+(?:\\.[0-9]+)?) fps"))) {
-		result.fps = atof(match[1].str().c_str());
-	}
-	result.video_bitrate_kbps = match_integer(video, std::regex("([0-9]+) kb/s"));
+	stream_dimensions(video, result.width, result.height);
+	result.fps = stream_fps(video);
+	result.video_bitrate_kbps = stream_bitrate_kbps(selected_video);
 	result.sample_rate_hz = match_integer(audio, std::regex("([0-9]+) Hz"));
-	result.audio_bitrate_kbps = match_integer(audio, std::regex("([0-9]+) kb/s"));
+	result.audio_bitrate_kbps = stream_bitrate_kbps(selected_audio);
+	if (result.video_bitrate_kbps < 0 && result.bitrate_kbps > 0) {
+		long long audio_total = 0;
+		bool audio_rates_known = !audio_streams.empty();
+		for (size_t i = 0; i < audio_streams.size(); ++i) {
+			const long long rate = stream_bitrate_kbps(audio_streams[i]);
+			if (rate < 0) {
+				audio_rates_known = false;
+				break;
+			}
+			audio_total += rate;
+		}
+		if (audio_rates_known && result.bitrate_kbps > audio_total) {
+			result.video_bitrate_kbps = result.bitrate_kbps - audio_total;
+		}
+	}
 	if (!audio.empty()) {
 		std::vector<std::string> parts;
 		size_t begin = 0;
