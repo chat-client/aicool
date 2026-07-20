@@ -1055,6 +1055,9 @@
     ,'无法启动导出': 'Unable to start export'
     ,'视频没有内嵌音轨，已自动加载同名音频文件并同步播放。': 'The video has no embedded audio track. A matching audio file was loaded and synchronized automatically.'
     ,'视频音轨缺失或浏览器不支持其编码，已自动加载同名音频文件并同步播放。': 'The audio track is missing or unsupported by the browser. A matching audio file was loaded and synchronized automatically.'
+    ,'已自动合成同名音频和字幕，并在播放器中同步播放。': 'Matching audio and subtitle files were automatically combined with the video and are playing in sync.'
+    ,'已自动合成同名音频，并在播放器中同步播放。': 'A matching audio file was automatically combined with the video and is playing in sync.'
+    ,'已自动合成同名字幕，并在播放器中同步显示。': 'A matching subtitle file was automatically combined with the video and is displayed in sync.'
   };
 
   var phraseEntries = Object.keys(textMap)
