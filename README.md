@@ -175,7 +175,11 @@ webcool 提供系统管理模块，文件管理之外的关键配置集中在这
 - `-w html_home`：指定静态资源目录，默认 `./html`。
 - `-S sqlite_lib`：指定 sqlite 动态库路径。
 - `-F ffmpeg_path`：指定 ffmpeg 可执行文件路径。
-- `-G`：打开 Windows 控制界面。
+- `-G`：打开 Windows/macOS 控制界面（这两个平台默认为窗口模式）。
+- `-C`：在 Windows/macOS 上以命令行终端模式运行。
+
+macOS 用户通过 Finder 启动时应双击 `webcool.app`，这样只会显示控制窗口，
+不会同时打开 Terminal。
 
 示例：
 
@@ -375,7 +379,11 @@ Common options:
 - `-w html_home`: Static resource directory, default `./html`.
 - `-S sqlite_lib`: sqlite dynamic library path.
 - `-F ffmpeg_path`: ffmpeg executable path.
-- `-G`: Open the Windows control panel.
+- `-G`: Open the Windows/macOS control panel (the default mode on these platforms).
+- `-C`: Run in command-line terminal mode on Windows/macOS.
+
+On macOS, double-click `webcool.app` in Finder to open only the control window
+without launching Terminal.
 
 Examples:
 

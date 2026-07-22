@@ -13,6 +13,7 @@ MACOS_UNIVERSAL ?=
 MACOS_ARCHS     :=
 COREML_BUILD_TARGET :=
 COREML_CLEAN_TARGET :=
+MAC_APP_TARGET :=
 
 ###########################################################
 # 系统类型检测
@@ -47,7 +48,7 @@ endif
 # Darwin (macOS)
 ifeq ($(findstring Darwin, $(UNIXNAME)), Darwin)
 	CFLAGS  += -DMACOSX -Wno-invalid-source-encoding -Wno-invalid-offsetof -std=c++11 -DACL_USE_CPP11
-	SYSLIB  += -liconv -rdynamic
+	SYSLIB  += -liconv -rdynamic -framework Cocoa
 	RPATH    = macos
 	ifeq ($(MACOS_UNIVERSAL),)
 		MACOS_UNIVERSAL := 1
@@ -73,6 +74,7 @@ ifeq ($(findstring Darwin, $(UNIXNAME)), Darwin)
 		-framework Vision -framework CoreImage -framework ImageIO -framework CoreGraphics
 	COREML_BUILD_TARGET += $(RED_EYE_RUNNER)
 	COREML_CLEAN_TARGET := $(COREML_RUNNER) $(CODEFORMER_RUNNER) $(RED_EYE_RUNNER)
+	MAC_APP_TARGET := webcool.app
 endif
 
 # Linux
@@ -136,7 +138,11 @@ SRC = $(wildcard *.cpp)  $(wildcard common/*.cpp)  $(wildcard win32/*.cpp) \
 	$(wildcard action/convert/*.cpp) $(wildcard action/file/*.cpp) \
 	$(wildcard action/folder/*.cpp) \
 	$(wildcard action/tag/*.cpp)
-OBJ = $(patsubst %.cpp, %.o, $(SRC))
+MAC_SRC =
+ifeq ($(findstring Darwin, $(UNIXNAME)), Darwin)
+	MAC_SRC = $(wildcard mac/*.mm)
+endif
+OBJ = $(patsubst %.cpp, %.o, $(SRC)) $(patsubst %.mm, %.o, $(MAC_SRC))
 
 acl_libs:
 	$(MAKE) -C $(ACL_PATH) $(ACL_BUILD_TARGET) $(ACL_MAKE_ENV)
@@ -173,8 +179,18 @@ $(PROG): $(PROG_DEPS)
 	fi
 	@echo ""
 
+ifeq ($(findstring Darwin, $(UNIXNAME)), Darwin)
+$(MAC_APP_TARGET): $(PROG) mac/build_app_bundle.sh mac/Info.plist html/icon/webcool-icon-1024.png
+	sh mac/build_app_bundle.sh $(PROG) $(MAC_APP_TARGET) \
+		html/icon/webcool-icon-1024.png mac/Info.plist
+	@echo "构建成功：$(MAC_APP_TARGET) (双击启动时不打开终端)"
+endif
+
 %.o: %.cpp
 	$(CC) $(CFLAGS) $< -o $@
+
+%.o: %.mm
+	$(CC) $(CFLAGS) -fobjc-arc $< -o $@
 
 ifeq ($(findstring Darwin, $(UNIXNAME)), Darwin)
 $(COREML_RUNNER): $(COREML_SWIFT_SRC)
@@ -213,11 +229,14 @@ $(RED_EYE_RUNNER): $(RED_EYE_SWIFT_SRC)
 red-eye-runner: $(RED_EYE_RUNNER)
 endif
 
-.PHONY: all clean rebuild acl_libs mac-universal-acl coreml-runner codeformer-runner red-eye-runner
+.PHONY: all clean rebuild acl_libs mac-universal-acl coreml-runner codeformer-runner red-eye-runner mac-app webcool.app
 
-all: $(COREML_BUILD_TARGET) $(PROG)
+all: $(COREML_BUILD_TARGET) $(PROG) $(MAC_APP_TARGET)
+
+mac-app: $(MAC_APP_TARGET)
 
 clean cl:
 	rm -f $(PROG) $(OBJ) $(COREML_CLEAN_TARGET)
+	@if [ -n "$(MAC_APP_TARGET)" ]; then rm -rf "$(MAC_APP_TARGET)"; fi
 
 rebuild rb: clean all

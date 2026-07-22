@@ -41,6 +41,12 @@ target_compile_definitions(webcool PRIVATE
 	ACL_USE_CPP11)
 
 if(APPLE)
+	enable_language(OBJCXX)
+	file(GLOB WEBCOOL_MAC_SOURCES CONFIGURE_DEPENDS
+		"${CMAKE_CURRENT_LIST_DIR}/mac/*.mm")
+	set_source_files_properties(${WEBCOOL_MAC_SOURCES} PROPERTIES
+		COMPILE_OPTIONS "-fobjc-arc")
+	target_sources(webcool PRIVATE ${WEBCOOL_MAC_SOURCES})
 	target_compile_definitions(webcool PRIVATE MACOSX)
 	target_compile_options(webcool PRIVATE
 		$<$<CXX_COMPILER_ID:AppleClang,Clang>:-Wno-invalid-source-encoding -Wno-invalid-offsetof>)
@@ -115,7 +121,8 @@ elseif(APPLE)
 		pthread
 		z
 		iconv
-		dl)
+		dl
+		"-framework Cocoa")
 elseif(UNIX)
 	target_link_libraries(webcool PRIVATE
 		dl
@@ -132,4 +139,15 @@ if(UNIX AND NOT WIN32)
 	set_target_properties(webcool PROPERTIES
 		BUILD_RPATH "${ACL_LIBRARY_DIRS}"
 		INSTALL_RPATH "${ACL_LIBRARY_DIRS}")
+endif()
+
+if(APPLE)
+	add_custom_command(TARGET webcool POST_BUILD
+		COMMAND "${CMAKE_CURRENT_LIST_DIR}/mac/build_app_bundle.sh"
+			"$<TARGET_FILE:webcool>"
+			"$<TARGET_FILE_DIR:webcool>/webcool.app"
+			"${CMAKE_CURRENT_LIST_DIR}/html/icon/webcool-icon-1024.png"
+			"${CMAKE_CURRENT_LIST_DIR}/mac/Info.plist"
+		COMMENT "Creating webcool.app for terminal-free Finder launch"
+		VERBATIM)
 endif()

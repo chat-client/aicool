@@ -542,6 +542,11 @@ stage_runtime_tree() {
   cp -a "${WEBCOOL_ROOT}/webcool" "${install_root}/sbin/webcool"
   copy_if_exists "${WEBCOOL_ROOT}/html" "$install_root/"
 
+  if is_macos_host && [ -d "${WEBCOOL_ROOT}/webcool.app" ]; then
+    mkdir -p "${stage_root}/Applications"
+    cp -a "${WEBCOOL_ROOT}/webcool.app" "${stage_root}/Applications/"
+  fi
+
   if [ ! -f "${WEBCOOL_ROOT}/webcool.cf" ]; then
     printf 'webcool config not found: %s\n' "${WEBCOOL_ROOT}/webcool.cf" >&2
     exit 1

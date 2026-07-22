@@ -33,6 +33,8 @@ make clean && make
 ```
 
 构建成功后 Makefile 会打印二进制架构（macOS 上通过 `lipo -archs`）。
+macOS 还会同时生成 `webcool.app`：在 Finder 中双击该应用包可直接
+打开控制窗口，不会弹出 Terminal。裸二进制 `webcool` 仍保留给命令行模式使用。
 
 ### 从仓库根目录全量编译
 

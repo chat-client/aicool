@@ -4,6 +4,9 @@
 #include "action/convert/convert_common.h"
 #include "win32/win32_gui.h"
 #include "win32/webcool_controller.h"
+#ifdef MACOSX
+#include "mac/mac_gui.h"
+#endif
 #include "config.h"
 #include "platform_compat.h"
 #include "http_router.h"
@@ -170,8 +173,12 @@ static void usage(const char* prog) {
 		"  -z stack_size   协程栈大小 (默认 %zu，最小 %zu)\n"
 #ifdef _WIN32
 		"  -e event_type   事件引擎: kernel|poll|select (默认 poll)\n"
-		"  -C              进入 DOS 终端模式\n"
-		"  -G              打开 Windows 控制界面 (Windows 默认)\n",
+		"  -C              以命令行终端模式运行\n"
+		"  -G              打开图形控制界面 (Windows/macOS 默认)\n",
+#elif defined(MACOSX)
+		"  -e event_type   事件引擎: kernel|poll|select (默认 kernel)\n"
+		"  -C              以命令行终端模式运行\n"
+		"  -G              打开图形控制界面 (Windows/macOS 默认)\n",
 #else
 		"  -e event_type   事件引擎: kernel|poll|select (默认 kernel)\n",
 #endif
@@ -216,7 +223,7 @@ int main(int argc, char* argv[]) {
 	bool daemon_mode = false;
 	bool show_version = false;
 	bool show_detail = false;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(MACOSX)
 	bool gui_mode = true;
 #endif
 	int  ch;
@@ -241,14 +248,18 @@ int main(int argc, char* argv[]) {
 			break;
 		case 'D':
 			daemon_mode = true;
+#ifdef MACOSX
+			// Preserve the historical `webcool -D` headless behavior on macOS.
+			gui_mode = false;
+#endif
 			break;
 		case 'G':
-#ifdef _WIN32
+#if defined(_WIN32) || defined(MACOSX)
 			gui_mode = true;
 #endif
 			break;
 		case 'C':
-#ifdef _WIN32
+#if defined(_WIN32) || defined(MACOSX)
 			gui_mode = false;
 #endif
 			break;
@@ -369,6 +380,18 @@ int main(int argc, char* argv[]) {
 
 	return run_windows_control_gui(controller);
 #else
+#ifdef MACOSX
+	const char* gui_master_log = acl_getenv("MASTER_LOG");
+	if (gui_mode && !(gui_master_log && *gui_master_log)) {
+		webcool_options service_options;
+		service_options.addr = addr;
+		service_options.nthreads = nthreads;
+		service_options.upload_dir_specified = upload_dir_specified;
+		service_options.service = &service;
+		webcool_controller controller(service_options);
+		return run_mac_control_gui(controller);
+	}
+#endif
 	// Check if be managed by acl_master
 	const char *master_log = acl_getenv("MASTER_LOG");
 	if (master_log && *master_log) {
