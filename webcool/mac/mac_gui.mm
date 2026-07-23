@@ -669,23 +669,20 @@ static NSButton* button(NSString* title, id target, SEL action, NSRect frame) {
 }
 
 - (BOOL)windowShouldClose:(NSWindow*)sender {
-	(void) sender;
 	if (_quitting) return YES;
-	if (_controller->running()) {
-		NSAlert* alert = [[NSAlert alloc] init];
-		alert.messageText = localized_text(_english,
-			@"webcool 正在运行", @"webcool Is Running");
-		alert.informativeText = localized_text(_english,
-			@"可以保持服务运行并最小化窗口，或停止服务并退出。",
-			@"Keep the service running and minimize the window, or stop it and quit.");
-		[alert addButtonWithTitle:localized_text(_english, @"最小化", @"Minimize")];
-		[alert addButtonWithTitle:localized_text(_english,
-			@"停止并退出", @"Stop and Quit")];
-		if ([alert runModal] == NSAlertFirstButtonReturn) {
-			[_window miniaturize:nil]; return NO;
-		}
-	}
-	[self requestQuit:nil];
+	[sender orderOut:nil];
+	return NO;
+}
+
+- (BOOL)applicationShouldHandleReopen:(NSApplication*)sender
+	  hasVisibleWindows:(BOOL)hasVisibleWindows {
+	(void) sender;
+	if (!hasVisibleWindows) [self showWindow:nil];
+	return YES;
+}
+
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender {
+	(void) sender;
 	return NO;
 }
 
