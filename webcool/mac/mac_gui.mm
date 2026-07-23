@@ -370,7 +370,9 @@ static NSButton* button(NSString* title, id target, SEL action, NSRect frame) {
 
 	NSBox* statusBox = [[NSBox alloc] initWithFrame:NSMakeRect(24, 75, 672, 86)];
 	statusBox.title = @"";
-	_status = label(@"", NSMakeRect(14, 10, 640, 62));
+	// NSTextField draws multiline text from the top of its frame. Keep the
+	// frame slightly lower so the three status lines are vertically balanced.
+	_status = label(@"", NSMakeRect(14, 0, 640, 62));
 	_status.maximumNumberOfLines = 3;
 	[statusBox addSubview:_status];
 	[content addSubview:statusBox];
