@@ -44,6 +44,8 @@ notarize_and_staple_dmg() {
 
 verify_gui_app_in_pkg() {
   local pkg_path="$1"
+  local expanded_pkg
+  local package_info
 
   if ! pkgutil --payload-files "$pkg_path" |
     grep -E '^(\./)?Applications/webcool\.app(/|$)' >/dev/null; then
@@ -51,6 +53,22 @@ verify_gui_app_in_pkg() {
     printf 'expected installation target: %s\n' "$APP_INSTALL_PATH" >&2
     exit 1
   fi
+
+  expanded_pkg="$(mktemp -d "${TMPDIR:-/tmp}/webcool-pkg-check.XXXXXX")"
+  if ! pkgutil --expand "$pkg_path" "${expanded_pkg}/expanded"; then
+    rm -rf "$expanded_pkg"
+    printf 'could not inspect package metadata: %s\n' "$pkg_path" >&2
+    exit 1
+  fi
+  package_info="${expanded_pkg}/expanded/PackageInfo"
+
+  if grep -q '<relocate>' "$package_info"; then
+    rm -rf "$expanded_pkg"
+    printf 'GUI application is still relocatable in package: %s\n' "$pkg_path" >&2
+    printf 'it must always install into: %s\n' "$APP_INSTALL_PATH" >&2
+    exit 1
+  fi
+  rm -rf "$expanded_pkg"
 
   log "verified GUI application install target: ${APP_INSTALL_PATH}"
 }

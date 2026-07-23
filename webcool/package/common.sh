@@ -777,18 +777,62 @@ build_macos_pkg() {
   local version="$3"
   local out_pkg="$4"
   local installer_identity="$5"
+  local component_index
+  local component_plist=""
+  local component_path
+  local webcool_component_found=0
 
   require_cmd pkgbuild
   local unsigned_pkg="${out_pkg}.unsigned"
 
   rm -f "$unsigned_pkg" "$out_pkg"
 
+  # Component packages are relocatable by default. If Launch Services has
+  # already seen cn.webcool.control outside /Applications (for example, the
+  # app bundle in a source checkout), Installer otherwise updates that copy
+  # instead of installing /Applications/webcool.app.
+  if [ -d "${stage_root}/Applications/webcool.app" ]; then
+    require_cmd plutil
+    component_plist="$(dirname "$stage_root")/webcool-components.plist"
+    pkgbuild --analyze --root "$stage_root" "$component_plist"
+
+    component_index=0
+    while component_path="$(plutil -extract \
+      "${component_index}.RootRelativeBundlePath" raw \
+      "$component_plist" 2>/dev/null)"; do
+      if [ "$component_path" = "Applications/webcool.app" ]; then
+        plutil -replace "${component_index}.BundleIsRelocatable" \
+          -bool NO \
+          "$component_plist"
+        webcool_component_found=1
+        break
+      fi
+      component_index=$((component_index + 1))
+    done
+
+    if [ "$webcool_component_found" -ne 1 ]; then
+      printf 'webcool.app was not found in pkgbuild component analysis\n' >&2
+      exit 1
+    fi
+
+    log "disabled bundle relocation for /Applications/webcool.app"
+  fi
+
   log "building macOS package payload: ${out_pkg}"
-  pkgbuild \
-    --root "$stage_root" \
-    --identifier "$identifier" \
-    --version "$version" \
-    "$unsigned_pkg"
+  if [ -n "$component_plist" ]; then
+    pkgbuild \
+      --root "$stage_root" \
+      --component-plist "$component_plist" \
+      --identifier "$identifier" \
+      --version "$version" \
+      "$unsigned_pkg"
+  else
+    pkgbuild \
+      --root "$stage_root" \
+      --identifier "$identifier" \
+      --version "$version" \
+      "$unsigned_pkg"
+  fi
 
   if [ -n "$installer_identity" ]; then
     require_cmd productsign
