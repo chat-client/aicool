@@ -160,9 +160,19 @@ echo   -MsBuildPath PATH
 echo   -InnoSetupPath PATH
 echo   -Version VERSION
 echo.
+echo Authenticode signing options:
+echo   -SignCertificateThumbprint SHA1   Sign with a certificate in the Windows certificate store.
+echo   -SignCertificatePath FILE         Sign with a PFX/P12 certificate file.
+echo   -SignCertificatePasswordEnv NAME  Password environment variable; default WEBCOOL_SIGN_CERT_PASSWORD.
+echo   -SignCertificateMachineStore      Look up the thumbprint in the machine certificate store.
+echo   -SignToolPath PATH                Explicit path to signtool.exe.
+echo   -SignTimestampUrl URL             RFC 3161 timestamp URL.
+echo   -RequireSigning                   Fail unless signing is configured and succeeds.
+echo.
 echo Examples:
 echo   build-release.bat -MainOnly
 echo   build-release.bat -AiOnly -SkipBuild
+echo   build-release.bat -MainOnly -SignCertificateThumbprint ABC123... -RequireSigning
 echo   build-debug.bat -MainOnly -NoInstaller
 echo   build-windows.bat -Configuration Release -NoZip
 exit /b 0

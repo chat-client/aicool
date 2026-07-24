@@ -89,6 +89,49 @@ powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows
 powershell -ExecutionPolicy Bypass -File .\webcool\package\windows\build-windows.ps1 -NoZip
 ```
 
+## Authenticode signing
+
+Release builds can sign the staged `webcool.exe` before it is archived and
+sign each generated Setup EXE. Signing uses SHA-256, an RFC 3161 timestamp,
+and verifies every signature with the Windows Authenticode policy before the
+build succeeds.
+
+For a code-signing certificate installed in the current user's Windows
+certificate store:
+
+```powershell
+Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+    Format-Table Subject, Thumbprint, NotAfter
+```
+
+```bat
+webcool\package\windows\build-release.bat -MainOnly ^
+  -SignCertificateThumbprint "CERTIFICATE_SHA1_THUMBPRINT" ^
+  -RequireSigning
+```
+
+Add `-SignCertificateMachineStore` when the certificate is in the local
+machine store. To use a PFX/P12 file, keep its password out of the command
+line and repository:
+
+```bat
+set "WEBCOOL_SIGN_CERT_PASSWORD=your-pfx-password"
+webcool\package\windows\build-release.bat -MainOnly ^
+  -SignCertificatePath "D:\secrets\webcool-code-signing.pfx" ^
+  -RequireSigning
+```
+
+The password variable name can be changed with
+`-SignCertificatePasswordEnv`. `signtool.exe` is discovered from `PATH` or
+the Windows 10/11 SDK; otherwise pass `-SignToolPath`. The default timestamp
+service is `http://timestamp.digicert.com` and can be changed with
+`-SignTimestampUrl`.
+
+The PFX/P12 file and password must remain outside source control. Use a
+publicly trusted OV or EV code-signing certificate for distributed releases;
+a self-signed certificate is useful for testing but does not establish
+SmartScreen reputation.
+
 Main package output:
 
 - `webcool/package/windows/out/stage/webcool-<version>-windows-x64-debug/`

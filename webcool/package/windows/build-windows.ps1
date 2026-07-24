@@ -11,7 +11,14 @@ param(
     [string]$OutputDir = "",
     [string]$FfmpegPath = "",
     [string]$MsBuildPath = "",
-    [string]$InnoSetupPath = ""
+    [string]$InnoSetupPath = "",
+    [string]$SignToolPath = "",
+    [string]$SignCertificateThumbprint = "",
+    [string]$SignCertificatePath = "",
+    [string]$SignCertificatePasswordEnv = "WEBCOOL_SIGN_CERT_PASSWORD",
+    [string]$SignTimestampUrl = "http://timestamp.digicert.com",
+    [switch]$SignCertificateMachineStore,
+    [switch]$RequireSigning
 )
 
 $ErrorActionPreference = "Stop"
@@ -82,6 +89,86 @@ function Find-InnoSetup {
     }
 
     return ""
+}
+
+function Find-SignTool {
+    param([string]$ExplicitPath)
+
+    if ($ExplicitPath) {
+        if (!(Test-Path -LiteralPath $ExplicitPath)) {
+            throw "signtool.exe not found: $ExplicitPath"
+        }
+        return (Resolve-Path -LiteralPath $ExplicitPath).Path
+    }
+
+    $cmd = Get-Command "signtool.exe" -ErrorAction SilentlyContinue
+    if ($cmd -and (Test-Path -LiteralPath $cmd.Source)) {
+        return $cmd.Source
+    }
+
+    $kitsRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\bin"
+    if (Test-Path -LiteralPath $kitsRoot) {
+        $found = Get-ChildItem -LiteralPath $kitsRoot -Directory -ErrorAction SilentlyContinue |
+            Sort-Object { try { [version]$_.Name } catch { [version]"0.0" } } -Descending |
+            ForEach-Object { Join-Path $_.FullName "x64\signtool.exe" } |
+            Where-Object { Test-Path -LiteralPath $_ } |
+            Select-Object -First 1
+        if ($found) {
+            return $found
+        }
+    }
+
+    return ""
+}
+
+function Invoke-AuthenticodeSign {
+    param(
+        [string]$FilePath,
+        [string]$SignTool,
+        [string]$CertificateThumbprint,
+        [string]$CertificatePath,
+        [string]$CertificatePasswordEnv,
+        [string]$TimestampUrl,
+        [bool]$UseMachineStore
+    )
+
+    if (!(Test-Path -LiteralPath $FilePath)) {
+        throw "File to sign was not found: $FilePath"
+    }
+
+    $signArgs = @("sign", "/fd", "SHA256")
+    if ($TimestampUrl) {
+        $signArgs += @("/tr", $TimestampUrl, "/td", "SHA256")
+    }
+
+    if ($CertificatePath) {
+        $resolvedCertificatePath = (Resolve-Path -LiteralPath $CertificatePath).Path
+        $signArgs += @("/f", $resolvedCertificatePath)
+        if ($CertificatePasswordEnv) {
+            $certificatePassword = [Environment]::GetEnvironmentVariable($CertificatePasswordEnv)
+            if ($null -ne $certificatePassword -and $certificatePassword.Length -gt 0) {
+                $signArgs += @("/p", $certificatePassword)
+            }
+        }
+    } else {
+        $normalizedThumbprint = $CertificateThumbprint -replace "\s", ""
+        $signArgs += @("/sha1", $normalizedThumbprint)
+        if ($UseMachineStore) {
+            $signArgs += "/sm"
+        }
+    }
+    $signArgs += $FilePath
+
+    Log "Authenticode signing: $FilePath"
+    & $SignTool @signArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Authenticode signing failed for $FilePath with exit code $LASTEXITCODE."
+    }
+
+    & $SignTool verify /pa /all $FilePath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Authenticode verification failed for $FilePath with exit code $LASTEXITCODE."
+    }
 }
 
 function Copy-DirectoryContent {
@@ -531,6 +618,32 @@ $zlibProject = Join-Path $repoRoot "third-party\zlib-1.2.11\visualc\vc2022\zlib.
 if ($MainOnly -and $AiOnly) {
     throw "-MainOnly and -AiOnly cannot be used together."
 }
+if ($SignCertificateThumbprint -and $SignCertificatePath) {
+    throw "Use either -SignCertificateThumbprint or -SignCertificatePath, not both."
+}
+if ($SignCertificateThumbprint) {
+    $normalizedThumbprint = $SignCertificateThumbprint -replace "\s", ""
+    if ($normalizedThumbprint -notmatch "^[0-9A-Fa-f]{40}$") {
+        throw "-SignCertificateThumbprint must be a 40-character SHA-1 certificate thumbprint."
+    }
+}
+$signingRequested = !!($SignCertificateThumbprint -or $SignCertificatePath)
+if ($RequireSigning -and !$signingRequested) {
+    throw "-RequireSigning was specified, but no signing certificate was configured."
+}
+$signTool = ""
+if ($signingRequested) {
+    if ($SignCertificatePath -and !(Test-Path -LiteralPath $SignCertificatePath)) {
+        throw "Signing certificate was not found: $SignCertificatePath"
+    }
+    $signTool = Find-SignTool -ExplicitPath $SignToolPath
+    if (!$signTool) {
+        throw "signtool.exe was not found. Install the Windows SDK or pass -SignToolPath."
+    }
+    Log "Authenticode signing enabled"
+} else {
+    Log "Authenticode signing disabled (no certificate configured)"
+}
 $buildMainPackage = !$AiOnly
 $buildAiPackage = !$MainOnly
 
@@ -630,6 +743,17 @@ if ($buildMainPackage) {
     Copy-Item -LiteralPath $FfmpegPath -Destination (Join-Path $appRoot "ffmpeg.exe") -Force
     Copy-DirectoryContent -Source (Join-Path $webcoolRoot "html") -Destination (Join-Path $appRoot "html")
     Write-PackageScripts -PackageRoot $appRoot
+
+    if ($signingRequested) {
+        Invoke-AuthenticodeSign `
+            -FilePath (Join-Path $appRoot "webcool.exe") `
+            -SignTool $signTool `
+            -CertificateThumbprint $SignCertificateThumbprint `
+            -CertificatePath $SignCertificatePath `
+            -CertificatePasswordEnv $SignCertificatePasswordEnv `
+            -TimestampUrl $SignTimestampUrl `
+            -UseMachineStore $SignCertificateMachineStore.IsPresent
+    }
 }
 
 if ($buildAiPackage) {
@@ -787,6 +911,16 @@ if (!$NoInstaller) {
             if (!(Test-Path -LiteralPath $setupPath)) {
                 throw "installer was not created: $setupPath"
             }
+            if ($signingRequested) {
+                Invoke-AuthenticodeSign `
+                    -FilePath $setupPath `
+                    -SignTool $signTool `
+                    -CertificateThumbprint $SignCertificateThumbprint `
+                    -CertificatePath $SignCertificatePath `
+                    -CertificatePasswordEnv $SignCertificatePasswordEnv `
+                    -TimestampUrl $SignTimestampUrl `
+                    -UseMachineStore $SignCertificateMachineStore.IsPresent
+            }
         }
         if ($buildAiPackage) {
             Log "building AI installer with Inno Setup"
@@ -797,8 +931,21 @@ if (!$NoInstaller) {
             if (!(Test-Path -LiteralPath $aiSetupPath)) {
                 throw "AI installer was not created: $aiSetupPath"
             }
+            if ($signingRequested) {
+                Invoke-AuthenticodeSign `
+                    -FilePath $aiSetupPath `
+                    -SignTool $signTool `
+                    -CertificateThumbprint $SignCertificateThumbprint `
+                    -CertificatePath $SignCertificatePath `
+                    -CertificatePasswordEnv $SignCertificatePasswordEnv `
+                    -TimestampUrl $SignTimestampUrl `
+                    -UseMachineStore $SignCertificateMachineStore.IsPresent
+            }
         }
     } else {
+        if ($RequireSigning) {
+            throw "Inno Setup compiler (ISCC.exe) was not found, so the required installer signature cannot be created."
+        }
         Write-Warning "Inno Setup compiler (ISCC.exe) was not found. Install Inno Setup 6 or pass -InnoSetupPath to build the setup EXE."
         if ($buildMainPackage) { Write-Warning "Main installer script was generated: $issPath" }
         if ($buildAiPackage) { Write-Warning "AI installer script was generated: $aiIssPath" }
